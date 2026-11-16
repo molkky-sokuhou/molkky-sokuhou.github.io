@@ -188,7 +188,7 @@ var TABS = {
   time:   { names: ['タイムスケジュール\u3000/\u3000試合概要', 'タイムスケジュール\u3000\u3000試合概要', 'タイムスケジュール'], range: 'A1:K40', sign: 'タイムスケジュール' },
   rule:   { names: ['レギュレーション'], range: 'A1:A40', sign: '基本ルール' },
   yosen:  { names: ['【予選】対戦表\u3000/\u3000得点表', '【予選】対戦表\u3000\u3000得点表', '【予選】対戦表/得点表', '【予選】対戦表 / 得点表'], range: 'A1:AE60', sign: 'チーム名' },
-  honsen: { names: ['【上位下位】対戦表\u3000/\u3000得点表', '【上位下位】対戦表\u3000\u3000得点表', '【上位下位】対戦表/得点表', '【上位下位】対戦表 / 得点表'], range: 'A1:AB130', sign: '上位リーグ' },
+  honsen: { names: ['【上位/下位】対戦表\u3000/\u3000得点表', '【上位下位】対戦表\u3000/\u3000得点表', '【上位下位】対戦表\u3000\u3000得点表', '【上位下位】対戦表/得点表', '【上位下位】対戦表 / 得点表'], range: 'A1:AB130', sign: '上位リーグ' },
   entry:  { names: ['エントリー情報'], range: 'A1:B60', sign: 'チーム名' }
 };
 var DEMO = !!(BOOT && BOOT.demo);
@@ -632,13 +632,22 @@ function viewVenue(){
     else h += '<div>' + esc(s).replace(/(https?:\/\/[^\s　]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>') + '</div>';
   });
   h += '</div></details>';
+  h += '<p class="note">ページの版：' + VERSION + '</p>';
   h += '<h2>元の表</h2><p class="note">このページは<wbr>主催者のスプレッドシートを<wbr>読み込んで<wbr>表示しています。<wbr>いちばん正しいのは<wbr>元の表と、<wbr>本部からの案内です。</p><p><a href="' + SHEET_URL + '" target="_blank" rel="noopener">主催者のスプレッドシートを開く</a></p>';
   return h;
 }
 
 /* ---------- render ---------- */
+var VERSION = '11/16-4';
+function debugView(){
+  var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
+  Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
+  h += '</ul><p class="note">チーム数：' + (M ? M.Y.teams.length : '-') + '　予選の対戦：' + (M ? M.Y.matches.length : '-') + '　読み方：' + (useScript ? 'script' : 'fetch') + '</p>';
+  return h;
+}
 function render(){
   var view = document.getElementById('view');
+  if (location.hash === '#debug'){ view.innerHTML = debugView(); return; }
   if (!M){ view.innerHTML = '<p class="empty">' + (lastFail ? '主催者のシートを<wbr>読み込めませんでした。<wbr>少し待って<wbr>「最新にする」を<wbr>押してください。<br><a href="' + SHEET_URL + '" target="_blank" rel="noopener">元のスプレッドシートを開く</a>' : '読み込み中…') + '</p>'; return; }
   document.querySelectorAll('#tabs button').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)); });
   var html = S.tab === 'games' ? viewGames() : S.tab === 'rank' ? viewRank() : S.tab === 'venue' ? viewVenue() : viewMe();
@@ -722,6 +731,7 @@ function load(force){
 }
 
 document.getElementById('reload').addEventListener('click', function(){ load(true); });
+window.addEventListener('hashchange', render);
 document.getElementById('tabs').addEventListener('click', function(e){
   var b = e.target.closest('button'); if (!b) return;
   S.tab = b.dataset.tab; store.set('tab', S.tab); S.picking = false; render(); window.scrollTo(0, 0);
