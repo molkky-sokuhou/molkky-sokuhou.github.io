@@ -28,7 +28,7 @@ a{color:var(--blue)}
 #demo{background:var(--ink);color:var(--paper);font-size:14px;line-height:1.6;padding:8px 14px}
 
 header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:3px solid var(--ink);padding:10px 14px 8px}
-.pre{font-size:14px;font-weight:600;color:var(--sub);line-height:1.6;margin-bottom:2px}
+.pre{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--sub);line-height:1.6;margin-bottom:2px}
 .ttl{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .ttl h1{margin:0;font-size:18px;line-height:1.35;letter-spacing:.01em}
 .ttl h1 small{display:block;font-size:14px;font-weight:600;color:var(--sub);letter-spacing:0}
@@ -37,6 +37,8 @@ header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:3px
 #reload[disabled]{opacity:.55}
 .sub2{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px}
 .stamp{font-size:14px;color:var(--sub);line-height:1.5}
+.thm2{position:relative;flex:none;height:32px;padding:0 10px;border:1.5px solid var(--ink);background:var(--card);color:var(--ink);border-radius:16px;font:inherit;font-size:14px;font-weight:700}
+.thm2::after{content:"";position:absolute;left:0;right:0;top:-6px;bottom:-6px}
 .thm{flex:none;min-height:44px;padding:0 10px;border:1.5px solid var(--sub);background:transparent;border-radius:6px;font-size:14px;font-weight:700;color:var(--sub)}
 .stamp.bad{color:var(--warn);font-weight:700}
 .unoff{display:inline-block;font-size:14px;font-weight:800;border:1.5px solid currentColor;border-radius:3px;padding:0 6px;margin-left:6px;vertical-align:2px;color:var(--sub);line-height:1.6}
@@ -186,7 +188,7 @@ nav button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
 <body>
 <div id="demo" hidden>見本（デモデータ・12時55分ごろを想定）。<wbr>本番のページは<wbr>主催者のシートから<wbr>自動で読み込みます。</div>
 <header>
-  <div class="pre">2026年11月22日（日）<span class="unoff">非公式の速報</span></div>
+  <div class="pre"><span>2026年11月22日（日）<span class="unoff">非公式の速報</span></span><button id="thm" class="thm2" type="button"></button></div>
   <div class="ttl">
     <h1>第4回 モルック<wbr>KAGAWA大会</h1>
     <button id="reload" type="button">最新にする</button>
@@ -692,7 +694,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/16-8';
+var VERSION = '11/16-9';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
@@ -724,7 +726,7 @@ function brokenBox(){
   var hs = health(); if (!hs.length) return '';
   return '<div class="broken" role="alert"><b>表示がずれている<wbr>おそれがあります</b><p>主催者の表の形が<wbr>変わったため、<wbr>このページが<wbr>正しく読めていない<wbr>可能性があります。<wbr>試合・コートは<wbr>大会チャットで<wbr>共有されている表と、<wbr>大会本部の案内で<wbr>確かめてください。</p><p class="s">（' + hs.map(esc).join('／') + '）</p></div>';
 }
-function footHtml(){ return '<div class="footrow"><button class="thm" type="button" data-act="theme">' + (darkNow() ? '明るい画面にする' : '暗い画面にする') + '</button></div>' + '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の表を<wbr>自動で読み込んで<wbr>表示しています。<wbr>正式な案内は<wbr>大会本部と、<wbr>大会チャットで<wbr>共有されている表で<wbr>確かめてください。</p>'; }
+function footHtml(){ return '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の表を<wbr>自動で読み込んで<wbr>表示しています。<wbr>正式な案内は<wbr>大会本部と、<wbr>大会チャットで<wbr>共有されている表で<wbr>確かめてください。</p>'; }
 function render(){
   var view = document.getElementById('view');
   if (location.hash === '#debug'){ view.innerHTML = debugView(); return; }
@@ -850,7 +852,7 @@ document.getElementById('view').addEventListener('click', function(e){
   else if (b.dataset.act === 'repick'){ S.picking = true; render(); window.scrollTo(0, 0); }
   else if (b.dataset.act === 'closecourt'){ S.court = null; render(); }
   else if (b.dataset.round){ S.round = b.dataset.round; render(); }
-  else if (b.dataset.act === 'theme'){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); render(); }
+
 });
 setInterval(function(){ if (document.visibilityState === 'visible' && !S.picking) load(false); }, (AUTO_SEC + Math.floor(Math.random() * 12)) * 1000);
 setInterval(setStamp, 30000);
@@ -858,7 +860,10 @@ document.addEventListener('visibilitychange', function(){ if (document.visibilit
 
 function darkNow(){ var t = document.documentElement.dataset.theme; if (t) return t === 'dark'; try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch(e){ return false; } }
 (function(){ var t = store.get('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; })();
-try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(){ render(); }); } catch(e){}
+function paintTheme(){ var b = document.getElementById('thm'), dk = darkNow(); b.textContent = dk ? '☀ 明るく' : '☾ 暗く'; b.setAttribute('aria-label', dk ? '明るい画面に切り替える' : '暗い画面に切り替える'); }
+paintTheme();
+document.getElementById('thm').addEventListener('click', function(){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); paintTheme(); });
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintTheme); } catch(e){}
 
 (function(){ try { var c = JSON.parse(localStorage.getItem('kgw4:last2') || 'null'); if (c && c.grids){ RAW = c; M = build(c); } } catch(e){} })();
 setStamp(); render(); load(false);
