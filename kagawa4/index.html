@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>第4回モルックKAGAWA大会</title>
+<title>第4回モルックKAGAWA大会 速報</title>
 <style>
 :root{
   --paper:#f4f4ef; --card:#ffffff; --ink:#1c1c1a; --sub:#55554f; --soft:#d6d6ce;
@@ -166,7 +166,7 @@ nav button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
 <div id="demo" hidden>見本（デモデータ・12時55分ごろを想定）。<wbr>本番のページは<wbr>主催者のシートから<wbr>自動で読み込みます。</div>
 <header>
   <div class="ttl">
-    <h1><small>モルックKAGAWA大会</small>第4回 <wbr>大会速報</h1>
+    <h1><small>2026年11月22日（日）</small>第4回 <wbr>モルック<wbr>KAGAWA大会</h1>
     <button id="reload" type="button">最新にする</button>
   </div>
   <div class="sub2"><div class="stamp" id="stamp">読み込み中…</div><button id="theme" type="button"></button></div>
@@ -212,7 +212,13 @@ function circ(k){ return k >= 1 && k <= 20 ? String.fromCharCode(0x2460 + k - 1)
 function courtNo(s){ s = v(s); for (var i = 0; i < s.length; i++){ var k = s.charCodeAt(i); if (k >= 0x2460 && k <= 0x2473) return k - 0x2460 + 1; } var m = z(s).match(/(\d+)/); return m ? +m[1] : null; }
 function toMin(s){ var m = z(s).match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : null; }
 function hm(x){ return x == null ? '' : Math.floor(x / 60) + ':' + String(x % 60).padStart(2, '0'); }
-function nowMin(){ if (DEMO) return 12 * 60 + 55; var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+var TOUR_DAY = '2026-11-22';
+function nowMin(){
+  if (DEMO) return 12 * 60 + 55;
+  var d = new Date(), day = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  if (day < TOUR_DAY) return 0; if (day > TOUR_DAY) return 24 * 60;
+  return d.getHours() * 60 + d.getMinutes();
+}
 function clock(ms){ var d = new Date(ms); return d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0'); }
 
 /* ---------- read the organizer's sheet ---------- */
