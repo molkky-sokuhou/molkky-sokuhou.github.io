@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>第4回モルック玉野大会 速報</title>
+<style>
+:root{
+  --paper:#f4f4ef; --card:#ffffff; --ink:#1c1c1a; --sub:#55554f; --soft:#d6d6ce;
+  --red:#cf1f29; --blue:#1e4fd6; --court:#e2eaf5; --mark:#ffe95c; --ok:#17733a; --warn:#b54a00;
+}
+:root[data-theme="dark"]{ --paper:#121314; --card:#1b1c1e; --ink:#eeeee8; --sub:#a8a8a1; --soft:#3a3b3e;
+    --red:#ff5d64; --blue:#8aa8ff; --court:#24303f; --mark:#6d5f00; --ok:#5fd28c; --warn:#ffad6b; }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --paper:#121314; --card:#1b1c1e; --ink:#eeeee8; --sub:#a8a8a1; --soft:#3a3b3e;
+    --red:#ff5d64; --blue:#8aa8ff; --court:#24303f; --mark:#6d5f00; --ok:#5fd28c; --warn:#ffad6b; }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:16px/1.7 system-ui,-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+  word-break:keep-all;overflow-wrap:anywhere;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+button{font:inherit;color:inherit}
+a{color:var(--blue)}
+
+#demo{background:var(--ink);color:var(--paper);font-size:14px;line-height:1.6;padding:8px 14px}
+
+header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:3px solid var(--ink);padding:10px 14px 8px}
+.pre{font-size:14px;font-weight:600;color:var(--sub);line-height:1.6;margin-bottom:2px}
+.ttl{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ttl h1{margin:0;font-size:18px;line-height:1.35;letter-spacing:.01em}
+.ttl h1 small{display:block;font-size:14px;font-weight:600;color:var(--sub);letter-spacing:0}
+#reload{flex:none;min-height:44px;padding:0 14px;border:2px solid var(--ink);background:var(--card);font-weight:700;font-size:15px;border-radius:6px}
+#reload:active{transform:translateY(1px)}
+#reload[disabled]{opacity:.55}
+.sub2{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px}
+.stamp{font-size:14px;color:var(--sub);line-height:1.5}
+.thm{flex:none;min-height:44px;padding:0 10px;border:1.5px solid var(--sub);background:transparent;border-radius:6px;font-size:14px;font-weight:700;color:var(--sub)}
+.stamp.bad{color:var(--warn);font-weight:700}
+.unoff{display:inline-block;font-size:14px;font-weight:800;border:1.5px solid currentColor;border-radius:3px;padding:0 6px;margin-left:6px;vertical-align:2px;color:var(--sub);line-height:1.6}
+.broken{margin:12px 0 4px;padding:12px 14px;border:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--card));border-radius:4px}
+.broken b{display:block;font-size:17px;color:var(--warn);line-height:1.5}
+.broken p{margin:6px 0 0;font-size:15px;line-height:1.6}
+.broken a{font-weight:700}
+.footrow{display:flex;justify-content:flex-end;margin:22px 0 0}
+tr.mine td{background:color-mix(in srgb,var(--mark) 30%,transparent)}
+.mlist li.mine{background:color-mix(in srgb,var(--mark) 22%,transparent);box-shadow:inset 5px 0 0 var(--red);padding-left:12px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom));z-index:7;background:var(--ink);color:var(--paper);font-size:15px;font-weight:700;padding:10px 16px;border-radius:6px;width:max-content;max-width:92vw;text-align:center;line-height:1.5}
+.foot{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--soft);font-size:14px;color:var(--sub);line-height:1.6}
+
+main{padding:4px 14px 24px;max-width:640px;margin:0 auto}
+h2{font-size:19px;margin:22px 0 8px;line-height:1.4}
+h3{font-size:17px;margin:18px 0 6px;line-height:1.4}
+.lead{color:var(--sub);font-size:15px;margin:0 0 10px}
+.note{font-size:15px;color:var(--sub);margin:6px 0}
+
+/* court number: red circle like the venue map */
+.cn{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;border:2.5px solid var(--red);border-radius:50%;
+  color:var(--red);font-weight:800;font-size:18px;line-height:1;font-variant-numeric:tabular-nums;background:var(--card)}
+.cn.big{width:84px;height:84px;border-width:4px;font-size:44px}
+.cn.none{border-style:dashed;border-color:var(--sub);color:var(--sub);font-size:14px}
+.me{background:linear-gradient(transparent 52%,var(--mark) 52%);font-weight:800}
+
+/* next match */
+.next{border:2.5px solid var(--ink);background:var(--card);border-radius:4px;padding:14px;margin:12px 0 6px}
+.next .lbl{font-size:15px;font-weight:700;color:var(--sub)}
+.next .row{display:flex;gap:14px;align-items:center;margin-top:6px}
+.next .when{font-size:24px;font-weight:800;line-height:1.3}
+.next .what{font-size:16px;line-height:1.5}
+.next .vs{margin-top:10px;font-size:17px;line-height:1.6}
+.next .vs b{font-size:18px}
+.tag{display:inline-block;font-size:14px;font-weight:800;padding:1px 8px;border-radius:3px;line-height:1.6;vertical-align:2px}
+.tag.now{background:var(--red);color:#fff}
+.tag.done{background:var(--soft);color:var(--ink)}
+.tag.if{border:1.5px solid var(--sub);color:var(--sub)}
+
+.myhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-top:14px}
+.myhead .nm{font-size:22px;font-weight:800;line-height:1.35}
+.myhead .meta{font-size:15px;color:var(--sub)}
+.btn{min-height:44px;padding:0 14px;border:2px solid var(--ink);background:var(--card);border-radius:6px;font-weight:700;font-size:15px;flex:none}
+
+/* day plan */
+.plan{list-style:none;margin:8px 0 0;padding:0;border-top:2px solid var(--ink)}
+.plan li{display:flex;gap:12px;padding:12px 2px;border-bottom:1px solid var(--soft)}
+.plan li.cur{background:color-mix(in srgb,var(--mark) 28%,transparent)}
+.plan .t{font-weight:800;font-size:16px;line-height:1.4}
+.plan .s{font-size:15px;color:var(--sub);line-height:1.5}
+.plan .o{font-size:16px;line-height:1.55;margin-top:2px}
+.plan li.later{opacity:.75}
+
+/* match lists */
+.chips{margin:10px 0 4px}
+.chips .g{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0}
+.chips .gl{width:2.6em;font-weight:800;font-size:15px}
+.chips .gl.u{color:var(--red)} .chips .gl.l{color:var(--blue)}
+.chip{min-height:44px;padding:0 12px;border:1.5px solid var(--ink);border-radius:22px;background:var(--card);font-size:15px;font-weight:600}
+.chip.on{background:var(--ink);color:var(--paper)}
+.rhead{margin:14px 0 4px;padding:8px 0;border-bottom:2px solid var(--ink)}
+.rhead .t{font-size:19px;font-weight:800}
+.rhead .s{font-size:15px;color:var(--sub);line-height:1.6;word-break:normal;line-break:strict}
+.mlist{list-style:none;margin:0;padding:0}
+.mlist li{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--soft);align-items:flex-start}
+.mlist .teams{flex:1;min-width:0}
+.tm{display:flex;justify-content:space-between;gap:8px;line-height:1.5;padding:1px 0}
+.tm .nm{min-width:0}
+.tm .lot{color:var(--sub);font-size:14px;margin-right:4px;font-variant-numeric:tabular-nums}
+.tm .sc{flex:none;font-variant-numeric:tabular-nums;font-weight:700}
+.tm.win .nm{font-weight:800}
+.tm.win .sc::after{content:" 勝";color:var(--ok);font-size:14px}
+.tm.ph .nm{color:var(--sub)}
+.mlist .blk{font-size:14px;font-weight:800;color:var(--sub)}
+
+/* standings */
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:14px;color:var(--sub);font-weight:700;text-align:right;padding:6px 4px;border-bottom:2px solid var(--ink)}
+th:nth-child(2){text-align:left}
+td{padding:8px 4px;border-bottom:1px solid var(--soft);text-align:right;font-size:16px;line-height:1.45}
+td:nth-child(2){text-align:left}
+td.rk{font-weight:800;width:2.4em}
+td.tot{font-weight:800}
+.pf{display:block;font-size:14px;color:var(--sub);font-weight:400}
+td.n{white-space:nowrap;width:1.85em;font-size:15px}
+td.tot{white-space:nowrap;width:2.6em}
+th.n{width:1.85em}
+tr.cut td{border-bottom:3px double var(--red)}
+.cutnote{font-size:15px;color:var(--red);font-weight:700;margin:6px 0 0}
+.awards{border:2.5px solid var(--ink);background:var(--card);padding:10px 14px;margin:10px 0}
+.awards div{display:flex;gap:12px;padding:4px 0;font-size:17px}
+.awards b{width:4em;flex:none}
+
+.side-u{color:var(--red)} .side-l{color:var(--blue)}
+
+/* map */
+.map{width:100%;height:auto;display:block;margin:8px 0}
+.map .m-watch{fill:#fbf3cf} .map .m-hall{fill:#e5efdb;stroke:var(--ink);stroke-width:2}
+.map .m-room{fill:#ececec;stroke:var(--ink);stroke-width:1.5}
+.map .m-hq{fill:#f7a1a1;stroke:var(--ink);stroke-width:1.5}
+.map .m-smk{fill:#f5c242;stroke:var(--ink);stroke-width:1}
+.map text{font-family:inherit;fill:#1c1c1a}
+.map .m-lbl{font-size:13px;font-weight:700}
+.map .m-sm{font-size:12px;font-weight:700}
+.map .m-court rect{fill:#fff;stroke:#1c1c1a;stroke-width:1.5}
+.map .m-court.alt rect{fill:#dfe8f4}
+.map .m-court circle{fill:#fff;stroke:#cf1f29;stroke-width:2.5}
+.map .m-court text{font-size:16px;font-weight:800;fill:#cf1f29}
+.map .m-court.on rect{fill:#cf1f29}
+.map .m-court.on circle{fill:#cf1f29;stroke:#fff}
+.map .m-court.on text{fill:#fff}
+.map .m-court{cursor:pointer}
+.map .m-court rect{fill:#fff;stroke:#1c1c1a;stroke-width:1.5}
+.map .m-court.u rect{fill:#c9daf6} .map .m-court.l rect{fill:#f3c9cc}
+.map .m-court text{font-size:20px;font-weight:800;fill:#1c1c1a}
+.map .m-court.on rect{fill:#cf1f29} .map .m-court.on text{fill:#fff}
+.map .m-kc{fill:#fbefc7;stroke:#1c1c1a;stroke-width:1}
+.map .m-ku{fill:#c9daf6;stroke:#1c1c1a} .map .m-kl{fill:#f3c9cc;stroke:#1c1c1a}
+.rules{margin:6px 0;padding-left:1.2em}
+.rules li{margin:6px 0;line-height:1.65}
+.cn{font-family:inherit}
+.map .m-court.sel rect{stroke:#1e4fd6;stroke-width:4}
+.maphint{font-size:14px;color:var(--sub);margin:2px 0 0}
+.cinfo{border:2px solid var(--ink);background:var(--card);padding:10px 12px;margin:8px 0;border-radius:4px}
+.cinfo .h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cinfo .h b{font-size:17px;line-height:1.4}
+.cinfo .h span{display:block;font-size:14px;color:var(--sub);font-weight:400}
+.cinfo .x{min-height:44px;min-width:44px;border:1.5px solid var(--ink);background:transparent;border-radius:6px;font-size:15px;font-weight:700;flex:none}
+.cinfo .tm{padding:3px 0}
+.minelabel{font-size:14px;font-weight:800;color:var(--red);margin:10px 0 0}
+.map .m-here{font-size:14px;font-weight:800;fill:#cf1f29}
+.mapwrap{background:#fff;border:2px solid var(--ink);padding:4px;margin:8px 0}
+.access{width:100%;height:auto;display:block;border:2px solid var(--ink)}
+
+.tt{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
+.tt li{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--soft)}
+.tt .tm2{width:7.6em;flex:none;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tt .nt{font-size:15px;color:var(--sub);line-height:1.6;margin-top:2px;word-break:normal;line-break:strict}
+.tt li.cur{background:color-mix(in srgb,var(--mark) 28%,transparent)}
+.rule{white-space:pre-wrap;word-break:normal;line-break:strict;font-size:16px}
+details{border-top:2px solid var(--ink);border-bottom:1px solid var(--soft)}
+summary{min-height:48px;display:flex;align-items:center;font-weight:700;cursor:pointer;color:var(--blue)}
+.rule h4{margin:16px 0 4px;font-size:17px}
+
+.pick{list-style:none;margin:8px 0;padding:0;border-top:2px solid var(--ink)}
+.pick button{width:100%;min-height:52px;text-align:left;border:0;border-bottom:1px solid var(--soft);background:transparent;padding:8px 4px;display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:17px}
+.pick button span{font-size:14px;color:var(--sub);flex:none}
+.empty{padding:20px 0;color:var(--sub)}
+
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(4,1fr);background:var(--paper);
+  border-top:2.5px solid var(--ink);padding-bottom:env(safe-area-inset-bottom)}
+nav button{min-height:62px;border:0;background:transparent;font-size:15px;font-weight:700;line-height:1.3;padding:6px 2px}
+nav button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+</style>
+</head>
+<body>
+<div id="demo" hidden>見本（デモデータ・12時55分ごろを想定）。<wbr>本番のページは<wbr>主催者のシートから<wbr>自動で読み込みます。</div>
+<header>
+  <div class="pre">2026年11月23日（月・祝）<span class="unoff">非公式の速報</span></div>
+  <div class="ttl">
+    <h1>第4回 モルック<wbr>玉野大会</h1>
+    <button id="reload" type="button">最新にする</button>
+  </div>
+  <div class="stamp" id="stamp" style="margin-top:4px">読み込み中…</div>
+</header>
+<main id="view"></main>
+<div id="toast" role="status" hidden></div>
+<nav id="tabs" role="tablist">
+  <button data-tab="me" role="tab">自分の<br>試合</button>
+  <button data-tab="games" role="tab">試合・<br>コート</button>
+  <button data-tab="rank" role="tab">順位・<br>復活組</button>
+  <button data-tab="venue" role="tab">会場・<br>ルール</button>
+</nav>
+<script>
+var BOOT = null;
+var ACCESS_IMG = '';
+var HAS_GAS = false;
+var SHEET_ID = atob('TWFLWmhESDhRQ3RTeEM4RjV1WXh4YW5wRkFUZkVmSEsxS1Mza29wQzVodzE=').split('').reverse().join('');
+var TABS = {
+  games: { names: ['組合せ（結果あり）'], range: 'A1:AE60', sign: 'チーム名' },
+  ranks: { names: ['予選結果'], range: 'A1:AA60', sign: 'チーム名' },
+  upper: { names: ['上位トーナメント'], range: 'A1:BG40', sign: '上位トーナメント' },
+  lower: { names: ['下位トーナメント'], range: 'A1:AN30', sign: '下位トーナメント' },
+  entry: { names: ['エントリーチーム一覧'], range: 'A1:B60', sign: 'チーム名' }
+};
+var DEMO = !!(BOOT && BOOT.demo);
+var AUTO_SEC = 60;
+
+var store = {
+  get: function(k){ try { return localStorage.getItem('tmn4:' + k); } catch(e){ return null; } },
+  set: function(k, v){ try { localStorage.setItem('tmn4:' + k, v); } catch(e){} }
+};
+var RAW = BOOT, M = null, loading = false, lastFail = false;
+var S = { court: null, tab: store.get('tab') || 'me', team: store.get('team') || '', round: null, picking: false };
+
+/* ---------- small helpers ---------- */
+function z(s){ return String(s == null ? '' : s).replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/：/g, ':').replace(/　/g, ' ').trim(); }
+function v(s){ s = String(s == null ? '' : s).trim(); if (!s || /^#(N\/A|REF!|VALUE!|DIV\/0!|NAME\?|ERROR!|NUM!|NULL!)/.test(s)) return ''; return s; }
+function n(s){ s = z(v(s)).replace(/,/g, ''); if (s === '') return null; var x = Number(s); return isFinite(x) ? x : null; }
+function at(g, r, c){ return g && g[r] && g[r][c] != null ? g[r][c] : ''; }
+function key(s){ return z(s).replace(/\s+/g, '').toLowerCase(); }
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function circ(k){ return k >= 1 && k <= 20 ? String.fromCharCode(0x2460 + k - 1) : String(k); }
+function courtNo(s){ s = v(s); for (var i = 0; i < s.length; i++){ var k = s.charCodeAt(i); if (k >= 0x2460 && k <= 0x2473) return k - 0x2460 + 1; } var m = z(s).match(/(\d+)/); return m ? +m[1] : null; }
+function toMin(s){ var m = z(s).match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+function hm(x){ return x == null ? '' : Math.floor(x / 60) + ':' + String(x % 60).padStart(2, '0'); }
+var TOUR_DAY = '2026-11-23';
+function nowMin(){
+  if (DEMO) return 12 * 60 + 55;
+  var d = new Date(), day = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  if (day < TOUR_DAY) return 0; if (day > TOUR_DAY) return 24 * 60;
+  return d.getHours() * 60 + d.getMinutes();
+}
+function clock(ms){ var d = new Date(ms); return d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0'); }
+
+/* ---------- the day, from the organizer's rules (PDF ver.4) ---------- */
+var SCHEDULE = [
+  { s: '8:30', label: '受付開始' },
+  { s: '9:00', e: '9:20', label: '開会式・諸説明' },
+  { s: '9:30', e: '10:05', label: '予選 1試合目', k: 'q1' },
+  { s: '10:15', e: '10:50', label: '予選 2試合目', k: 'q2' },
+  { s: '11:00', e: '11:35', label: '予選 3試合目', k: 'q3' },
+  { s: '11:35', e: '12:20', label: '昼休憩' },
+  { s: '12:30', e: '13:10', label: '上位 1回戦／下位 準々決勝', k: 'u1' },
+  { s: '13:20', e: '14:00', label: '上位 準々決勝／下位 準決勝', k: 'u2' },
+  { s: '14:10', e: '15:10', label: '上位 準決勝／下位 決勝', k: 'u3' },
+  { s: '15:20', e: '16:30', label: '上位 決勝', k: 'u4' },
+  { s: '16:30', label: '表彰式・閉会式' }
+];
+var ROUNDS = [
+  { k:'q1', g:'予選', s:'1試合目', full:'予選 1試合目', t:'q1', note:'3チーム戦・50点×2セット・12ターン・35分。50点あがりで10点（BP）' },
+  { k:'q2', g:'予選', s:'2試合目', full:'予選 2試合目', t:'q2', note:'3チーム戦・50点×2セット・12ターン・35分。50点あがりで10点（BP）' },
+  { k:'q3', g:'予選', s:'3試合目', full:'予選 3試合目', t:'q3', note:'3チーム戦・50点×2セット・12ターン・35分。50点あがりで10点（BP）' },
+  { k:'u1', g:'上位', s:'1回戦', full:'上位トーナメント 1回戦', t:'u1', note:'3チーム戦・2セット（新100点）・40分。各コート1位と、残りの合計得点上位5チーム（復活組）が準々決勝へ' },
+  { k:'u2', g:'上位', s:'準々決勝', full:'上位トーナメント 準々決勝', t:'u2', note:'3チーム戦・2セット（新100点）・40分。各コート1位と、残りの合計得点1位（準復活組）が準決勝へ' },
+  { k:'u3', g:'上位', s:'準決勝', full:'上位トーナメント 準決勝', t:'u3', note:'2チーム戦・2セット先取・時間無制限。勝ったチームが決勝へ' },
+  { k:'u4', g:'上位', s:'決勝', full:'上位トーナメント 決勝', t:'u4', note:'3チーム戦・2セット先取・ターンも時間も無制限' },
+  { k:'l1', g:'下位', s:'準々決勝', full:'下位トーナメント 準々決勝', t:'u1', note:'3チーム戦・2セット（新100点）・40分。各コート1位が準決勝へ' },
+  { k:'l2', g:'下位', s:'準決勝', full:'下位トーナメント 準決勝', t:'u2', note:'3チーム戦・2セット（新100点）・40分。各コート1位が決勝へ' },
+  { k:'l3', g:'下位', s:'決勝', full:'下位トーナメント 決勝', t:'u3', note:'2チーム戦・2セット先取・時間無制限' }
+];
+function roundInfo(k){ return ROUNDS.find(function(x){ return x.k === k; }); }
+function slotOf(k){ var ri = roundInfo(k); return ri ? SCHEDULE.find(function(x){ return x.k === ri.t; }) : null; }
+function timeText(k){ var s = slotOf(k); return s ? s.s + '〜' + (s.e || '') : ''; }
+function startMin(k){ var s = slotOf(k); return s ? toMin(s.s) : null; }
+function endMin(k){ var s = slotOf(k); return s && s.e ? toMin(s.e) : (s ? toMin(s.s) + 70 : null); }
+
+/* where the winners go next (from the organizer's rules, p.8) */
+var U2_FROM = { A: ['A', 'M', 'R5'], B: ['B', 'L', 'R4'], C: ['C', 'K', 'R3'], D: ['D', 'J', 'R2'], E: ['E', 'I', 'R1'] };
+var U3_FROM = { C: ['A', 'S'], D: ['B', 'E'], E: ['C', 'D'] };
+var L2_FROM = { F: ['F', 'N', 'P'], G: ['G', 'H', 'O'] };
+function nextCourt(k, c){
+  var map = k === 'u1' ? U2_FROM : k === 'u2' ? U3_FROM : k === 'l1' ? L2_FROM : null;
+  if (!map) return null;
+  for (var to in map) if (map[to].indexOf(c) >= 0) return to;
+  return null;
+}
+
+/* ---------- read the organizer's sheet ---------- */
+function played(teams){ return teams.some(function(t){ return t.g.some(function(x){ return x != null && x !== 0; }); }); }
+function parseQuals(g){
+  var out = [], round = 0;
+  for (var r = 0; r < (g || []).length; r++){
+    var a = z(v(at(g, r, 0))).replace(/\s/g, ''), m = a.match(/第(\d)試合/);
+    if (m){ round = +m[1]; continue; }
+    if (!round || !/^[A-P]$/.test(a)) continue;
+    var teams = [1, 11, 21].map(function(b){
+      return { no: n(at(g, r, b)), name: v(at(g, r, b + 1)), g: [n(at(g, r, b + 2)), n(at(g, r, b + 3))], bp: n(at(g, r, b + 4)),
+        wins: n(at(g, r, b + 7)), draws: n(at(g, r, b + 8)), total: n(at(g, r, b + 9)) };
+    }).filter(function(t){ return t.name || t.no != null; });
+    out.push({ k: 'q' + round, court: a, teams: teams, played: played(teams) });
+  }
+  return out;
+}
+function parseStandings(g){
+  var list = [];
+  for (var r = 1; r < (g || []).length; r++){
+    var name = v(at(g, r, 1)), no = n(at(g, r, 0));
+    if (!name || no == null) continue;
+    list.push({ no: no, name: name, per: [n(at(g, r, 7)), n(at(g, r, 13)), n(at(g, r, 19))], total: n(at(g, r, 20)),
+      wins: n(at(g, r, 21)), draws: n(at(g, r, 22)), rank: n(at(g, r, 25)) });
+  }
+  return list;
+}
+/* one block of a tournament sheet: rows grouped by the court letter */
+function parseBlock(g, cfg){
+  var groups = [], cur = null;
+  for (var r = 3; r < (g || []).length; r++){
+    var c = cfg.court != null ? z(v(at(g, r, cfg.court))) : 'X';
+    var name = v(at(g, r, cfg.name)), label = cfg.label != null ? z(v(at(g, r, cfg.label))) : '', seed = cfg.seed != null ? n(at(g, r, cfg.seed)) : null;
+    if (!(cfg.court != null ? /^[A-P]$/.test(c) : (name || /^[A-P]1$/.test(label)))) continue;
+    var gk = cfg.court != null ? c : 'final';
+    if (!cur || cur.gk !== gk){ cur = { gk: gk, court: cfg.court != null ? c : null, teams: [] }; groups.push(cur); }
+    cur.teams.push({ name: name, seed: seed, label: label, no: n(at(g, r, cfg.name - 1)),
+      g: cfg.games.map(function(i){ return n(at(g, r, i)); }), wins: n(at(g, r, cfg.wins)),
+      total: cfg.total != null ? n(at(g, r, cfg.total)) : null, rank: n(at(g, r, cfg.rank)) });
+  }
+  groups.forEach(function(x){ x.played = played(x.teams); });
+  return groups;
+}
+var BLOCKS = {
+  u1: { sheet: 'upper', court: 2, seed: 3, name: 5, games: [6, 7], wins: 9, total: 10, rank: 12 },
+  u2: { sheet: 'upper', court: 19, label: 20, name: 22, games: [23, 24], wins: 26, total: 27, rank: 31 },
+  u3: { sheet: 'upper', court: 38, label: 39, name: 41, games: [42, 43, 44], wins: 45, rank: 46 },
+  u4: { sheet: 'upper', label: 49, name: 51, games: [52, 53, 54, 55], wins: 56, rank: 58 },
+  l1: { sheet: 'lower', court: 2, seed: 3, name: 5, games: [6, 7], wins: 9, total: 10, rank: 12 },
+  l2: { sheet: 'lower', court: 16, label: 17, name: 19, games: [20, 21], wins: 23, total: 24, rank: 27 },
+  l3: { sheet: 'lower', label: 31, name: 33, games: [34, 35, 36], wins: 37, rank: 39 }
+};
+/* the sheet fills the next round by formula even before a match is played,
+   so a team is shown in a later round only once the match it comes from has scores */
+function gate(T){
+  function byCourt(k, c){ return (T[k] || []).find(function(x){ return x.court === c; }); }
+  function allPlayed(k){ return (T[k] || []).length && T[k].every(function(x){ return x.played; }); }
+  var prev = { u2: 'u1', u3: 'u2', u4: 'u3', l2: 'l1', l3: 'l2' };
+  Object.keys(prev).forEach(function(k){
+    (T[k] || []).forEach(function(m, mi){
+      var from = k === 'u2' ? U2_FROM[m.court] : k === 'u3' ? U3_FROM[m.court] : k === 'l2' ? L2_FROM[m.court] :
+        k === 'u4' ? ['C', 'D', 'E'] : ['F', 'G'];
+      m.teams.forEach(function(t, i){
+        var src = from ? from[i] : null, ok = false;
+        if (!src) ok = false;
+        else if (src.charAt(0) === 'R') ok = allPlayed('u1');
+        else if (src === 'S') ok = allPlayed('u2');
+        else { var pm = byCourt(prev[k], src); ok = !!(pm && pm.played); }
+        t.src = src; t.show = ok && !!t.name;
+      });
+    });
+  });
+  ['u1', 'l1'].forEach(function(k){ (T[k] || []).forEach(function(m){ m.teams.forEach(function(t){ t.show = !!t.name; }); }); });
+}
+function srcText(k, src){
+  if (!src) return '';
+  if (src.charAt(0) === 'R') return '復活組' + src.charAt(1) + '位';
+  if (src === 'S') return '準復活組';
+  var pk = { u2: '1回戦', u3: '準々決勝', u4: '準決勝', l2: '準々決勝', l3: '準決勝' }[k];
+  return pk + ' コート' + src + 'の1位';
+}
+function build(raw){
+  var g = (raw && raw.grids) || {}, T = {};
+  T.q = parseQuals(g.games);
+  Object.keys(BLOCKS).forEach(function(k){ var b = BLOCKS[k]; T[k] = parseBlock(g[b.sheet], b); });
+  gate(T);
+  var st = parseStandings(g.ranks), names = {};
+  (g.entry || []).forEach(function(row, i){ if (i && v(row[1])) names[key(row[1])] = v(row[1]); });
+  st.forEach(function(t){ names[key(t.name)] = t.name; });
+  var started = st.some(function(t){ return t.total; });
+  var qualsDone = T.q.length > 0 && T.q.every(function(m){ return m.played; });
+  return { T: T, st: st, names: names, started: started, qualsDone: qualsDone };
+}
+
+/* ---------- rounds and courts ---------- */
+function matchesOf(k){
+  if (k.charAt(0) === 'q') return M.T.q.filter(function(m){ return m.k === k; });
+  return M.T[k] || [];
+}
+function autoRound(){
+  var now = nowMin(), best = null;
+  ROUNDS.forEach(function(r){ var s = startMin(r.k), e = endMin(r.k); if (s == null) return;
+    if (now <= e && (!best || s < best.s)) best = { k: r.k, s: s }; });
+  return best ? best.k : 'u4';
+}
+function sameTimeKeys(k){ var t = roundInfo(k).t; return ROUNDS.filter(function(r){ return r.t === t; }).map(function(r){ return r.k; }); }
+function teamLine(t, k){
+  var nm = t.show === false ? srcText(k, t.src) : (t.name || '');
+  return { name: nm, ph: t.show === false || !t.name };
+}
+function scoreText(t, k){
+  if (k.charAt(0) === 'q') return t.total != null && (t.g[0] || t.g[1]) ? t.total + '点' : '';
+  if (k === 'u3' || k === 'u4' || k === 'l3') return t.g.some(function(x){ return x != null; }) ? (t.wins || 0) + 'セット' : '';
+  return t.total ? t.total + '点' : '';
+}
+function courtInfo(){
+  if (!S.court || !M) return '';
+  var c = S.court, keys = sameTimeKeys(autoRound()), hit = null;
+  keys.forEach(function(k){ if (!hit){ var m = matchesOf(k).find(function(x){ return x.court === c; }); if (m) hit = { k: k, m: m }; } });
+  var h = '<div class="cinfo"><div class="h"><b>コート' + esc(c) + '<span>' + (hit ? esc(roundInfo(hit.k).full) + '　' + esc(timeText(hit.k)) : esc(roundInfo(keys[0]).full)) + '</span></b><button class="x" type="button" data-act="closecourt">閉じる</button></div>';
+  if (!hit) h += '<p class="note">この時間、<wbr>このコートでの<wbr>試合はありません。</p>';
+  else h += hit.m.teams.map(function(t){ var l = teamLine(t, hit.k); return '<div class="tm' + (l.ph ? ' ph' : '') + '"><span>' + (l.ph ? '<span class="nm">' + esc(l.name || '未定') + '</span>' : teamName(l.name)) + '</span><span class="sc">' + esc(t.show === false ? '' : scoreText(t, hit.k)) + '</span></div>'; }).join('');
+  return h + '</div>';
+}
+
+/* ---------- one team's day ---------- */
+function plan(name){
+  var kn = key(name), items = [], T = M.T;
+  ['q1', 'q2', 'q3'].forEach(function(k){
+    var m = matchesOf(k).find(function(x){ return x.teams.some(function(t){ return key(t.name) === kn; }); });
+    var it = { k: k, title: roundInfo(k).full, time: timeText(k) };
+    if (m){
+      var me = m.teams.find(function(t){ return key(t.name) === kn; });
+      it.court = m.court; it.opp = m.teams.filter(function(t){ return t !== me; }).map(function(t){ return { name: t.name, sc: m.played ? t.total : null }; });
+      it.done = m.played; it.my = me.total; it.myw = me.wins;
+    } else it.wait = '対戦表にまだ入っていません';
+    items.push(it);
+  });
+  function find(k){ var res = null; (T[k] || []).forEach(function(m){ m.teams.forEach(function(t){ if (t.show && key(t.name) === kn) res = { m: m, t: t }; }); }); return res; }
+  var side = find('u1') ? 'u' : find('l1') ? 'l' : null;
+  if (!side){
+    items.push({ k: 'after', title: '予選のあと', note: M.qualsDone ? '上位・下位の振り分けをシートに反映中です' : '予選の合計得点で、上位30チームは上位トーナメント、下位18チームは下位トーナメントに進みます' });
+    return { items: items, side: null };
+  }
+  var order = side === 'u' ? ['u1', 'u2', 'u3', 'u4'] : ['l1', 'l2', 'l3'];
+  var court = null, alive = true;
+  for (var i = 0; i < order.length; i++){
+    var k = order[i], f = find(k), ri = roundInfo(k);
+    if (f){
+      var opp = f.m.teams.filter(function(t){ return t !== f.t; }).map(function(t){ var l = teamLine(t, k); return l.ph ? { ph: l.name || '未定' } : { name: l.name, sc: f.m.played ? scoreText(t, k) : '' }; });
+      items.push({ k: k, title: ri.full.replace('トーナメント ', ' '), time: timeText(k), court: f.m.court || null, opp: opp, done: f.m.played, res: f.m.played ? scoreText(f.t, k) : '',
+        note: f.m.court ? '' : '決勝のコートは本部の案内に従ってください' });
+      court = f.m.court;
+      continue;
+    }
+    var prevK = order[i - 1], pm = prevK ? (T[prevK] || []).find(function(m){ return m.court === court; }) : null;
+    var mine = pm ? pm.teams.find(function(t){ return key(t.name) === kn; }) : null;
+    if (pm && pm.played && mine && mine.rank === 1 && (k === 'u4' || k === 'l3' || nextCourt(prevK, court))){
+      /* won the last match, but the sheet has not shown the next round yet */
+      var nc2 = k === 'u4' || k === 'l3' ? null : nextCourt(prevK, court);
+      var nm = nc2 ? (T[k] || []).find(function(m){ return m.court === nc2; }) : (T[k] || [])[0];
+      var opp2 = nm ? nm.teams.filter(function(t){ return key(t.name) !== kn; }).map(function(t){ var l = teamLine(t, k); return l.ph ? { ph: l.name || '未定' } : { name: l.name }; }) : [{ ph: '未定' }];
+      items.push({ k: k, title: ri.full.replace('トーナメント ', ' '), time: timeText(k), court: nc2, opp: opp2, note: nc2 ? '1位で勝ち上がり（本部の確定をお待ちください）' : '決勝のコートは本部の案内に従ってください' });
+      court = nc2; continue;
+    }
+    if (pm && pm.played){
+      if (prevK === 'u1') items.push({ k: 'rev', title: '1回戦の結果', note: '準々決勝の組み合わせに名前がなければ、復活組（コート1位以外で合計得点の上位5チーム）の発表を待ってください' });
+      else if (prevK === 'u2') items.push({ k: 'rev', title: '準々決勝の結果', note: '準決勝の組み合わせに名前がなければ、準復活組（コート1位以外で合計得点1位）の発表を待ってください' });
+      else items.push({ k: 'end', title: (side === 'u' ? '上位' : '下位') + 'トーナメントはここまで', note: 'おつかれさまでした' });
+      alive = false; break;
+    }
+    var nc = k === 'u4' || k === 'l3' ? null : nextCourt(prevK, court);
+    items.push({ k: k, title: ri.full.replace('トーナメント ', ' '), time: timeText(k), court: nc, cond: true, opp: [{ ph: 'コート' + court + 'で1位になったら' }],
+      note: nc ? '' : '決勝のコートは本部の案内に従ってください' });
+    court = nc;
+  }
+  return { items: items, side: side };
+}
+
+/* ---------- venue map (from the organizer's layout, p.7) ---------- */
+function courtMap(hi){
+  hi = hi || [];
+  var top = 'ABCDEFGH'.split(''), bot = 'IJKLMNOP'.split(''), up = 'ABCDEIJKLM';
+  var s = '<svg class="map" viewBox="0 0 400 270" role="img" aria-label="会場のコート配置図' + (hi.length ? '。コート' + hi.join('、') + 'を赤で表示' : '') + '">';
+  s += '<rect x="2" y="6" width="58" height="26" class="m-room"/><text x="31" y="24" text-anchor="middle" class="m-sm">トイレ</text>';
+  s += '<text x="4" y="52" class="m-sm">← 駐車場・宿泊棟</text>';
+  s += '<rect x="150" y="10" width="100" height="30" class="m-room"/><text x="200" y="30" text-anchor="middle" class="m-lbl">本部</text>';
+  s += '<rect x="300" y="10" width="96" height="30" class="m-kc"/><text x="348" y="30" text-anchor="middle" class="m-sm">キッチンカー</text>';
+  function court(c, x, y){
+    var on = hi.indexOf(c) >= 0;
+    return '<g class="m-court ' + (up.indexOf(c) >= 0 ? 'u' : 'l') + (on ? ' on' : '') + (S.court === c ? ' sel' : '') + '" data-court="' + c + '" role="button" aria-label="コート' + c + 'の試合を見る">' +
+      '<rect x="' + x + '" y="' + y + '" width="40" height="76" rx="2"/><text x="' + (x + 20) + '" y="' + (y + 45) + '" text-anchor="middle">' + c + '</text></g>';
+  }
+  top.forEach(function(c, i){ s += court(c, 8 + i * 49, 66); });
+  bot.forEach(function(c, i){ s += court(c, 8 + i * 49, 176); });
+  s += '<text x="8" y="164" class="m-sm">上段 A〜H</text><text x="8" y="266" class="m-sm">下段 I〜P</text>';
+  s += '<rect x="230" y="152" width="12" height="12" class="m-ku"/><text x="246" y="162" class="m-sm">上位</text><rect x="290" y="152" width="12" height="12" class="m-kl"/><text x="306" y="162" class="m-sm">下位トーナメント</text>';
+  s += '</svg>';
+  return '<div class="mapwrap">' + s + '</div><p class="maphint">コートを押すと、<wbr>そのコートの<wbr>いまの試合が出ます。</p>' + courtInfo();
+}
+
+/* ---------- views ---------- */
+function teamName(nm){ var mine = S.team && key(nm) === key(S.team); return '<span class="nm">' + (mine ? '<span class="me">' + esc(nm) + '</span>' : esc(nm)) + '</span>'; }
+function cn(c, big){ return c ? '<span class="cn' + (big ? ' big' : '') + '" aria-label="コート' + c + '">' + esc(c) + '</span>' : '<span class="cn none' + (big ? ' big' : '') + '">未定</span>'; }
+
+function viewMe(){
+  var names = Object.keys(M.names).map(function(k){ return M.names[k]; });
+  if (!S.team || S.picking || !M.names[key(S.team)]){
+    var h = '<h2>あなたのチームは？</h2><p class="lead">選ぶと、<wbr>このスマホでは<wbr>次から自動で<wbr>そのチームの試合を<wbr>出します。</p>';
+    if (!names.length) return h + '<p class="empty">チームの一覧を<wbr>読み込めていません。<wbr>「最新にする」を<wbr>押してください。</p>';
+    var nos = {}; M.st.forEach(function(t){ nos[key(t.name)] = t.no; });
+    names.sort(function(a, b){ return (nos[key(a)] || 99) - (nos[key(b)] || 99); });
+    h += '<ul class="pick">' + names.map(function(nm){ return '<li><button type="button" data-team="' + esc(nm) + '">' + esc(nm) + '<span>' + (nos[key(nm)] ? 'No.' + nos[key(nm)] : '') + '</span></button></li>'; }).join('') + '</ul>';
+    return h;
+  }
+  var P = plan(S.team), now = nowMin(), me = M.st.find(function(t){ return key(t.name) === key(S.team); });
+  var h = '<div class="myhead"><div><div class="nm">' + esc(M.names[key(S.team)]) + '</div><div class="meta">' + (me ? 'No.' + me.no : '') + '</div></div>' +
+    '<button class="btn" type="button" data-act="repick">チームを<br>変える</button></div>';
+  if (M.started && me && me.rank) h += '<p class="note">予選' + (M.qualsDone ? 'の結果' : 'の途中経過') + '：<b>' + me.rank + '位</b>（合計 ' + (me.total || 0) + '点）</p>';
+  var nx = P.items.find(function(x){ return x.opp && !x.done; });
+  if (nx){
+    var s = startMin(nx.k), e = endMin(nx.k), live = s != null && now >= s - 5 && now <= e;
+    h += '<div class="next"><div class="lbl">' + (live ? '<span class="tag now">いまの試合</span>' : '次の試合') + (nx.cond ? '　<span class="tag if">勝ち進んだら</span>' : '') + '</div>' +
+      '<div class="row">' + cn(nx.court, true) + '<div><div class="when">' + esc(nx.time || '時間未定') + '</div><div class="what">' + esc(nx.title) + (nx.court ? '<br>コート' + esc(nx.court) : '') + '</div></div></div>' +
+      '<div class="vs">' + (nx.cond ? '' : '相手：') + (nx.opp || []).map(function(o){ return o.name ? '<b>' + esc(o.name) + '</b>' : '<span class="note">' + esc(o.ph) + '</span>'; }).join(' と ') + '</div>' +
+      (nx.court ? courtMap([nx.court]) : '') + (nx.note ? '<p class="note">' + esc(nx.note) + '</p>' : '') + '</div>';
+  } else if (P.items.some(function(x){ return x.k === 'end'; })){
+    h += '<div class="next"><div class="when">今日の試合は<wbr>ここまでです</div><p class="note">表彰式・閉会式は16:30からです。</p></div>';
+  }
+  h += '<h2>今日の試合</h2><ul class="plan">';
+  P.items.forEach(function(x){
+    var s = startMin(x.k), e = endMin(x.k), live = s != null && now >= s - 5 && now <= e && !x.done && !x.cond;
+    var res = '';
+    if (x.done && x.k.charAt(0) === 'q') res = '<span class="tag done">終了</span> 自分 ' + (x.my != null ? x.my : '-') + '点' + (x.opp || []).map(function(o){ return '／' + esc(o.name) + ' ' + (o.sc != null ? o.sc : '-') + '点'; }).join('');
+    else if (x.done) res = '<span class="tag done">終了</span> 自分 ' + esc(x.res || '-') + (x.opp || []).map(function(o){ return o.name ? '／' + esc(o.name) + ' ' + esc(o.sc || '-') : ''; }).join('');
+    var opp = x.opp && !x.done ? (x.cond ? '' : '相手：') + x.opp.map(function(o){ return o.name ? esc(o.name) : '<span class="s">' + esc(o.ph) + '</span>'; }).join('、') : '';
+    h += '<li class="' + (live ? 'cur' : '') + (x.cond ? ' later' : '') + '">' + (x.opp ? cn(x.court) : '<span class="cn none">―</span>') +
+      '<div><div class="t">' + esc(x.title) + (live ? ' <span class="tag now">いま</span>' : '') + (x.cond ? ' <span class="tag if">勝ち進んだら</span>' : '') + '</div>' +
+      (x.time ? '<div class="s">' + esc(x.time) + (x.court ? '　コート' + esc(x.court) : '') + '</div>' : '') +
+      (opp ? '<div class="o">' + opp + '</div>' : '') + (res ? '<div class="o">' + res + '</div>' : '') +
+      (x.wait ? '<div class="s">' + esc(x.wait) + '</div>' : '') + (x.note ? '<div class="s">' + esc(x.note) + '</div>' : '') + '</div></li>';
+  });
+  return h + '</ul>';
+}
+
+function viewGames(){
+  var k = S.round || autoRound(), ri = roundInfo(k);
+  var h = '<div class="chips">';
+  [['予選', ''], ['上位', 'u'], ['下位', 'l']].forEach(function(gp){
+    h += '<div class="g"><span class="gl ' + gp[1] + '">' + gp[0] + '</span>' + ROUNDS.filter(function(r){ return r.g === gp[0]; }).map(function(r){
+      return '<button type="button" class="chip' + (r.k === k ? ' on' : '') + '" data-round="' + r.k + '" aria-pressed="' + (r.k === k) + '">' + r.s + '</button>'; }).join('') + '</div>';
+  });
+  h += '</div><div class="rhead"><div class="t ' + (ri.g === '上位' ? 'side-u' : ri.g === '下位' ? 'side-l' : '') + '">' + esc(ri.full) + '</div><div class="s">' + esc(timeText(k)) + '　' + esc(ri.note) + '</div></div>';
+  var ms = matchesOf(k).slice().sort(function(a, b){ return (a.court || 'Z') < (b.court || 'Z') ? -1 : 1; });
+  if (k.charAt(0) !== 'q' && !ms.some(function(m){ return m.teams.some(function(t){ return t.show; }); }))
+    h += '<p class="note">' + (k === 'u1' || k === 'l1' ? '予選が終わると、<wbr>予選の順位から<wbr>チームが入ります。' : '前の試合が終わると、<wbr>勝ち上がったチームが<wbr>入ります。') + '</p>';
+  h += '<ul class="mlist">';
+  if (!ms.length) h += '<li class="empty">対戦表を<wbr>読み込めていません</li>';
+  ms.forEach(function(m){
+    var lead = null;
+    if (m.played && k.charAt(0) !== 'q'){ var top = m.teams.filter(function(t){ return t.show; }).sort(function(a, b){ return (a.rank || 9) - (b.rank || 9); })[0]; if (top && top.rank === 1) lead = top; }
+    h += '<li>' + cn(m.court) + '<div class="teams">' + m.teams.map(function(t){
+      var l = teamLine(t, k), sc = t.show === false ? '' : scoreText(t, k);
+      var seed = t.seed != null ? '<span class="lot">' + t.seed + '位</span>' : t.no != null && k.charAt(0) === 'q' ? '<span class="lot">No.' + t.no + '</span>' : '';
+      return '<div class="tm' + (lead === t ? ' win' : '') + (l.ph ? ' ph' : '') + '"><span>' + seed + (l.ph ? '<span class="nm">' + esc(l.name || '未定') + '</span>' : teamName(l.name)) + '</span><span class="sc">' + esc(sc) + '</span></div>';
+    }).join('') + '</div></li>';
+  });
+  h += '</ul>';
+  if (k.charAt(0) !== 'q') h += '<p class="note">「勝」は、<wbr>そのコートで<wbr>いま1位のチームです。<wbr>結果は本部の<wbr>確定が正式です。</p>';
+  return h;
+}
+
+function viewRank(){
+  var h = '', T = M.T;
+  function champ(k){ var m = (T[k] || [])[0]; if (!m || !m.played) return null; var w = m.teams.filter(function(t){ return t.show && (t.wins || 0) >= 2; })[0]; return w ? w.name : null; }
+  var uc = champ('u4'), lc = champ('l3');
+  if (uc || lc){
+    h += '<h2>優勝</h2><div class="awards">' + (uc ? '<div><b class="side-u">上位</b>' + teamName(uc) + '</div>' : '') + (lc ? '<div><b class="side-l">下位</b>' + teamName(lc) + '</div>' : '') + '</div>';
+  }
+  h += '<h2>予選の順位' + (M.started && !M.qualsDone ? '（途中経過）' : '') + '</h2>';
+  h += '<p class="lead">3試合の合計得点（BP込み）の<wbr>多い順。<wbr>同じなら、<wbr>勝ったセット数→<wbr>引き分けたセット数→<wbr>モルックアウトの順で<wbr>決めます。</p>';
+  if (!M.started) h += '<p class="empty">予選の結果が入ると、<wbr>ここに順位が出ます。</p>';
+  else {
+    var list = M.st.slice().sort(function(a, b){ return (a.rank || 99) - (b.rank || 99) || a.no - b.no; });
+    h += '<table><thead><tr><th>順位</th><th>チーム</th><th class="n">勝</th><th>合計</th></tr></thead><tbody>';
+    list.forEach(function(t, i){
+      h += '<tr' + (i === 29 && list.length > 30 ? ' class="cut"' : '') + '><td class="rk">' + (t.rank || '') + '</td><td>' + teamName(t.name) +
+        '<span class="pf">No.' + t.no + '　各試合 ' + t.per.map(function(x){ return x != null ? x : '-'; }).join('／') + '</span></td><td class="n">' + (t.wins != null ? t.wins : '') + '</td><td class="tot">' + (t.total != null ? t.total : '') + '</td></tr>';
+    });
+    h += '</tbody></table><p class="cutnote">赤い二重線より上（30位まで）が上位トーナメント、下が下位トーナメントです。「勝」は6セットのうち勝ったセット数です。</p>';
+  }
+  var rv = (T.u2 || []).map(function(m){ return m.teams.filter(function(t){ return t.src && t.src.charAt(0) === 'R' && t.show; }); }).reduce(function(a, b){ return a.concat(b); }, []);
+  var sr = (T.u3 || []).map(function(m){ return m.teams.filter(function(t){ return t.src === 'S' && t.show; }); }).reduce(function(a, b){ return a.concat(b); }, []);
+  h += '<h2 class="side-u">復活組・準復活組</h2><p class="lead">上位1回戦で<wbr>コート1位になれなかった<wbr>チームのうち、<wbr>合計得点の上位5チームが<wbr>復活組として<wbr>準々決勝へ。<wbr>準々決勝で<wbr>1位になれなかった<wbr>チームのうち<wbr>合計得点1位が<wbr>準復活組として<wbr>準決勝へ進みます。</p>';
+  h += rv.length ? '<div>' + rv.sort(function(a, b){ return a.src < b.src ? -1 : 1; }).map(function(t){ return '<div class="tm"><span><span class="lot">' + esc(srcText('u2', t.src)) + '</span>' + teamName(t.name) + '</span></div>'; }).join('') + '</div>' : '<p class="note">上位1回戦が<wbr>すべて終わると<wbr>ここに出ます。</p>';
+  if (sr.length) h += '<div class="tm"><span><span class="lot">準復活組</span>' + teamName(sr[0].name) + '</span></div>';
+  return h;
+}
+
+function viewVenue(){
+  var h = '<h2>コートの場所</h2><p class="lead">コートは<wbr>上段A〜H、<wbr>下段I〜Pの<wbr>16面です。<wbr>青が上位、<wbr>赤が下位トーナメントの<wbr>コートです。</p>' + courtMap([]);
+  h += '<h2>タイムスケジュール</h2><ul class="tt">';
+  var now = nowMin();
+  SCHEDULE.forEach(function(x){
+    var s = toMin(x.s), e = x.e ? toMin(x.e) : null, live = e != null && now >= s && now < e;
+    h += '<li class="' + (live ? 'cur' : '') + '"><span class="tm2">' + x.s + (x.e ? '〜' + x.e : '〜') + '</span><div><b>' + esc(x.label) + '</b>' + (live ? ' <span class="tag now">いま</span>' : '') + '</div></li>';
+  });
+  h += '</ul>';
+  h += '<h2>結果の送り方</h2><ul class="rules"><li>試合が終わったら、<wbr>勝ったチームが<wbr>コートにある<wbr>二次元コードから<wbr>Googleフォームで<wbr>得点を送ります。</li><li>得点表は<wbr>本部へ<wbr>持っていきます。</li><li>予選では、<wbr>50点あがりのセットに<wbr>10点（BP）が付きます。<wbr>入れ忘れに注意。</li><li>送りまちがえたら、<wbr>本部へ<wbr>申し出てください。</li></ul>';
+  h += '<h2>おもなルール</h2><ul class="rules">' + ROUNDS.filter(function(r){ return r.k !== 'q2' && r.k !== 'q3'; }).map(function(r){ return '<li><b>' + esc(r.k === 'q1' ? '予選' : r.full) + '</b><br>' + esc(r.note) + '</li>'; }).join('') +
+    '<li><b>そのほか</b><br>上投げは禁止。<wbr>37点以上でスキットルに<wbr>当たらなかったときは<wbr>37点ルールなし。<wbr>踏み越えは予選は2回目の指摘から、<wbr>トーナメントは1回目からフォルト。<wbr>コート内での食事は禁止（水分補給はOK）。</li></ul>';
+  h += '<p class="note">くわしくは<wbr>大会要項を<wbr>見てください。</p>';
+  return h;
+}
+
+/* ---------- render ---------- */
+var VERSION = '11/16-1';
+function debugView(){
+  var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
+  Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 6)).slice(0, 300)) + '</div></div></li>'; });
+  h += '</ul>';
+  if (M) h += '<p class="note">予選の対戦：' + M.T.q.length + '　上位：' + ['u1','u2','u3','u4'].map(function(k){ return (M.T[k] || []).length; }).join('/') + '　下位：' + ['l1','l2','l3'].map(function(k){ return (M.T[k] || []).length; }).join('/') + '　読み方：' + (useScript ? 'script' : 'fetch') + '</p>';
+  return h;
+}
+function health(){
+  var out = [];
+  if (RAW && RAW.miss && RAW.miss.length) out.push('読めない表があります（タブ名が変わった可能性）');
+  if (!M) return out;
+  var T = M.T;
+  if (!M.st.length) out.push('予選結果の表からチームを見つけられません');
+  if (T.q.length !== 48) out.push('予選の対戦の数が合いません（' + T.q.length + '）');
+  [['u1', 10], ['u2', 5], ['u3', 3], ['u4', 1], ['l1', 6], ['l2', 2], ['l3', 1]].forEach(function(x){
+    if ((T[x[0]] || []).length !== x[1]) out.push(roundInfo(x[0]).full + 'の表の形が合いません');
+  });
+  if (M.qualsDone && !(T.u1 || []).some(function(m){ return m.teams.some(function(t){ return t.name; }); })) out.push('予選は終わっていますが、トーナメントにチーム名が入っていません');
+  return out;
+}
+function brokenBox(){
+  var hs = health(); if (!hs.length) return '';
+  return '<div class="broken" role="alert"><b>表示がずれている<wbr>おそれがあります</b><p>主催者の表の形が<wbr>変わったため、<wbr>このページが<wbr>正しく読めていない<wbr>可能性があります。<wbr>試合・コートは<wbr>大会チャットで<wbr>共有されている表と、<wbr>大会本部の案内で<wbr>確かめてください。</p><p class="s">（' + hs.map(esc).join('／') + '）</p></div>';
+}
+function footHtml(){ return '<div class="footrow"><button class="thm" type="button" data-act="theme">' + (darkNow() ? '明るい画面にする' : '暗い画面にする') + '</button></div>' + '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の表を<wbr>自動で読み込んで<wbr>表示しています。<wbr>正式な案内は<wbr>大会本部と、<wbr>大会チャットで<wbr>共有されている表で<wbr>確かめてください。</p>'; }
+function render(){
+  var view = document.getElementById('view');
+  if (location.hash === '#debug'){ view.innerHTML = debugView(); return; }
+  if (!M){ view.innerHTML = '<p class="empty">' + (lastFail ? '主催者のシートを<wbr>読み込めませんでした。<wbr>少し待って<wbr>「最新にする」を<wbr>押してください。<br>大会チャットで<wbr>共有されている表も<wbr>見られます。' : '読み込み中…') + '</p>'; return; }
+  document.querySelectorAll('#tabs button').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)); });
+  var html = S.tab === 'games' ? viewGames() : S.tab === 'rank' ? viewRank() : S.tab === 'venue' ? viewVenue() : viewMe();
+  view.innerHTML = brokenBox() + html + footHtml();
+  view.querySelectorAll('.me').forEach(function(el){ var row = el.closest('tr, .mlist li'); if (row) row.classList.add('mine'); });
+  if (S.tab === 'games'){ var li = view.querySelector('.mlist li.mine'); if (li){ var ul = li.parentNode; ul.insertBefore(li, ul.firstChild); var lab = document.createElement('p'); lab.className = 'minelabel'; lab.textContent = 'あなたのチームの試合'; ul.parentNode.insertBefore(lab, ul); } }
+}
+function setStamp(){
+  var el = document.getElementById('stamp');
+  if (!RAW){ el.className = lastFail ? 'stamp bad' : 'stamp'; el.textContent = lastFail ? 'シートを読み込めませんでした。電波を確かめて「最新にする」を押してください。' : '読み込み中…'; return; }
+  if (lastFail || RAW.error){
+    el.className = 'stamp bad';
+    el.textContent = '最新にできませんでした。' + (RAW.at ? clock(RAW.at) + '時点の内容を表示中。' : '') + '電波を確かめて、もう一度押してください。';
+  } else if (RAW.miss && RAW.miss.length){ el.className = 'stamp bad'; el.textContent = clock(RAW.at) + ' 時点。表の一部（' + RAW.miss.map(function(k){ return { games:'予選の対戦', ranks:'予選結果', upper:'上位', lower:'下位', entry:'エントリー' }[k]; }).join('・') + '）を読めませんでした。タブ名が変わった可能性があります。';
+  } else {
+    var age = Math.floor((Date.now() - RAW.at) / 60000);
+    if (age >= 3){ el.className = 'stamp bad'; el.textContent = (age >= 120 ? Math.floor(age / 60) + '時間以上前' : age + '分前') + 'に読んだ内容です。「最新にする」を押してください。'; }
+    else { el.className = 'stamp'; el.textContent = clock(RAW.at) + ' 時点の内容（約1分ごとに自動で更新）'; }
+  }
+}
+
+var cbn = 0;
+function gvizUrl(tab, handler){
+  return 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?headers=0&sheet=' + encodeURIComponent(tab.name) + '&range=' + tab.range +
+    '&tqx=' + encodeURIComponent('out:json' + (handler ? ';responseHandler:' + handler : '')) + '&_=' + Date.now();
+}
+function tableToGrid(res){
+  if (!res || res.status === 'error' || !res.table) throw new Error((res && res.errors && res.errors[0] && res.errors[0].detailed_message) || 'read error');
+  return (res.table.rows || []).map(function(row){
+    return (row.c || []).map(function(c){ if (!c) return ''; var x = c.f != null ? c.f : c.v; return x == null ? '' : String(x); });
+  });
+}
+function getTabFetch(tab){
+  return fetch(gvizUrl(tab), { cache: 'no-store' }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(function(t){ return tableToGrid(JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1))); });
+}
+function getTabScript(tab){
+  return new Promise(function(ok, ng){
+    var name = '__gv' + (++cbn), sc = document.createElement('script');
+    var tm = setTimeout(function(){ cleanup(); ng(new Error('timeout')); }, 15000);
+    function cleanup(){ clearTimeout(tm); try { delete window[name]; } catch(e){ window[name] = undefined; } sc.remove(); }
+    window[name] = function(res){ cleanup(); try { ok(tableToGrid(res)); } catch(e){ ng(e); } };
+    sc.onerror = function(){ cleanup(); ng(new Error('script')); };
+    sc.src = gvizUrl(tab, name); document.head.appendChild(sc);
+  });
+}
+var useScript = false, found = {};
+try { found = JSON.parse(localStorage.getItem('tmn4:tabs') || '{}') || {}; } catch(e){ found = {}; }
+function getOne(tab){
+  if (useScript) return getTabScript(tab);
+  return getTabFetch(tab).catch(function(){ useScript = true; return getTabScript(tab); });
+}
+function hasSign(g, sign){ return g.some(function(row){ return row.some(function(c){ return z(c).replace(/\s/g, '').indexOf(sign) >= 0; }); }); }
+/* the tab names have to match exactly; an unknown name silently returns the first tab, so check what came back */
+function getTab(k){
+  var t = TABS[k], list = found[k] ? [found[k]].concat(t.names.filter(function(n){ return n !== found[k]; })) : t.names.slice();
+  function next(i){
+    if (i >= list.length) return Promise.reject(new Error('tab ' + k));
+    return getOne({ name: list[i], range: t.range }).then(function(g){
+      if (hasSign(g, t.sign)){ found[k] = list[i]; return g; }
+      return next(i + 1);
+    }, function(e){ if (i + 1 < list.length) return next(i + 1); throw e; });
+  }
+  return next(0);
+}
+var ONCE = { entry: 1 }, SLOW = {}, gotAt = {};
+function fetchAll(force){
+  var old = (RAW && RAW.grids) || {}, now = Date.now();
+  var keys = Object.keys(TABS).filter(function(k){
+    if (!gotAt[k]) return true;
+    if (ONCE[k]) return false;
+    if (SLOW[k]) return force || now - gotAt[k] > SLOW[k];
+    return true;
+  });
+  var miss = (RAW && RAW.miss ? RAW.miss : []).filter(function(k){ return keys.indexOf(k) < 0; });
+  return getTab('games').then(function(first){
+    gotAt.games = Date.now();
+    return Promise.all(keys.filter(function(k){ return k !== 'games'; }).map(function(k){
+      return getTab(k).then(function(g){ gotAt[k] = Date.now(); return [k, g]; }, function(){ miss.push(k); return [k, old[k] || []]; });
+    })).then(function(rest){
+      var grids = {}; Object.keys(TABS).forEach(function(k){ grids[k] = old[k] || []; });
+      grids.games = first; rest.forEach(function(x){ grids[x[0]] = x[1]; });
+      try { localStorage.setItem('tmn4:tabs', JSON.stringify(found)); } catch(e){}
+      return { at: Date.now(), grids: grids, miss: miss };
+    });
+  });
+}
+var lastSig = '', toastTimer = null;
+function toast(t){ var el = document.getElementById('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function(){ el.hidden = true; }, 3500); }
+function load(force){
+  if (loading) return; loading = true;
+  var btn = document.getElementById('reload'); btn.disabled = true; btn.textContent = '読み込み中…';
+  var finished = false;
+  var timer = setTimeout(function(){ if (finished) return; finished = true; done(null); }, 20000);
+  function done(data){
+    clearTimeout(timer); loading = false; btn.disabled = false; btn.textContent = '最新にする';
+    if (data && data.grids){
+      var sig = JSON.stringify([data.grids.games, data.grids.upper, data.grids.lower]);
+      if (lastSig && sig !== lastSig) toast('表が更新されました');
+      else if (force && lastSig) toast('変更なし（最新です）');
+      lastSig = sig;
+      RAW = data; lastFail = false; M = build(RAW); try { localStorage.setItem('tmn4:last2', JSON.stringify(RAW)); } catch(e){} }
+    else { lastFail = true; if (force) toast('読み込めませんでした'); }
+    setStamp(); render();
+  }
+  fetchAll(force).then(function(d){ if (finished) return; finished = true; done(d); }, function(){ if (finished) return; finished = true; done(null); });
+}
+
+document.getElementById('reload').addEventListener('click', function(){ load(true); });
+window.addEventListener('hashchange', render);
+document.getElementById('tabs').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if (!b) return;
+  S.tab = b.dataset.tab; store.set('tab', S.tab); S.picking = false; S.court = null; render(); window.scrollTo(0, 0);
+});
+document.getElementById('view').addEventListener('click', function(e){
+  var g = e.target.closest('[data-court]');
+  if (g){ var c = +g.getAttribute('data-court'); S.court = S.court === c ? null : c; var y = window.scrollY; render(); window.scrollTo(0, y); return; }
+  var b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.team){ S.team = b.dataset.team; S.picking = false; store.set('team', S.team); render(); window.scrollTo(0, 0); }
+  else if (b.dataset.act === 'repick'){ S.picking = true; render(); window.scrollTo(0, 0); }
+  else if (b.dataset.act === 'closecourt'){ S.court = null; render(); }
+  else if (b.dataset.round){ S.round = b.dataset.round; render(); }
+  else if (b.dataset.act === 'theme'){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); render(); }
+});
+setInterval(function(){ if (document.visibilityState === 'visible' && !S.picking) load(false); }, (AUTO_SEC + Math.floor(Math.random() * 12)) * 1000);
+setInterval(setStamp, 30000);
+document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible' && RAW && Date.now() - RAW.at > AUTO_SEC * 1000) load(false); });
+
+function darkNow(){ var t = document.documentElement.dataset.theme; if (t) return t === 'dark'; try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch(e){ return false; } }
+(function(){ var t = store.get('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; })();
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(){ render(); }); } catch(e){}
+
+(function(){ try { var c = JSON.parse(localStorage.getItem('tmn4:last2') || 'null'); if (c && c.grids){ RAW = c; M = build(c); } } catch(e){} })();
+setStamp(); render(); load(false);
+</script>
+</body>
+</html>
