@@ -28,22 +28,27 @@ a{color:var(--blue)}
 #demo{background:var(--ink);color:var(--paper);font-size:14px;line-height:1.6;padding:8px 14px}
 
 header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:3px solid var(--ink);padding:10px 14px 8px}
-.ttl{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-.ttl h1{margin:0;font-size:20px;line-height:1.35;letter-spacing:.02em}
+.pre{font-size:14px;font-weight:600;color:var(--sub);line-height:1.6;margin-bottom:2px}
+.ttl{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ttl h1{margin:0;font-size:18px;line-height:1.35;letter-spacing:.01em}
 .ttl h1 small{display:block;font-size:14px;font-weight:600;color:var(--sub);letter-spacing:0}
 #reload{flex:none;min-height:44px;padding:0 14px;border:2px solid var(--ink);background:var(--card);font-weight:700;font-size:15px;border-radius:6px}
 #reload:active{transform:translateY(1px)}
 #reload[disabled]{opacity:.55}
 .sub2{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px}
 .stamp{font-size:14px;color:var(--sub);line-height:1.5}
-#theme{flex:none;min-height:44px;padding:0 10px;border:1.5px solid var(--sub);background:transparent;border-radius:6px;font-size:14px;font-weight:700;color:var(--sub)}
+.thm{flex:none;min-height:44px;padding:0 10px;border:1.5px solid var(--sub);background:transparent;border-radius:6px;font-size:14px;font-weight:700;color:var(--sub)}
 .stamp.bad{color:var(--warn);font-weight:700}
-.unoff{display:inline-block;font-size:13px;font-weight:800;border:1.5px solid currentColor;border-radius:3px;padding:0 6px;margin-left:6px;vertical-align:2px;color:var(--sub);line-height:1.6}
+.unoff{display:inline-block;font-size:14px;font-weight:800;border:1.5px solid currentColor;border-radius:3px;padding:0 6px;margin-left:6px;vertical-align:2px;color:var(--sub);line-height:1.6}
 .broken{margin:12px 0 4px;padding:12px 14px;border:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--card));border-radius:4px}
 .broken b{display:block;font-size:17px;color:var(--warn);line-height:1.5}
 .broken p{margin:6px 0 0;font-size:15px;line-height:1.6}
 .broken a{font-weight:700}
-.foot{margin:28px 0 0;padding-top:10px;border-top:1px solid var(--soft);font-size:14px;color:var(--sub);line-height:1.6}
+.footrow{display:flex;justify-content:flex-end;margin:22px 0 0}
+tr.mine td{background:color-mix(in srgb,var(--mark) 30%,transparent)}
+.mlist li.mine{background:color-mix(in srgb,var(--mark) 22%,transparent);box-shadow:inset 5px 0 0 var(--red);padding-left:12px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom));z-index:7;background:var(--ink);color:var(--paper);font-size:15px;font-weight:700;padding:10px 16px;border-radius:6px;width:max-content;max-width:92vw;text-align:center;line-height:1.5}
+.foot{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--soft);font-size:14px;color:var(--sub);line-height:1.6}
 
 main{padding:4px 14px 24px;max-width:640px;margin:0 auto}
 h2{font-size:19px;margin:22px 0 8px;line-height:1.4}
@@ -116,9 +121,9 @@ td:nth-child(2){text-align:left}
 td.rk{font-weight:800;width:2.4em}
 td.tot{font-weight:800}
 .pf{display:block;font-size:14px;color:var(--sub);font-weight:400}
-td.n{white-space:nowrap;width:2.1em}
+td.n{white-space:nowrap;width:1.85em;font-size:15px}
 td.tot{white-space:nowrap;width:2.6em}
-th.n{width:2.1em}
+th.n{width:1.85em}
 tr.cut td{border-bottom:3px double var(--red)}
 .cutnote{font-size:15px;color:var(--red);font-weight:700;margin:6px 0 0}
 .awards{border:2.5px solid var(--ink);background:var(--card);padding:10px 14px;margin:10px 0}
@@ -171,13 +176,15 @@ nav button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
 <body>
 <div id="demo" hidden>見本（デモデータ・12時55分ごろを想定）。<wbr>本番のページは<wbr>主催者のシートから<wbr>自動で読み込みます。</div>
 <header>
+  <div class="pre">2026年11月22日（日）<span class="unoff">非公式の速報</span></div>
   <div class="ttl">
-    <h1><small>2026年11月22日（日）<span class="unoff">非公式の速報</span></small>第4回 <wbr>モルック<wbr>KAGAWA大会</h1>
+    <h1>第4回 モルック<wbr>KAGAWA大会</h1>
     <button id="reload" type="button">最新にする</button>
   </div>
-  <div class="sub2"><div class="stamp" id="stamp">読み込み中…</div><button id="theme" type="button"></button></div>
+  <div class="stamp" id="stamp" style="margin-top:4px">読み込み中…</div>
 </header>
 <main id="view"></main>
+<div id="toast" role="status" hidden></div>
 <nav id="tabs" role="tablist">
   <button data-tab="me" role="tab">自分の<br>試合</button>
   <button data-tab="games" role="tab">試合・<br>コート</button>
@@ -554,7 +561,7 @@ function viewGames(){
       var scs = m.slots.map(function(s){ return s.team ? s.team.sc[r - 1] : null; }), mx = Math.max.apply(null, scs.map(function(x){ return x == null ? -1 : x; }));
       items += '<li>' + cn(m.court) + '<div class="teams">' + m.slots.map(function(s, i){
         var nm = s.name || '';
-        return '<div class="tm' + (scs[i] != null && scs[i] === mx && mx > 0 ? ' win' : '') + (nm ? '' : ' ph') + '"><span><span class="lot">' + (s.lot != null && nm ? s.lot + '番' : '') + '</span>' +
+        return '<div class="tm' + (nm ? '' : ' ph') + '"><span><span class="lot">' + (s.lot != null && nm ? s.lot + '番' : '') + '</span>' +
           (nm ? teamName(nm) : '<span class="nm">抽選' + s.lot + '番のチーム</span>') + '</span><span class="sc">' + (scs[i] != null ? scs[i] + '点' : '') + '</span></div>';
       }).join('') + '</div></li>';
     });
@@ -642,7 +649,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/16-6';
+var VERSION = '11/16-7';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
@@ -674,14 +681,15 @@ function brokenBox(){
   var hs = health(); if (!hs.length) return '';
   return '<div class="broken" role="alert"><b>表示がずれている<wbr>おそれがあります</b><p>主催者の表の形が<wbr>変わったため、<wbr>このページが<wbr>正しく読めていない<wbr>可能性があります。<wbr>試合・コートは<wbr>大会チャットで<wbr>共有されている表と、<wbr>大会本部の案内で<wbr>確かめてください。</p><p class="s">（' + hs.map(esc).join('／') + '）</p></div>';
 }
-var FOOT = '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の表を<wbr>自動で読み込んで<wbr>表示しています。<wbr>正式な案内は<wbr>大会本部と、<wbr>大会チャットで<wbr>共有されている表で<wbr>確かめてください。</p>';
+function footHtml(){ return '<div class="footrow"><button class="thm" type="button" data-act="theme">' + (darkNow() ? '明るい画面にする' : '暗い画面にする') + '</button></div>' + '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の表を<wbr>自動で読み込んで<wbr>表示しています。<wbr>正式な案内は<wbr>大会本部と、<wbr>大会チャットで<wbr>共有されている表で<wbr>確かめてください。</p>'; }
 function render(){
   var view = document.getElementById('view');
   if (location.hash === '#debug'){ view.innerHTML = debugView(); return; }
   if (!M){ view.innerHTML = '<p class="empty">' + (lastFail ? '主催者のシートを<wbr>読み込めませんでした。<wbr>少し待って<wbr>「最新にする」を<wbr>押してください。<br>大会チャットで<wbr>共有されている表も<wbr>見られます。' : '読み込み中…') + '</p>'; return; }
   document.querySelectorAll('#tabs button').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)); });
   var html = S.tab === 'games' ? viewGames() : S.tab === 'rank' ? viewRank() : S.tab === 'venue' ? viewVenue() : viewMe();
-  view.innerHTML = brokenBox() + html + FOOT;
+  view.innerHTML = brokenBox() + html + footHtml();
+  view.querySelectorAll('.me').forEach(function(el){ var row = el.closest('tr, .mlist li'); if (row) row.classList.add('mine'); });
 }
 function setStamp(){
   var el = document.getElementById('stamp');
@@ -690,7 +698,11 @@ function setStamp(){
     el.className = 'stamp bad';
     el.textContent = '最新にできませんでした。' + (RAW.at ? clock(RAW.at) + '時点の内容を表示中。' : '') + '電波を確かめて、もう一度押してください。';
   } else if (RAW.miss && RAW.miss.length){ el.className = 'stamp bad'; el.textContent = clock(RAW.at) + ' 時点。表の一部（' + RAW.miss.map(function(k){ return { time:'時間割', rule:'ルール', yosen:'予選', honsen:'上位下位', entry:'エントリー' }[k]; }).join('・') + '）を読めませんでした。タブ名が変わった可能性があります。';
-  } else { el.className = 'stamp'; el.textContent = clock(RAW.at) + ' 時点のシートの内容（' + AUTO_SEC + '秒ごとに自動で更新）'; }
+  } else {
+    var age = Math.floor((Date.now() - RAW.at) / 60000);
+    if (age >= 3){ el.className = 'stamp bad'; el.textContent = (age >= 120 ? Math.floor(age / 60) + '時間以上前' : age + '分前') + 'に読んだ内容です。「最新にする」を押してください。'; }
+    else { el.className = 'stamp'; el.textContent = clock(RAW.at) + ' 時点の内容（約1分ごとに自動で更新）'; }
+  }
 }
 
 var cbn = 0;
@@ -719,6 +731,7 @@ function getTabScript(tab){
   });
 }
 var useScript = false, found = {};
+try { found = JSON.parse(localStorage.getItem('kgw4:tabs') || '{}') || {}; } catch(e){ found = {}; }
 function getOne(tab){
   if (useScript) return getTabScript(tab);
   return getTabFetch(tab).catch(function(){ useScript = true; return getTabScript(tab); });
@@ -736,16 +749,30 @@ function getTab(k){
   }
   return next(0);
 }
-function fetchAll(){
-  var keys = Object.keys(TABS);
-  return getTab(keys[0]).then(function(first){
-    var miss = [];
-    return Promise.all(keys.slice(1).map(function(k){ return getTab(k).catch(function(){ miss.push(k); return (RAW && RAW.grids && RAW.grids[k]) || []; }); })).then(function(rest){
-      var grids = {}; grids[keys[0]] = first; rest.forEach(function(g, i){ grids[keys[i + 1]] = g; });
+var ONCE = { rule: 1, entry: 1 }, SLOW = { time: 10 * 60 * 1000 }, gotAt = {};
+function fetchAll(force){
+  var old = (RAW && RAW.grids) || {}, now = Date.now();
+  var keys = Object.keys(TABS).filter(function(k){
+    if (!gotAt[k]) return true;
+    if (ONCE[k]) return false;
+    if (SLOW[k]) return force || now - gotAt[k] > SLOW[k];
+    return true;
+  });
+  var miss = (RAW && RAW.miss ? RAW.miss : []).filter(function(k){ return keys.indexOf(k) < 0; });
+  return getTab('yosen').then(function(first){
+    gotAt.yosen = Date.now();
+    return Promise.all(keys.filter(function(k){ return k !== 'yosen'; }).map(function(k){
+      return getTab(k).then(function(g){ gotAt[k] = Date.now(); return [k, g]; }, function(){ miss.push(k); return [k, old[k] || []]; });
+    })).then(function(rest){
+      var grids = {}; Object.keys(TABS).forEach(function(k){ grids[k] = old[k] || []; });
+      grids.yosen = first; rest.forEach(function(x){ grids[x[0]] = x[1]; });
+      try { localStorage.setItem('kgw4:tabs', JSON.stringify(found)); } catch(e){}
       return { at: Date.now(), grids: grids, miss: miss };
     });
   });
 }
+var lastSig = '', toastTimer = null;
+function toast(t){ var el = document.getElementById('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function(){ el.hidden = true; }, 3500); }
 function load(force){
   if (loading) return; loading = true;
   var btn = document.getElementById('reload'); btn.disabled = true; btn.textContent = '読み込み中…';
@@ -753,11 +780,16 @@ function load(force){
   var timer = setTimeout(function(){ if (finished) return; finished = true; done(null); }, 20000);
   function done(data){
     clearTimeout(timer); loading = false; btn.disabled = false; btn.textContent = '最新にする';
-    if (data && data.grids){ RAW = data; lastFail = false; M = build(RAW); try { localStorage.setItem('kgw4:last2', JSON.stringify(RAW)); } catch(e){} }
-    else lastFail = true;
+    if (data && data.grids){
+      var sig = JSON.stringify([data.grids.yosen, data.grids.honsen]);
+      if (lastSig && sig !== lastSig) toast('表が更新されました');
+      else if (force && lastSig) toast('変更なし（最新です）');
+      lastSig = sig;
+      RAW = data; lastFail = false; M = build(RAW); try { localStorage.setItem('kgw4:last2', JSON.stringify(RAW)); } catch(e){} }
+    else { lastFail = true; if (force) toast('読み込めませんでした'); }
     setStamp(); render();
   }
-  fetchAll().then(function(d){ if (finished) return; finished = true; done(d); }, function(){ if (finished) return; finished = true; done(null); });
+  fetchAll(force).then(function(d){ if (finished) return; finished = true; done(d); }, function(){ if (finished) return; finished = true; done(null); });
 }
 
 document.getElementById('reload').addEventListener('click', function(){ load(true); });
@@ -771,15 +803,15 @@ document.getElementById('view').addEventListener('click', function(e){
   if (b.dataset.team){ S.team = b.dataset.team; S.picking = false; store.set('team', S.team); render(); window.scrollTo(0, 0); }
   else if (b.dataset.act === 'repick'){ S.picking = true; render(); window.scrollTo(0, 0); }
   else if (b.dataset.round){ S.round = b.dataset.round; render(); }
+  else if (b.dataset.act === 'theme'){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); render(); }
 });
-setInterval(function(){ if (document.visibilityState === 'visible' && !S.picking) load(false); }, AUTO_SEC * 1000);
+setInterval(function(){ if (document.visibilityState === 'visible' && !S.picking) load(false); }, (AUTO_SEC + Math.floor(Math.random() * 12)) * 1000);
+setInterval(setStamp, 30000);
 document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible' && RAW && Date.now() - RAW.at > AUTO_SEC * 1000) load(false); });
 
 function darkNow(){ var t = document.documentElement.dataset.theme; if (t) return t === 'dark'; try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch(e){ return false; } }
-function paintTheme(){ var b = document.getElementById('theme'); var d = darkNow(); b.textContent = d ? '明るい画面に' : '暗い画面に'; b.setAttribute('aria-label', d ? '明るい画面に切り替える' : '暗い画面に切り替える'); }
-(function(){ var t = store.get('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; paintTheme(); })();
-document.getElementById('theme').addEventListener('click', function(){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); paintTheme(); });
-try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintTheme); } catch(e){}
+(function(){ var t = store.get('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; })();
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(){ render(); }); } catch(e){}
 
 (function(){ try { var c = JSON.parse(localStorage.getItem('kgw4:last2') || 'null'); if (c && c.grids){ RAW = c; M = build(c); } } catch(e){} })();
 setStamp(); render(); load(false);
