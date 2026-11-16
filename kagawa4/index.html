@@ -184,7 +184,13 @@ var ACCESS_IMG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBwg
 var SHEET_URL = 'https://docs.google.com/spreadsheets/d/1tVQ-083TG2PhEzD88uWkxlg3LeK5_JGKxglfnrk2cyM/edit';
 var HAS_GAS = false;
 var SHEET_ID = '1tVQ-083TG2PhEzD88uWkxlg3LeK5_JGKxglfnrk2cyM';
-var TABS = { time: ['タイムスケジュール\u3000\u3000試合概要', 'A1:K40'], rule: ['レギュレーション', 'A1:A40'], yosen: ['【予選】対戦表\u3000\u3000得点表', 'A1:AE60'], honsen: ['【上位下位】対戦表\u3000\u3000得点表', 'A1:AB130'], entry: ['エントリー情報', 'A1:B60'] };
+var TABS = {
+  time:   { names: ['タイムスケジュール\u3000/\u3000試合概要', 'タイムスケジュール\u3000\u3000試合概要', 'タイムスケジュール'], range: 'A1:K40', sign: 'タイムスケジュール' },
+  rule:   { names: ['レギュレーション'], range: 'A1:A40', sign: '基本ルール' },
+  yosen:  { names: ['【予選】対戦表\u3000/\u3000得点表', '【予選】対戦表\u3000\u3000得点表', '【予選】対戦表/得点表', '【予選】対戦表 / 得点表'], range: 'A1:AE60', sign: 'チーム名' },
+  honsen: { names: ['【上位下位】対戦表\u3000/\u3000得点表', '【上位下位】対戦表\u3000\u3000得点表', '【上位下位】対戦表/得点表', '【上位下位】対戦表 / 得点表'], range: 'A1:AB130', sign: '上位リーグ' },
+  entry:  { names: ['エントリー情報'], range: 'A1:B60', sign: 'チーム名' }
+};
 var DEMO = !!(BOOT && BOOT.demo);
 var AUTO_SEC = 60;
 
@@ -638,12 +644,13 @@ function setStamp(){
   if (lastFail || RAW.error){
     el.className = 'stamp bad';
     el.textContent = '最新にできませんでした。' + (RAW.at ? clock(RAW.at) + '時点の内容を表示中。' : '') + '電波を確かめて、もう一度押してください。';
+  } else if (RAW.miss && RAW.miss.length){ el.className = 'stamp bad'; el.textContent = clock(RAW.at) + ' 時点。表の一部（' + RAW.miss.map(function(k){ return { time:'時間割', rule:'ルール', yosen:'予選', honsen:'上位下位', entry:'エントリー' }[k]; }).join('・') + '）を読めませんでした。タブ名が変わった可能性があります。';
   } else { el.className = 'stamp'; el.textContent = clock(RAW.at) + ' 時点のシートの内容（' + AUTO_SEC + '秒ごとに自動で更新）'; }
 }
 
 var cbn = 0;
 function gvizUrl(tab, handler){
-  return 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?headers=0&sheet=' + encodeURIComponent(tab[0]) + '&range=' + tab[1] +
+  return 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?headers=0&sheet=' + encodeURIComponent(tab.name) + '&range=' + tab.range +
     '&tqx=' + encodeURIComponent('out:json' + (handler ? ';responseHandler:' + handler : '')) + '&_=' + Date.now();
 }
 function tableToGrid(res){
@@ -666,17 +673,31 @@ function getTabScript(tab){
     sc.src = gvizUrl(tab, name); document.head.appendChild(sc);
   });
 }
-var useScript = false;
-function getTab(tab){
+var useScript = false, found = {};
+function getOne(tab){
   if (useScript) return getTabScript(tab);
   return getTabFetch(tab).catch(function(){ useScript = true; return getTabScript(tab); });
 }
+function hasSign(g, sign){ return g.some(function(row){ return row.some(function(c){ return z(c).replace(/\s/g, '').indexOf(sign) >= 0; }); }); }
+/* the tab names have to match exactly; an unknown name silently returns the first tab, so check what came back */
+function getTab(k){
+  var t = TABS[k], list = found[k] ? [found[k]].concat(t.names.filter(function(n){ return n !== found[k]; })) : t.names.slice();
+  function next(i){
+    if (i >= list.length) return Promise.reject(new Error('tab ' + k));
+    return getOne({ name: list[i], range: t.range }).then(function(g){
+      if (hasSign(g, t.sign)){ found[k] = list[i]; return g; }
+      return next(i + 1);
+    }, function(e){ if (i + 1 < list.length) return next(i + 1); throw e; });
+  }
+  return next(0);
+}
 function fetchAll(){
   var keys = Object.keys(TABS);
-  return getTab(TABS[keys[0]]).then(function(first){
-    return Promise.all(keys.slice(1).map(function(k){ return getTab(TABS[k]).catch(function(){ return []; }); })).then(function(rest){
+  return getTab(keys[0]).then(function(first){
+    var miss = [];
+    return Promise.all(keys.slice(1).map(function(k){ return getTab(k).catch(function(){ miss.push(k); return (RAW && RAW.grids && RAW.grids[k]) || []; }); })).then(function(rest){
       var grids = {}; grids[keys[0]] = first; rest.forEach(function(g, i){ grids[keys[i + 1]] = g; });
-      return { at: Date.now(), grids: grids };
+      return { at: Date.now(), grids: grids, miss: miss };
     });
   });
 }
@@ -687,7 +708,7 @@ function load(force){
   var timer = setTimeout(function(){ if (finished) return; finished = true; done(null); }, 20000);
   function done(data){
     clearTimeout(timer); loading = false; btn.disabled = false; btn.textContent = '最新にする';
-    if (data && data.grids){ RAW = data; lastFail = false; M = build(RAW); try { localStorage.setItem('kgw4:last', JSON.stringify(RAW)); } catch(e){} }
+    if (data && data.grids){ RAW = data; lastFail = false; M = build(RAW); try { localStorage.setItem('kgw4:last2', JSON.stringify(RAW)); } catch(e){} }
     else lastFail = true;
     setStamp(); render();
   }
@@ -714,7 +735,7 @@ function paintTheme(){ var b = document.getElementById('theme'); var d = darkNow
 document.getElementById('theme').addEventListener('click', function(){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); paintTheme(); });
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintTheme); } catch(e){}
 
-(function(){ try { var c = JSON.parse(localStorage.getItem('kgw4:last') || 'null'); if (c && c.grids){ RAW = c; M = build(c); } } catch(e){} })();
+(function(){ try { var c = JSON.parse(localStorage.getItem('kgw4:last2') || 'null'); if (c && c.grids){ RAW = c; M = build(c); } } catch(e){} })();
 setStamp(); render(); load(false);
 </script>
 </body>
