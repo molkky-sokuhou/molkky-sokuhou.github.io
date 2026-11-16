@@ -148,6 +148,16 @@ tr.cut td{border-bottom:3px double var(--red)}
 .map .m-court.on rect{fill:#cf1f29}
 .map .m-court.on circle{fill:#cf1f29;stroke:#fff}
 .map .m-court.on text{fill:#fff}
+.map .m-court{cursor:pointer}
+.map .m-court.sel rect{stroke:#1e4fd6;stroke-width:4}
+.maphint{font-size:14px;color:var(--sub);margin:2px 0 0}
+.cinfo{border:2px solid var(--ink);background:var(--card);padding:10px 12px;margin:8px 0;border-radius:4px}
+.cinfo .h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cinfo .h b{font-size:17px;line-height:1.4}
+.cinfo .h span{display:block;font-size:14px;color:var(--sub);font-weight:400}
+.cinfo .x{min-height:44px;min-width:44px;border:1.5px solid var(--ink);background:transparent;border-radius:6px;font-size:15px;font-weight:700;flex:none}
+.cinfo .tm{padding:3px 0}
+.minelabel{font-size:14px;font-weight:800;color:var(--red);margin:10px 0 0}
 .map .m-here{font-size:14px;font-weight:800;fill:#cf1f29}
 .mapwrap{background:#fff;border:2px solid var(--ink);padding:4px;margin:8px 0}
 .access{width:100%;height:auto;display:block;border:2px solid var(--ink)}
@@ -211,7 +221,7 @@ var store = {
   set: function(k, v){ try { localStorage.setItem('kgw4:' + k, v); } catch(e){} }
 };
 var RAW = BOOT, M = null, loading = false, lastFail = false;
-var S = { tab: store.get('tab') || 'me', team: store.get('team') || '', round: null, picking: false };
+var S = { court: null, tab: store.get('tab') || 'me', team: store.get('team') || '', round: null, picking: false };
 
 /* ---------- small helpers ---------- */
 function z(s){ return String(s == null ? '' : s).replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/：/g, ':').replace(/　/g, ' ').trim(); }
@@ -394,6 +404,39 @@ var ROUNDS = [
   { k:'lf', g:'下位', s:'決勝', full:'下位トーナメント 決勝' }
 ];
 function roundInfo(k){ return ROUNDS.find(function(x){ return x.k === k; }); }
+function sameTimeKeys(k){
+  var t = timeOf(k); if (!t) return [k];
+  return ROUNDS.filter(function(r){ var x = timeOf(r.k); return x && x.start === t.start; }).map(function(r){ return r.k; });
+}
+function matchOnCourt(c){
+  var keys = sameTimeKeys(autoRound()), Y = M.Y, H = M.H;
+  for (var i = 0; i < keys.length; i++){
+    var k = keys[i], teams = null;
+    if (k.charAt(0) === 'q'){
+      var r = +k.charAt(1), m = Y.matches.find(function(x){ return x.round === r && x.court === c; });
+      if (m) teams = m.slots.map(function(sl){ var sc = sl.team ? sl.team.sc[r - 1] : null; return { name: sl.name || ('抽選' + sl.lot + '番のチーム'), ph: !sl.name, sc: sc != null ? sc + '点' : '' }; });
+    } else if (k === 'u1'){
+      var p = H.u1.find(function(x){ return x.court === c; });
+      if (p) teams = p.t.map(function(x){ return { name: x.name || ('予選' + x.seed + '位'), ph: !x.name, sc: (x.wins != null ? x.wins + '勝 ' : '') + (x.total != null ? x.total + '点' : '') }; });
+    } else if (k === 'l1'){
+      var gp = H.l1.find(function(x){ return x.court === c; });
+      if (gp) teams = gp.t.map(function(x){ return { name: x.name || ('予選' + x.seed + '位'), ph: !x.name, sc: '' }; });
+    } else {
+      var lm = ({ u2: U2, u3: U3, u4: U4, uf: UF, l2: L2, lf: LF }[k] || []).find(function(x){ return x.c === c; });
+      if (lm) teams = [lm.a, lm.b].map(function(ref){ var x = resolve(ref); return { name: x.name || x.ph, ph: !x.name, sc: '' }; });
+    }
+    if (teams) return { k: k, teams: teams };
+  }
+  return { k: keys[0], teams: null };
+}
+function courtInfo(){
+  if (!S.court || !M) return '';
+  var c = S.court, r = matchOnCourt(c), ri = roundInfo(r.k);
+  var h = '<div class="cinfo"><div class="h"><b>コート' + circ(c) + '<span>' + esc(ri.full) + '　' + esc(timeText(r.k)) + '</span></b><button class="x" type="button" data-act="closecourt" aria-label="閉じる">閉じる</button></div>';
+  if (!r.teams) h += '<p class="note">この時間、<wbr>このコートでの<wbr>試合はありません。</p>';
+  else h += r.teams.map(function(x){ return '<div class="tm' + (x.ph ? ' ph' : '') + '"><span>' + (x.ph ? '<span class="nm">' + esc(x.name) + '</span>' : teamName(x.name)) + '</span><span class="sc">' + esc(x.sc) + '</span></div>'; }).join('');
+  return h + '</div>';
+}
 function autoRound(){
   var now = nowMin(), best = null;
   ROUNDS.forEach(function(r){ var t = timeOf(r.k); if (!t || t.start == null) return;
@@ -477,7 +520,7 @@ function courtMap(hi){
   s += '<text x="191" y="60" text-anchor="middle" class="m-lbl">屋内ゲートボール場</text>';
   for (var c = 1; c <= 12; c++){
     var p = pos[c], on = hi.indexOf(c) >= 0;
-    s += '<g class="m-court' + (alt[c] ? ' alt' : '') + (on ? ' on' : '') + '"><rect x="' + p.x + '" y="' + p.y + '" width="42" height="74"/>' +
+    s += '<g class="m-court' + (alt[c] ? ' alt' : '') + (on ? ' on' : '') + (S.court === c ? ' sel' : '') + '" data-court="' + c + '" role="button" aria-label="コート' + c + 'の試合を見る"><rect x="' + p.x + '" y="' + p.y + '" width="42" height="74"/>' +
       '<circle cx="' + (p.x + 21) + '" cy="' + (p.y + 37) + '" r="15"/><text x="' + (p.x + 21) + '" y="' + (p.y + 43) + '" text-anchor="middle">' + c + '</text></g>';
   }
   s += '<rect x="350" y="20" width="46" height="34" class="m-room"/><text x="373" y="42" text-anchor="middle" class="m-sm">自販機</text>';
@@ -488,7 +531,7 @@ function courtMap(hi){
   s += '<rect x="4" y="206" width="34" height="34" class="m-room"/><text x="21" y="228" text-anchor="middle" class="m-sm">倉庫</text>';
   s += '<text x="191" y="280" text-anchor="middle" class="m-lbl">観戦エリア</text>';
   s += '</svg>';
-  return '<div class="mapwrap">' + s + '</div>';
+  return '<div class="mapwrap">' + s + '</div><p class="maphint">コートを押すと、<wbr>そのコートの<wbr>いまの試合が出ます。</p>' + courtInfo();
 }
 
 /* ---------- views ---------- */
@@ -649,7 +692,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/16-7';
+var VERSION = '11/16-8';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
@@ -690,6 +733,7 @@ function render(){
   var html = S.tab === 'games' ? viewGames() : S.tab === 'rank' ? viewRank() : S.tab === 'venue' ? viewVenue() : viewMe();
   view.innerHTML = brokenBox() + html + footHtml();
   view.querySelectorAll('.me').forEach(function(el){ var row = el.closest('tr, .mlist li'); if (row) row.classList.add('mine'); });
+  if (S.tab === 'games'){ var li = view.querySelector('.mlist li.mine'); if (li){ var ul = li.parentNode; ul.insertBefore(li, ul.firstChild); var lab = document.createElement('p'); lab.className = 'minelabel'; lab.textContent = 'あなたのチームの試合'; ul.parentNode.insertBefore(lab, ul); } }
 }
 function setStamp(){
   var el = document.getElementById('stamp');
@@ -796,12 +840,15 @@ document.getElementById('reload').addEventListener('click', function(){ load(tru
 window.addEventListener('hashchange', render);
 document.getElementById('tabs').addEventListener('click', function(e){
   var b = e.target.closest('button'); if (!b) return;
-  S.tab = b.dataset.tab; store.set('tab', S.tab); S.picking = false; render(); window.scrollTo(0, 0);
+  S.tab = b.dataset.tab; store.set('tab', S.tab); S.picking = false; S.court = null; render(); window.scrollTo(0, 0);
 });
 document.getElementById('view').addEventListener('click', function(e){
+  var g = e.target.closest('[data-court]');
+  if (g){ var c = +g.getAttribute('data-court'); S.court = S.court === c ? null : c; var y = window.scrollY; render(); window.scrollTo(0, y); return; }
   var b = e.target.closest('button'); if (!b) return;
   if (b.dataset.team){ S.team = b.dataset.team; S.picking = false; store.set('team', S.team); render(); window.scrollTo(0, 0); }
   else if (b.dataset.act === 'repick'){ S.picking = true; render(); window.scrollTo(0, 0); }
+  else if (b.dataset.act === 'closecourt'){ S.court = null; render(); }
   else if (b.dataset.round){ S.round = b.dataset.round; render(); }
   else if (b.dataset.act === 'theme'){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); render(); }
 });
