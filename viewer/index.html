@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>大会速報ビューア</title>
+<style>
+:root{--paper:#f4f4ef;--card:#fff;--ink:#1c1c1a;--sub:#55554f;--soft:#d6d6ce;--red:#cf1f29;--blue:#1e4fd6;--mark:#ffe95c;--warn:#b54a00;--head:#e9e9e1}
+:root[data-theme="dark"]{--paper:#121314;--card:#1b1c1e;--ink:#eeeee8;--sub:#a8a8a1;--soft:#3a3b3e;--red:#ff5d64;--blue:#8aa8ff;--mark:#6d5f00;--warn:#ffad6b;--head:#26272a}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--paper:#121314;--card:#1b1c1e;--ink:#eeeee8;--sub:#a8a8a1;--soft:#3a3b3e;--red:#ff5d64;--blue:#8aa8ff;--mark:#6d5f00;--warn:#ffad6b;--head:#26272a}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.7 system-ui,-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;word-break:keep-all;overflow-wrap:anywhere}
+button,input,textarea{font:inherit;color:inherit}
+a{color:var(--blue)}
+header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:3px solid var(--ink);padding:8px 14px}
+.pre{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;color:var(--sub);font-weight:600}
+.unoff{display:inline-block;font-size:14px;font-weight:800;border:1.5px solid currentColor;border-radius:3px;padding:0 6px;line-height:1.6}
+.thm{position:relative;flex:none;height:32px;padding:0 10px;border:1.5px solid var(--ink);background:var(--card);border-radius:16px;font-size:14px;font-weight:700}
+.thm::after{content:"";position:absolute;inset:-6px 0}
+.ttl{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}
+.ttl h1{margin:0;font-size:19px;line-height:1.35}
+#reload{flex:none;min-height:44px;padding:0 14px;border:2px solid var(--ink);background:var(--card);font-weight:700;font-size:15px;border-radius:6px}
+#reload[disabled]{opacity:.55}
+.stamp{margin-top:4px;font-size:14px;color:var(--sub);line-height:1.5}
+.stamp.bad{color:var(--warn);font-weight:700}
+main{padding:6px 14px 40px;max-width:900px;margin:0 auto}
+h2{font-size:19px;margin:20px 0 8px;line-height:1.4}
+.lead{color:var(--sub);font-size:15px;margin:0 0 10px}
+.note{font-size:15px;color:var(--sub);margin:6px 0}
+
+.teambar{display:flex;gap:8px;align-items:center;margin:10px 0 4px}
+.teambar input{flex:1;min-width:0;min-height:46px;padding:6px 10px;border:2px solid var(--ink);border-radius:6px;background:var(--card);font-size:16px}
+.teambar button{flex:none;min-height:46px;padding:0 12px;border:2px solid var(--ink);border-radius:6px;background:var(--card);font-weight:700;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 6px}
+.chip{min-height:44px;padding:0 14px;border:1.5px solid var(--ink);border-radius:22px;background:var(--card);font-size:15px;font-weight:600}
+.chip.on{background:var(--ink);color:var(--paper)}
+.chip.mine{border-color:var(--red);color:var(--red);font-weight:800}
+.chip.mine.on{background:var(--red);color:#fff}
+
+.cap{font-size:15px;color:var(--sub);margin:8px 0 4px;line-height:1.6}
+.wrap{overflow:auto;max-height:75vh;border:2px solid var(--ink);background:var(--card);-webkit-overflow-scrolling:touch}
+table{border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:15px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--soft);border-right:1px solid var(--soft);white-space:nowrap;line-height:1.45;text-align:left;vertical-align:top}
+td.num{text-align:right}
+thead th{position:sticky;top:0;z-index:2;background:var(--head);font-weight:700;border-bottom:2px solid var(--ink);white-space:pre;overflow-wrap:normal}
+td{overflow-wrap:normal}
+tbody td:first-child,thead th:first-child{position:sticky;left:0;z-index:1;background:var(--card);font-weight:700}
+thead th:first-child{z-index:3;background:var(--head)}
+td.hit{background:var(--mark)!important;font-weight:800}
+tr.hitrow td{background:color-mix(in srgb,var(--mark) 30%,var(--card))}
+.mineblock{margin:14px 0}
+.mineblock h3{font-size:17px;margin:0 0 6px}
+.empty{padding:20px 0;color:var(--sub)}
+.foot{margin:24px 0 0;padding-top:10px;border-top:1px solid var(--soft);font-size:14px;color:var(--sub);line-height:1.6}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:7;background:var(--ink);color:var(--paper);font-size:15px;font-weight:700;padding:10px 16px;border-radius:6px;width:max-content;max-width:92vw;text-align:center}
+
+/* setup */
+.setup label{display:block;font-weight:700;margin:14px 0 6px}
+.setup input[type=text],.setup textarea{width:100%;min-height:48px;padding:8px 10px;border:2px solid var(--ink);border-radius:6px;background:var(--card);font-size:16px}
+.setup textarea{min-height:110px}
+.big{display:block;width:100%;min-height:52px;margin:14px 0 0;border:2px solid var(--ink);border-radius:6px;background:var(--ink);color:var(--paper);font-weight:800;font-size:17px}
+.big.sub2{background:var(--card);color:var(--ink)}
+.tablist{list-style:none;margin:6px 0;padding:0;border-top:2px solid var(--ink)}
+.tablist li{border-bottom:1px solid var(--soft)}
+.tablist label{display:flex;align-items:center;gap:12px;min-height:52px;margin:0;font-weight:600}
+.tablist input{width:24px;height:24px;flex:none}
+.tablist span.s{font-size:14px;color:var(--sub);font-weight:400}
+.out{border:2px solid var(--ink);background:var(--card);padding:10px;margin:12px 0;word-break:break-all;font-size:15px}
+.err{color:var(--warn);font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <div class="pre"><span><span class="unoff">非公式の速報</span></span><button id="thm" class="thm" type="button"></button></div>
+  <div class="ttl"><h1 id="title">大会速報ビューア</h1><button id="reload" type="button" hidden>最新にする</button></div>
+  <div class="stamp" id="stamp" hidden></div>
+</header>
+<main id="view"></main>
+<div id="toast" role="status" hidden></div>
+<script>
+var VERSION = '11/17-2';
+var store = { get: function(k){ try { return localStorage.getItem('sv:' + k); } catch(e){ return null; } }, set: function(k, v){ try { localStorage.setItem('sv:' + k, v); } catch(e){} } };
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function z(s){ return String(s == null ? '' : s).replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/　/g, ' ').trim(); }
+function key(s){ return z(s).replace(/\s+/g, '').toLowerCase(); }
+function clean(s){ s = String(s == null ? '' : s).trim(); return /^#(N\/A|REF!|VALUE!|DIV\/0!|NAME\?|ERROR!|NUM!|NULL!)/.test(s) ? '' : s; }
+function isNum(s){ return /^-?[\d,]+(\.\d+)?$/.test(z(s)); }
+function clock(ms){ var d = new Date(ms); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0'); }
+var toastT = null;
+function toast(t){ var el = document.getElementById('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function(){ el.hidden = true; }, 3500); }
+
+/* ---------- theme ---------- */
+function darkNow(){ var t = document.documentElement.dataset.theme; if (t) return t === 'dark'; try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch(e){ return false; } }
+function paintTheme(){ var b = document.getElementById('thm'), d = darkNow(); b.textContent = d ? '☀ 明るく' : '☾ 暗く'; b.setAttribute('aria-label', d ? '明るい画面に切り替える' : '暗い画面に切り替える'); }
+(function(){ var t = store.get('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; paintTheme(); })();
+document.getElementById('thm').addEventListener('click', function(){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); paintTheme(); });
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintTheme); } catch(e){}
+
+/* ---------- settings live in the link: ?s=<sheet>&t=<title>&tabs=<a|b|c> ---------- */
+var Q = new URLSearchParams(location.search);
+function enc(id){ try { return btoa(unescape(encodeURIComponent(id.split('').reverse().join('')))).replace(/=+$/, ''); } catch(e){ return id; } }
+function dec(s){ try { return decodeURIComponent(escape(atob(s))).split('').reverse().join(''); } catch(e){ return ''; } }
+var CFG = { id: Q.get('s') ? dec(Q.get('s')) : '', title: Q.get('t') || '', tabs: Q.get('tabs') ? Q.get('tabs').split('|').filter(Boolean) : [] };
+function sheetIdFrom(text){ var m = String(text).match(/\/d\/([A-Za-z0-9_-]{20,})/); if (m) return m[1]; m = String(text).trim().match(/^[A-Za-z0-9_-]{25,}$/); return m ? m[0] : ''; }
+
+/* ---------- reading Google Sheets ---------- */
+var cbn = 0, useScript = false;
+function gvizUrl(id, tab, handler){
+  return 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?headers=0' + (tab != null ? '&sheet=' + encodeURIComponent(tab) : '') +
+    '&tqx=' + encodeURIComponent('out:json' + (handler ? ';responseHandler:' + handler : '')) + '&_=' + Date.now();
+}
+function toGrid(res){
+  if (!res || res.status === 'error' || !res.table) throw new Error('read');
+  return (res.table.rows || []).map(function(r){ return (r.c || []).map(function(c){ if (!c) return ''; var x = c.f != null ? c.f : c.v; return x == null ? '' : String(x); }); });
+}
+function byFetch(id, tab){
+  return fetch(gvizUrl(id, tab), { cache: 'no-store' }).then(function(r){ if (!r.ok) throw new Error('http'); return r.text(); })
+    .then(function(t){ return toGrid(JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1))); });
+}
+function byScript(id, tab){
+  return new Promise(function(ok, ng){
+    var name = '__sv' + (++cbn), sc = document.createElement('script');
+    var tm = setTimeout(function(){ done(); ng(new Error('timeout')); }, 15000);
+    function done(){ clearTimeout(tm); try { delete window[name]; } catch(e){} sc.remove(); }
+    window[name] = function(res){ done(); try { ok(toGrid(res)); } catch(e){ ng(e); } };
+    sc.onerror = function(){ done(); ng(new Error('script')); };
+    sc.src = gvizUrl(id, tab, name); document.head.appendChild(sc);
+  });
+}
+function readTab(id, tab){ if (useScript) return byScript(id, tab); return byFetch(id, tab).catch(function(){ useScript = true; return byScript(id, tab); }); }
+
+/* tab names: the whole file as .xlsx gives them (the sheet's own list); used only while setting up */
+function loadXlsxLib(){
+  if (window.XLSX) return Promise.resolve();
+  return new Promise(function(ok, ng){ var s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = ok; s.onerror = ng; document.head.appendChild(s); });
+}
+function fetchBook(id){
+  return loadXlsxLib().then(function(){ return fetch('https://docs.google.com/spreadsheets/d/' + id + '/export?format=xlsx', { cache: 'no-store' }); })
+    .then(function(r){ if (!r.ok) throw new Error('http'); return r.arrayBuffer(); }).then(function(buf){ return XLSX.read(buf, { type: 'array' }); });
+}
+function bookGrid(wb, name){ var ws = wb.Sheets[name]; return ws && ws['!ref'] ? XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }).map(function(r){ return r.map(String); }) : []; }
+/* the quick reader (gviz) drops words in a column that is mostly numbers, and the reverse;
+   fill those holes from the full file read once when the page opens */
+var BASE = null;
+function patch(g, b){
+  if (!b) return g;
+  return g.map(function(r, i){ return r.map(function(x, j){ var y = b[i] && b[i][j]; return x === '' && y && !isNum(y) ? y : x; }); });
+}
+function discover(id){
+  return fetchBook(id).then(function(wb){
+    var hidden = {}; ((wb.Workbook && wb.Workbook.Sheets) || []).forEach(function(s){ if (s.Hidden) hidden[s.name] = 1; });
+    return wb.SheetNames.map(function(n){
+      var rows = bookGrid(wb, n);
+      var filled = rows.reduce(function(a, r){ return a + r.filter(function(c){ return clean(c) !== ''; }).length; }, 0);
+      return { name: n, hidden: !!hidden[n], filled: filled };
+    });
+  });
+}
+var WORK = /集計|計算|収集|作業|設定|マスタ|master|calc|work|data|ﾃﾞｰﾀ|裏|リスト用|入力用|フォーム|form/i;
+
+/* ---------- making a sheet readable ---------- */
+function tidy(g){
+  g = (g || []).map(function(r){ return r.map(clean); });
+  var w = g.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
+  g = g.map(function(r){ while (r.length < w) r.push(''); return r; });
+  g = g.filter(function(r){ return r.some(function(c){ return c !== ''; }); });
+  if (!g.length) return { cap: [], head: null, rows: [] };
+  var keep = [];
+  for (var c = 0; c < w; c++) if (g.some(function(r){ return r[c] !== ''; })) keep.push(c);
+  g = g.map(function(r){ return keep.map(function(c){ return r[c]; }); });
+  /* drop columns whose every value repeats the cell to their left (merged cells) */
+  var cols = g[0].length, drop = {};
+  for (c = 1; c < cols; c++){ if (g.every(function(r){ return r[c] === '' || r[c] === r[c - 1]; }) && g.some(function(r){ return r[c] !== ''; })) drop[c] = 1; }
+  g = g.map(function(r){ return r.filter(function(x, i){ return !drop[i]; }); });
+  /* header: the first early row that is mostly words and fairly full */
+  var n = g[0].length, hi = -1;
+  for (var r = 0; r < Math.min(8, g.length); r++){
+    var f = g[r].filter(function(x){ return x !== ''; }), words = f.filter(function(x){ return !isNum(x); });
+    if (f.length >= Math.max(2, n * 0.4) && words.length >= f.length * 0.7){ hi = r; break; }
+  }
+  var cap = [], head = null;
+  if (hi >= 0){ cap = g.slice(0, hi).map(function(r){ return r.filter(Boolean).filter(function(x, i, a){ return a.indexOf(x) === i; }).join('　'); }).filter(Boolean); head = g[hi]; g = g.slice(hi + 1); }
+  return { cap: cap, head: head, rows: g };
+}
+function hitCell(x, t){ return t && key(x) && key(x).indexOf(t) >= 0 && t.length >= 2; }
+function tableHtml(T, team, onlyHits){
+  var t = key(team), rows = T.rows;
+  if (onlyHits) rows = rows.filter(function(r){ return r.some(function(x){ return hitCell(x, t); }); });
+  if (!rows.length) return '';
+  var h = '<div class="wrap"><table>';
+  if (T.head) h += '<thead><tr>' + T.head.map(function(x){ return '<th scope="col">' + esc(x) + '</th>'; }).join('') + '</tr></thead>';
+  h += '<tbody>' + rows.map(function(r){
+    var any = r.some(function(x){ return hitCell(x, t); });
+    return '<tr' + (any ? ' class="hitrow"' : '') + '>' + r.map(function(x){ return '<td class="' + (isNum(x) ? 'num' : '') + (hitCell(x, t) ? ' hit' : '') + '">' + esc(x) + '</td>'; }).join('') + '</tr>';
+  }).join('') + '</tbody></table></div>';
+  return h;
+}
+
+/* ---------- participant view ---------- */
+var RAWG = null, DATA = {}, AT = 0, FAIL = false, loading = false, sig = '';
+var S = { tab: store.get('tab:' + CFG.id) || '', team: store.get('team:' + CFG.id) || '' };
+function loadAll(force){
+  if (loading) return; loading = true;
+  var btn = document.getElementById('reload'); btn.disabled = true; btn.textContent = '読み込み中…';
+  var tabs = CFG.tabs.length ? CFG.tabs : [null], miss = 0;
+  Promise.all(tabs.map(function(tb){ return readTab(CFG.id, tb).catch(function(){ miss++; return null; }); })).then(function(gs){
+    loading = false; btn.disabled = false; btn.textContent = '最新にする';
+    if (miss === tabs.length){ FAIL = true; if (force) toast('読み込めませんでした'); }
+    else {
+      RAWG = gs;
+      var nd = {}; tabs.forEach(function(tb, i){ nd[tb == null ? 'シート' : tb] = gs[i] ? tidy(patch(gs[i], BASE && BASE[tb])) : (DATA[tb] || { cap: [], head: null, rows: [] }); });
+      var ns = JSON.stringify(gs);
+      if (sig && ns !== sig) toast('表が更新されました'); else if (force && sig) toast('変更なし（最新です）');
+      sig = ns; DATA = nd; AT = Date.now(); FAIL = miss > 0;
+    }
+    stamp(); render();
+  });
+}
+function stamp(){
+  var el = document.getElementById('stamp'); el.hidden = false;
+  if (!AT){ el.className = 'stamp' + (FAIL ? ' bad' : ''); el.textContent = FAIL ? '表を読み込めませんでした。電波を確かめて「最新にする」を押してください。' : '読み込み中…'; return; }
+  var age = Math.floor((Date.now() - AT) / 60000);
+  if (FAIL){ el.className = 'stamp bad'; el.textContent = '一部の表を読めませんでした。' + clock(AT) + ' 時点の内容です。'; }
+  else if (age >= 3){ el.className = 'stamp bad'; el.textContent = age + '分前に読んだ内容です。「最新にする」を押してください。'; }
+  else { el.className = 'stamp'; el.textContent = clock(AT) + ' 時点の内容（約1分ごとに自動で更新）'; }
+}
+function render(){
+  var v = document.getElementById('view'), names = Object.keys(DATA);
+  if (!names.length){ v.innerHTML = '<p class="empty">' + (FAIL ? '表を読み込めませんでした。<wbr>少し待って<wbr>「最新にする」を<wbr>押してください。' : '読み込み中…') + '</p>'; return; }
+  var t = key(S.team);
+  if (S.tab !== '__mine' && names.indexOf(S.tab) < 0) S.tab = t ? '__mine' : names[0];
+  var h = '<div class="teambar"><input id="team" type="search" placeholder="チーム名を入れると色が付きます" value="' + esc(S.team) + '" enterkeyhint="done" aria-label="自分のチーム名"><button type="button" data-act="clear">消す</button></div>';
+  h += '<div class="chips">' + (t.length >= 2 ? '<button type="button" class="chip mine' + (S.tab === '__mine' ? ' on' : '') + '" data-tab="__mine">自分のチームだけ</button>' : '') +
+    names.map(function(n){ return '<button type="button" class="chip' + (S.tab === n ? ' on' : '') + '" data-tab="' + esc(n) + '">' + esc(n) + '</button>'; }).join('') + '</div>';
+  if (S.tab === '__mine'){
+    var blocks = names.map(function(n){ var x = tableHtml(DATA[n], S.team, true); return x ? '<div class="mineblock"><h3>' + esc(n) + '</h3>' + x + '</div>' : ''; }).join('');
+    h += blocks || '<p class="empty">「' + esc(S.team) + '」が<wbr>出てくる行は<wbr>まだありません。<wbr>名前の一部だけでも<wbr>探せます。</p>';
+  } else {
+    var T = DATA[S.tab];
+    if (T.cap.length) h += '<div class="cap">' + T.cap.map(esc).join('<br>') + '</div>';
+    h += tableHtml(T, S.team, false) || '<p class="empty">このタブは<wbr>まだ空です。</p>';
+    h += '<p class="note">表は横に<wbr>スクロールできます。</p>';
+  }
+  h += '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の表を<wbr>自動で読み込んで<wbr>表示しています。<wbr>正式な案内は<wbr>大会本部で<wbr>確かめてください。<br>版 ' + VERSION + '</p>';
+  var y = window.scrollY, act = document.activeElement && document.activeElement.id === 'team';
+  v.innerHTML = h; window.scrollTo(0, y);
+  if (act){ var i = document.getElementById('team'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+}
+function startViewer(){
+  document.getElementById('title').textContent = CFG.title || '大会速報';
+  document.title = (CFG.title || '大会速報') + '（非公式の速報）';
+  document.getElementById('reload').hidden = false;
+  document.getElementById('reload').addEventListener('click', function(){ loadAll(true); });
+  var v = document.getElementById('view');
+  v.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.tab){ S.tab = b.dataset.tab; store.set('tab:' + CFG.id, S.tab); render(); }
+    else if (b.dataset.act === 'clear'){ S.team = ''; store.set('team:' + CFG.id, ''); if (S.tab === '__mine') S.tab = ''; render(); }
+  });
+  var tm = null;
+  v.addEventListener('input', function(e){ if (e.target.id !== 'team') return; S.team = e.target.value; store.set('team:' + CFG.id, S.team); clearTimeout(tm); tm = setTimeout(render, 350); });
+  render(); loadAll(false);
+  /* in the background: the full file, to fill words the quick reader drops */
+  setTimeout(function(){
+    fetchBook(CFG.id).then(function(wb){
+      BASE = {}; CFG.tabs.forEach(function(t){ BASE[t] = bookGrid(wb, t); });
+      if (RAWG){ CFG.tabs.forEach(function(t, i){ if (RAWG[i]) DATA[t] = tidy(patch(RAWG[i], BASE[t])); }); render(); }
+    }, function(){});
+  }, 1500);
+  setInterval(function(){ if (document.visibilityState === 'visible' && !(document.activeElement && document.activeElement.id === 'team')) loadAll(false); }, (60 + Math.floor(Math.random() * 12)) * 1000);
+  setInterval(stamp, 30000);
+}
+
+/* ---------- setup (for the person who shares the page) ---------- */
+function startSetup(){
+  var v = document.getElementById('view');
+  v.innerHTML = '<div class="setup"><h2>大会の表から<wbr>速報ページを作る</h2>' +
+    '<p class="lead">主催者が<wbr>参加者向けに共有した<wbr>Googleスプレッドシートの<wbr>URLを貼ってください。<wbr>シートは<wbr>「リンクを知っている全員が<wbr>閲覧可」に<wbr>なっている必要があります。</p>' +
+    '<label for="u">スプレッドシートのURL</label><input id="u" type="text" inputmode="url" autocomplete="off" placeholder="https://docs.google.com/spreadsheets/d/…">' +
+    '<button class="big" type="button" id="go">読み込む</button><div id="st"></div></div>';
+  document.getElementById('go').addEventListener('click', function(){
+    var id = sheetIdFrom(document.getElementById('u').value), st = document.getElementById('st');
+    if (!id){ st.innerHTML = '<p class="err">URLが読み取れません。<wbr>スプレッドシートのURLを<wbr>そのまま貼ってください。</p>'; return; }
+    st.innerHTML = '<p class="note">タブの一覧を<wbr>読み込んでいます…</p>';
+    discover(id).then(function(list){ pickTabs(id, list, ''); }, function(){
+      /* could not get the list: at least check the sheet can be read */
+      readTab(id, null).then(function(){ pickTabs(id, null, 'タブの一覧を自動で読めませんでした。見せたいタブの名前を、1行に1つずつ入れてください（シートの下に出ている名前のとおりに）。'); },
+        function(){ st.innerHTML = '<p class="err">シートを読めませんでした。<wbr>共有の設定が<wbr>「リンクを知っている全員」に<wbr>なっているか、<wbr>URLが正しいかを<wbr>確かめてください。</p>'; });
+    });
+  });
+}
+function pickTabs(id, list, msg){
+  var st = document.getElementById('st'), h = '';
+  if (list){
+    h += '<label>参加者に見せるタブ</label><p class="note">作業用や集計用に見えるタブは、<wbr>はじめから外しています。</p><ul class="tablist">' + list.map(function(t, i){
+      var off = t.hidden || !t.filled || WORK.test(t.name);
+      return '<li><label><input type="checkbox" data-i="' + i + '"' + (off ? '' : ' checked') + '>' + esc(t.name) + (t.hidden ? '<span class="s">（非表示のタブ）</span>' : !t.filled ? '<span class="s">（空）</span>' : '') + '</label></li>';
+    }).join('') + '</ul>';
+  } else h += '<p class="err">' + esc(msg) + '</p><label for="tn">タブの名前</label><textarea id="tn"></textarea>';
+  h += '<label for="tt">ページの名前（大会名）</label><input id="tt" type="text" placeholder="例：第4回 モルック〇〇大会">';
+  h += '<button class="big" type="button" id="mk">参加者に送るURLを作る</button><div id="res"></div>';
+  st.innerHTML = h;
+  document.getElementById('mk').addEventListener('click', function(){
+    var tabs = list ? Array.prototype.slice.call(st.querySelectorAll('input[type=checkbox]:checked')).map(function(c){ return list[+c.dataset.i].name; })
+      : document.getElementById('tn').value.split('\n').map(function(x){ return x.trim(); }).filter(Boolean);
+    var res = document.getElementById('res');
+    if (!tabs.length){ res.innerHTML = '<p class="err">見せるタブを<wbr>1つ以上<wbr>選んでください。</p>'; return; }
+    var p = new URLSearchParams(); p.set('s', enc(id)); var tt = document.getElementById('tt').value.trim(); if (tt) p.set('t', tt); p.set('tabs', tabs.join('|'));
+    var url = location.origin + location.pathname + '?' + p.toString();
+    res.innerHTML = '<label>参加者に送るURL</label><div class="out" id="url">' + esc(url) + '</div>' +
+      '<button class="big" type="button" id="cp">URLをコピー</button><a class="big sub2" style="display:flex;align-items:center;justify-content:center;text-decoration:none" href="' + esc(url) + '" target="_blank" rel="noopener">開いて確かめる</a>' +
+      '<p class="note">このURLを<wbr>LINEなどで送れば、<wbr>参加者はログインなしで<wbr>見られます。<wbr>大会が終わったら<wbr>このURLは<wbr>使わないでください<wbr>（シートの共有を<wbr>主催者が止めれば<wbr>見られなくなります）。</p>';
+    document.getElementById('cp').addEventListener('click', function(){
+      var b = this; function ok(){ b.textContent = 'コピーしました'; setTimeout(function(){ b.textContent = 'URLをコピー'; }, 2500); }
+      try { navigator.clipboard.writeText(url).then(ok, function(){ sel(); }); } catch(e){ sel(); }
+      function sel(){ var r = document.createRange(); r.selectNodeContents(document.getElementById('url')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = '選んだ文字を長押しでコピー'; }
+    });
+  });
+}
+
+if (CFG.id) startViewer(); else startSetup();
+</script>
+</body>
+</html>
