@@ -159,6 +159,22 @@ tr.cut td{border-bottom:3px double var(--red)}
 .map .m-ku{fill:#c9daf6;stroke:#1c1c1a} .map .m-kl{fill:#f3c9cc;stroke:#1c1c1a}
 .band{margin:8px -14px -8px;padding:8px 14px 9px;background:var(--ink);color:var(--paper);line-height:1.5}
 .band .b1{font-size:17px;font-weight:800}
+.band .b1,.band .b2{white-space:nowrap;overflow:hidden}
+.band .mq{display:inline-block;padding-right:3em}
+.band .track{display:inline-block;white-space:nowrap}
+.band .run .track{animation:mq var(--dur,12s) linear infinite;animation-delay:1.5s}
+.band.paused .track{animation-play-state:paused}
+@keyframes mq{0%{transform:translateX(0)}100%{transform:translateX(var(--dist,-100%))}}
+.band.wait{background:#b54a00;color:#fff}
+.band.wait .b2{color:#fff}
+.band.flash{animation:fl 1s ease-in-out 3}
+@keyframes fl{0%,100%{filter:none}50%{filter:invert(1)}}
+@media (prefers-reduced-motion: reduce){
+  .band .b1,.band .b2{white-space:normal}
+  .band .run .track{animation:none}
+  .band .run .mq[aria-hidden]{display:none}
+  .band.flash{animation:none;outline:4px solid var(--red);outline-offset:-4px}
+}
 .band .b1 small{font-size:15px;font-weight:700;opacity:.85}
 .band .b2{font-size:15px;font-weight:700;color:#ffd166;margin-top:2px}
 :root[data-theme="dark"] .band .b2{color:#b54a00}
@@ -638,7 +654,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/17-3';
+var VERSION = '11/17-4';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 6)).slice(0, 300)) + '</div></div></li>'; });
@@ -703,9 +719,26 @@ function band(){
       if (lastGame) b2 = waitingText(slotMatches(lastGame.x.k));
     }
   }
-  el.innerHTML = '<div class="b1">' + b1 + '</div>' + (b2 ? '<div class="b2">' + esc(b2) + '</div>' : '');
+  var html = '<div class="b1"><span class="mq">' + b1 + '</span></div>' + (b2 ? '<div class="b2"><span class="mq">' + esc(b2) + '</span></div>' : '');
   el.hidden = false;
+  el.classList.toggle('wait', /送信待ち/.test(b2));
+  if (html === lastBand) return;
+  var first = lastBand === null; lastBand = html;
+  el.innerHTML = html;
+  /* run only the lines that do not fit, slowly (about 40px a second) */
+  el.querySelectorAll('.b1,.b2').forEach(function(line){
+    var sp = line.firstChild;
+    if (sp.scrollWidth - line.clientWidth <= 4 && sp.getBoundingClientRect().width <= line.clientWidth + 4) return;
+    var c = sp.innerHTML;
+    line.innerHTML = '<span class="track"><span class="mq">' + c + '</span><span class="mq" aria-hidden="true">' + c + '</span></span>';
+    var w = line.querySelector('.mq').getBoundingClientRect().width, tr = line.firstChild;
+    tr.style.setProperty('--dist', -w + 'px'); tr.style.setProperty('--dur', Math.max(8, w / 40) + 's');
+    line.classList.add('run');
+  });
+  if (!first){ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); setTimeout(function(){ el.classList.remove('flash'); }, 3200); }
 }
+var lastBand = null;
+document.getElementById('band').addEventListener('click', function(){ this.classList.toggle('paused'); });
 function render(){
   band();
   var view = document.getElementById('view');
