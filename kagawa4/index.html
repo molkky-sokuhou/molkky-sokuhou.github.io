@@ -641,7 +641,7 @@ function spGrid(big){ return SPONSORS.length ? '<div class="spgrid' + (big ? ' b
   var one = SPONSORS.map(function(sp){ return '<img src="sponsors/' + esc(sp.file) + '" alt="' + esc(sp.name) + '">'; }).join('');
   trk.innerHTML = one + one.replace(/alt="[^"]*"/g, 'alt="" aria-hidden="true"');
   box.hidden = false;
-  function speed(){ var w = trk.scrollWidth / 2; if (w > 0) trk.style.setProperty('--spdur', Math.round(w / 45) + 's'); }
+  function speed(){ var w = trk.scrollWidth / 2; if (w > 0) trk.style.setProperty('--spdur', Math.round(w / 55) + 's'); }
   trk.querySelectorAll('img').forEach(function(im){ im.addEventListener('load', speed); });
   speed();
 })();
@@ -929,7 +929,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/18-3';
+var VERSION = '11/18-4';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
