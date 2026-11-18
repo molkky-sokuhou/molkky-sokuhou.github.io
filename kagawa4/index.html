@@ -28,7 +28,7 @@
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--paper);color:var(--ink);
   font:16px/1.7 system-ui,-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
-  word-break:keep-all;overflow-wrap:anywhere;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+  word-break:keep-all;overflow-wrap:anywhere;padding-bottom:calc(130px + env(safe-area-inset-bottom))}
 button{font:inherit;color:inherit}
 a{color:var(--blue)}
 
@@ -56,7 +56,7 @@ header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:3px
 .footrow{display:flex;justify-content:flex-end;margin:22px 0 0}
 tr.mine td{background:color-mix(in srgb,var(--mark) 30%,transparent)}
 .mlist li.mine{background:color-mix(in srgb,var(--mark) 22%,transparent);box-shadow:inset 5px 0 0 var(--red);padding-left:12px}
-#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom));z-index:7;background:var(--ink);color:var(--paper);font-size:15px;font-weight:700;padding:10px 16px;border-radius:6px;width:max-content;max-width:92vw;text-align:center;line-height:1.5}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(130px + env(safe-area-inset-bottom));z-index:7;background:var(--ink);color:var(--paper);font-size:15px;font-weight:700;padding:10px 16px;border-radius:6px;width:max-content;max-width:92vw;text-align:center;line-height:1.5}
 .foot{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--soft);font-size:14px;color:var(--sub);line-height:1.6}
 
 main{padding:4px 14px 24px;max-width:640px;margin:0 auto}
@@ -239,18 +239,17 @@ html.bigtext main,html.bigtext nav{zoom:1.22}
 
 .subwarn ol{margin:6px 0 0;padding-left:1.3em;font-weight:600}
 .subwarn li{margin:2px 0}
-.spbar{display:flex;align-items:center;justify-content:center;gap:10px;height:52px;margin:6px 0 0;background:#fff;border:1px solid var(--soft);border-radius:4px;position:relative;overflow:hidden}
-.spbar .lab{position:absolute;left:8px;top:4px;font-size:12px;font-weight:700;color:#55554f;line-height:1.2}
-.spbar img{max-height:40px;max-width:58%;object-fit:contain;transition:opacity .6s}
-.spbar img.out{opacity:0}
-.spcard{display:flex;align-items:center;gap:12px;margin:14px 0;padding:8px 12px;background:#fff;border:1px solid var(--soft);border-radius:4px;color:#55554f;font-size:13px;font-weight:700}
-.spcard img{height:44px;max-width:60%;object-fit:contain}
 .spgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
 .spgrid.big{grid-template-columns:repeat(2,1fr);gap:10px}
 .spgrid div{background:#fff;border:1px solid var(--soft);border-radius:4px;aspect-ratio:3/2;display:flex;align-items:center;justify-content:center;padding:8px}
 .spgrid img{max-width:100%;max-height:100%;object-fit:contain}
 .sphead{font-size:14px;font-weight:800;color:var(--sub);margin:24px 0 0;letter-spacing:.05em}
-@media (prefers-reduced-motion: reduce){.spbar img{transition:none}}
+.sptick{grid-column:1/-1;position:relative;height:52px;overflow:hidden;background:#fff;border-bottom:1px solid #d8d8d0}
+.sptick .lab{position:absolute;left:0;top:0;bottom:0;z-index:1;display:flex;align-items:center;padding:0 10px 0 12px;background:#fff;color:#33332f;font-size:13px;font-weight:800;box-shadow:6px 0 6px -2px #fff}
+.sptick .trk{display:flex;align-items:center;height:100%;width:max-content;animation:sproll var(--spdur,40s) linear infinite}
+.sptick .trk img{height:40px;width:auto;max-width:170px;object-fit:contain;margin:0 22px;flex:none}
+@keyframes sproll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){.sptick .trk{animation-duration:calc(var(--spdur,40s) * 3)}}
 </style>
 </head>
 <body>
@@ -263,12 +262,12 @@ html.bigtext main,html.bigtext nav{zoom:1.22}
   </div>
   <div class="stamp" id="stamp" style="margin-top:4px">読み込み中…</div>
   <div class="band" id="band" role="status" hidden></div>
-  <div class="spbar" id="spbar" hidden><span class="lab">協賛</span><img alt=""></div>
-</header>
+  </header>
 <main id="view"></main>
 <div id="sheetwrap" hidden><div id="sheetbg"></div><div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetttl"></div></div>
 <div id="toast" role="status" hidden></div>
 <nav id="tabs" role="tablist">
+  <div class="sptick" id="sptick" hidden role="presentation"><span class="lab">協賛</span><div class="trk"></div></div>
   <button data-tab="me" role="tab">自分の<br>試合</button>
   <button data-tab="games" role="tab">試合・<br>コート</button>
   <button data-tab="rank" role="tab">順位・<br>表彰</button>
@@ -633,24 +632,18 @@ var SPONSORS = [
   { file: 'oshi.jpg',        name: '押しちゃんねる' }
 ];
 function spImg(sp, cls){ return '<img' + (cls ? ' class="' + cls + '"' : '') + ' src="sponsors/' + esc(sp.file) + '" alt="' + esc(sp.name) + '" loading="lazy">'; }
-var spTurn = Math.floor(Math.random() * SPONSORS.length);
-function spNext(){ spTurn = (spTurn + 1) % SPONSORS.length; return SPONSORS[spTurn]; }
-function spCard(){ if (!SPONSORS.length) return ''; var sp = spNext(); return '<div class="spcard">協賛' + spImg(sp) + '</div>'; }
 function spGrid(big){ return SPONSORS.length ? '<div class="spgrid' + (big ? ' big' : '') + '">' + SPONSORS.map(function(sp){ return '<div>' + spImg(sp) + '</div>'; }).join('') + '</div>' : ''; }
-/* the rotating bar under the header */
+/* sponsor logos flowing right to left in a strip above the tabs */
 (function(){
   if (!SPONSORS.length) return;
-  var bar = document.getElementById('spbar'); if (!bar) return;
-  var i = Math.floor(Math.random() * SPONSORS.length), img = bar.querySelector('img');
-  function show(){ var sp = SPONSORS[i]; img.src = 'sponsors/' + sp.file; img.alt = sp.name + '（協賛）'; }
-  show(); bar.hidden = false;
-  var still = false; try { still = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
-  setInterval(function(){
-    if (document.visibilityState !== 'visible') return;
-    i = (i + 1) % SPONSORS.length;
-    if (still){ show(); return; }
-    img.classList.add('out'); setTimeout(function(){ show(); img.classList.remove('out'); }, 600);
-  }, 6000);
+  var box = document.getElementById('sptick'); if (!box) return;
+  var trk = box.querySelector('.trk');
+  var one = SPONSORS.map(function(sp){ return '<img src="sponsors/' + esc(sp.file) + '" alt="' + esc(sp.name) + '">'; }).join('');
+  trk.innerHTML = one + one.replace(/alt="[^"]*"/g, 'alt="" aria-hidden="true"');
+  box.hidden = false;
+  function speed(){ var w = trk.scrollWidth / 2; if (w > 0) trk.style.setProperty('--spdur', Math.round(w / 45) + 's'); }
+  trk.querySelectorAll('img').forEach(function(im){ im.addEventListener('load', speed); });
+  speed();
 })();
 
 /* how results are handed in at this tournament (regulation (5)-4) */
@@ -794,7 +787,6 @@ function viewMe(){
   } else if (P.items.some(function(x){ return x.k === 'end'; })){
     h += '<div class="next"><div class="when">今日の試合は<wbr>ここまでです</div><p class="note">閉会式は' + esc(timeText('閉会') || hm((M.T.find(function(x){ return /閉会/.test(x.label); }) || {}).start)) + 'からです。</p></div>';
   }
-  h += spCard();
   h += '<h2>今日の試合</h2><ul class="plan">';
   P.items.forEach(function(x){
     var tt = timeOf(x.k), live = tt && tt.start != null && now >= tt.start - 5 && now <= tt.end && !x.done;
@@ -864,7 +856,7 @@ function viewGames(){
     h += '<p class="note">2回戦から先は、<wbr>勝ったチームの名前が<wbr>シートに入らないため、<wbr>「コート○の勝者」で<wbr>表示しています。</p>';
   }
   var parts = items.split('</li>'), out = '';
-  parts.forEach(function(p, i){ if (!p) return; out += p + '</li>'; if ((i + 1) % 4 === 0 && i < parts.length - 2) out += '<li class="spli" style="display:block;border:0;padding:0">' + spCard() + '</li>'; });
+  parts.forEach(function(p){ if (!p) return; out += p + '</li>'; });
   h += out + '</ul>';
   return h;
 }
@@ -937,7 +929,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/18-2';
+var VERSION = '11/18-3';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
@@ -969,7 +961,7 @@ function brokenBox(){
   var hs = health(); if (!hs.length) return '';
   return '<div class="broken" role="alert"><b>表示がずれている<wbr>おそれがあります</b><p>主催者の表の形が<wbr>変わったため、<wbr>このページが<wbr>正しく読めていない<wbr>可能性があります。<wbr>試合・コートは<wbr>大会チャットで<wbr>共有されている表と、<wbr>大会本部の案内で<wbr>確かめてください。</p><p class="s">（' + hs.map(esc).join('／') + '）</p></div>';
 }
-function footHtml(){ return (S.tab === 'venue' ? '' : '<p class="sphead">協賛</p>' + spGrid(false)) + '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の表を<wbr>自動で読み込んで<wbr>表示しています。<wbr>正式な案内は<wbr>大会本部と、<wbr>大会チャットで<wbr>共有されている表で<wbr>確かめてください。</p>'; }
+function footHtml(){ return '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の表を<wbr>自動で読み込んで<wbr>表示しています。<wbr>正式な案内は<wbr>大会本部と、<wbr>大会チャットで<wbr>共有されている表で<wbr>確かめてください。</p>'; }
 function render(){
   band();
   var view = document.getElementById('view');
