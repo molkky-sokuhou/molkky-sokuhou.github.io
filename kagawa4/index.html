@@ -182,8 +182,11 @@ summary{min-height:48px;display:flex;align-items:center;font-weight:700;cursor:p
 .rule h4{margin:16px 0 4px;font-size:17px}
 
 .pick{list-style:none;margin:8px 0;padding:0;border-top:2px solid var(--ink)}
+.memberline{display:block;margin-top:2px;color:var(--sub);font-size:.8rem;font-weight:400;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+.teamlabel{display:inline-block;max-width:100%;vertical-align:top}
+.pickname{min-width:0}
 .pick button{width:100%;min-height:52px;text-align:left;border:0;border-bottom:1px solid var(--soft);background:transparent;padding:8px 4px;display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:17px}
-.pick button span{font-size:14px;color:var(--sub);flex:none}
+.pick button > span:last-child{font-size:14px;color:var(--sub);flex:none}
 .empty{padding:20px 0;color:var(--sub)}
 
 nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(4,1fr);background:var(--paper);
@@ -611,10 +614,52 @@ function courtMap(hi){
 /* ---------- views ---------- */
 function isFav(nm){ return S.favs.some(function(f){ return key(f) === key(nm); }); }
 function saveFavs(){ store.set('favs', JSON.stringify(S.favs)); }
+// Members identified by their tournament chat display names.
+var TEAM_MEMBERS = new Map(Object.entries({
+  "モルックな会": "フジタ",
+  "ファンキーmoco": "こんちゃん",
+  "オリーブ": "ひろ",
+  "天晴れ": "DEHARE",
+  "TEN3": "とむ、なおと、中川",
+  "たことさなえ": "とし",
+  "丸栄刺繡": "どんｍ、仙ちゃん",
+  "ロッホノース": "フジコ、モリモリ",
+  "X支配": "世界王、キタ、ジン",
+  "モルック佃": "丸子",
+  "丸栄刺繍 マドンナ": "どきんちゃん、どんママ",
+  "レッゴリZ": "プリティ",
+  "にゃあ。": "シラカワ",
+  "瀬戸内RAMPAGE": "涼、狙撃手ヤマップ",
+  "桃と鰹のマリアージュ": "ちゃちゃ丸、カズレボ、宮川晋之輔",
+  "Victim's": "aLexxx、とも、ドーン",
+  "エース川西2nd": "うみ、ケニー、セロリ",
+  "レモン": "ドラゴン🐲、フッコル",
+  "plants holic 神戸支部": "タク",
+  "伊予鰹": "しゅう、ほだか、クラ",
+  "ノアダンテ": "こいちゃん、アンのり",
+  "玉モルガールズ": "けいこ、つか、ひとみ、ひろ",
+  "plantsholic": "maki❁*.ﾟ",
+  "camp of fire": "saori",
+  "CS高知のんだくれ": "かよこ、なおみ、ナカジー",
+  "徳島モルックの会": "もきち、アルデナイデ",
+  "3年目も奮闘": "おはな",
+  "チームはじらい": "みかん、やきとり、レオパ",
+  "スエチルず": "ミホ",
+  "ドナルド・ダック": "ふじさん",
+  "ひょっこりカムリーズ": "藤原",
+  "Okayama Ravens": "ゆか、ホシザキ"
+}).map(function(entry){
+  return [memberKey(entry[0]), entry[1]];
+}));
+function memberKey(name){ return key(name).replace(/刺繡/g, '刺繍').replace(/’/g, "'"); }
+function memberLine(name){
+  var names = TEAM_MEMBERS.get(memberKey(name));
+  return names ? '<small class="memberline">' + esc(names) + '</small>' : '';
+}
 function teamName(nm, cls){
   var mine = S.team && key(nm) === key(S.team), fav = !mine && isFav(nm), known = M && M.Y.byName[key(nm)];
   var inner = mine ? '<span class="me">' + esc(nm) + '</span>' : fav ? '<span class="fav">★' + esc(nm) + '</span>' : esc(nm);
-  return '<span class="nm' + (cls ? ' ' + cls : '') + '">' + (known ? '<button type="button" class="tn" data-info="' + esc(nm) + '">' + inner + '</button>' : inner) + '</span>';
+  return '<span class="nm teamlabel' + (cls ? ' ' + cls : '') + '">' + (known ? '<button type="button" class="tn" data-info="' + esc(nm) + '">' + inner + '</button>' : inner) + memberLine(nm) + '</span>';
 }
 function cn(c, big){ return c ? '<span class="cn' + (big ? ' big' : '') + '" aria-label="コート' + c + '">' + c + '</span>' : '<span class="cn none' + (big ? ' big' : '') + '">未定</span>'; }
 
@@ -672,7 +717,7 @@ function favSection(){
 }
 function infoSheet(nm){
   var t = M.Y.byName[key(nm)], r = nextOf(nm), nx = r.nx, mine = S.team && key(nm) === key(S.team), fav = isFav(nm), Y = M.Y;
-  var h = '<h3 id="sheetttl">' + esc(t ? t.name : nm) + '</h3><div class="meta">' + (t ? esc(t.pref) + (t.lot != null ? '　抽選' + t.lot + '番' : '') : '') + (t && Y.started && t.rank ? '　予選 ' + t.rank + '位' + (Y.done ? '' : '（途中）') : '') + '</div>';
+  var h = '<h3 id="sheetttl">' + esc(t ? t.name : nm) + memberLine(t ? t.name : nm) + '</h3><div class="meta">' + (t ? esc(t.pref) + (t.lot != null ? '　抽選' + t.lot + '番' : '') : '') + (t && Y.started && t.rank ? '　予選 ' + t.rank + '位' + (Y.done ? '' : '（途中）') : '') + '</div>';
   if (t && Y.started){
     h += '<table><thead><tr><th>予選</th><th>1回戦</th><th>2回戦</th><th>3回戦</th><th>合計</th></tr></thead><tbody><tr><td>点数</td>' +
       t.sc.map(function(x){ return '<td>' + (x != null ? x : '-') + '</td>'; }).join('') + '<td class="tot">' + (t.total != null ? t.total : 0) + '</td></tr></tbody></table>';
@@ -767,13 +812,13 @@ function viewMe(){
       : '<h2>あなたのチームは？</h2><p class="lead">選ぶと、<wbr>このスマホでは<wbr>次から自動で<wbr>そのチームの試合を<wbr>出します。</p>';
     if (!list.length) return h + '<p class="empty">チームの一覧を<wbr>読み込めていません。<wbr>「最新にする」を<wbr>押してください。</p>';
     h += '<ul class="pick">' + list.map(function(t){
-      return '<li><button type="button" data-team="' + esc(t.name) + '">' + esc(t.name) + '<span>' + (t.lot != null ? '抽選 ' + t.lot + '番' : esc(t.pref)) + '</span></button></li>';
+      return '<li><button type="button" data-team="' + esc(t.name) + '">' + '<span class="pickname">' + esc(t.name) + memberLine(t.name) + '</span><span>' + (t.lot != null ? '抽選 ' + t.lot + '番' : esc(t.pref)) + '</span></button></li>';
     }).join('') + '</ul>';
     if (S.team && !S.picking && !favMode) h = '<p class="note">前に選んだ「' + esc(S.team) + '」が<wbr>見つかりません。<wbr>選び直してください。</p>' + h;
     return h;
   }
   var P = plan(S.team), t = P.team, now = nowMin();
-  var h = '<div class="myhead"><div><div class="nm">' + esc(t.name) + '</div><div class="meta">' + esc(t.pref) +
+  var h = '<div class="myhead"><div><div class="nm">' + esc(t.name) + memberLine(t.name) + '</div><div class="meta">' + esc(t.pref) +
     (t.lot != null ? '　抽選番号 <b>' + t.lot + '番</b>' : '　抽選番号は受付で決まります') + '</div></div>' +
     '<button class="btn" type="button" data-act="repick">チームを<br>変える</button></div>';
   if (Y.started && t.total != null && t.rank){
@@ -931,7 +976,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/18-5';
+var VERSION = '11/18-6';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
