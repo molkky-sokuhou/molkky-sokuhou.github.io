@@ -542,9 +542,8 @@ html.bigtext main{zoom:1.16}html.bigtext #tabs button{font-size:18px}
 })();
 </script>
 
-<div id="sampleBanner" hidden style="background:#ffe28d;color:#231c0c;padding:8px 16px;text-align:center;font-weight:700">月いちモルック　閲覧サンプル</div>
 <div class="wrap">
-  <header><div class="headin"><div class="pre"><span id="when">月いちモルック</span><div class="headtools"><button type="button" id="fontSwitch">大きい文字</button><button type="button" id="themeSwitch">暗くする</button></div></div><div class="ttl"><h1 id="title">月いちモルック</h1><button type="button" id="headReload">最新にする</button></div><div class="stamp"><span id="syncStatus" role="status">読み込み中…</span><a href="demo.html" id="sampleDemo" hidden>運営デモを開く</a><button id="syncRetry" hidden>再読み込み</button></div><div id="progressLine" role="status"></div><div class="loadbar" id="loadbar"></div></div></header>
+  <header><div class="headin"><div class="pre"><span id="when">月いちモルック</span><div class="headtools"><button type="button" id="fontSwitch">大きい文字</button><button type="button" id="themeSwitch">暗くする</button></div></div><div class="ttl"><h1 id="title">月いちモルック</h1><button type="button" id="headReload">最新にする</button></div><div class="stamp"><span id="syncStatus" role="status">読み込み中…</span><button id="syncRetry" hidden>再読み込み</button></div><div id="progressLine" role="status"></div><div class="loadbar" id="loadbar"></div></div></header>
 <nav id="tabs" role="tablist" aria-label="速報のページ"><button data-tab="team" id="t-team" role="tab">自分の<br>試合</button><button data-tab="match" id="t-match" role="tab">試合・<br>コート</button><button data-tab="rank" id="t-rank" role="tab">順位・<br>記録</button><button data-tab="rules" id="t-rules" role="tab">会場・<br>ルール</button></nav>
   <main>
     <div id="netBar" class="netbar" hidden role="status"></div>
@@ -654,7 +653,7 @@ html.bigtext main{zoom:1.16}html.bigtext #tabs button{font-size:18px}
       <p class="muted">記録は、運営がその月の大会を「リセット」したときに、その日の順位と一緒に残ります。</p>
     </details></section>
   </main>
-  <p class="mk-ver" style="margin:28px 16px 20px;text-align:center;font-size:13px;line-height:1.6;color:var(--muted,#777)">版 2026.11.21-2</p>
+  <p class="mk-ver" style="margin:28px 16px 20px;text-align:center;font-size:13px;line-height:1.6;color:var(--muted,#777)">版 2026.11.22</p>
 </div>
 
 <div class="ov" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div></div>
@@ -687,6 +686,20 @@ function mk_hasResult(m) {
     return total !== null && Number.isInteger(total) && total >= 0 && total <= 100;
   });
 }
+function mk_normDate(s) {
+  var m = /^\s*(\d{4})[-\/.年](\d{1,2})[-\/.月](\d{1,2})日?\s*$/.exec(String(s || ''));
+  if (!m) return '';
+  var p = function (n) { return (Number(n) < 10 ? '0' : '') + Number(n); };
+  return m[1] + '-' + p(m[2]) + '-' + p(m[3]);
+}
+function mk_teamLabel(no) {
+  var label = '';
+  for (var n = Math.floor(Number(no)); Number.isFinite(n) && n > 0; n = Math.floor((n - 1) / 26)) {
+    label = String.fromCharCode(65 + (n - 1) % 26) + label;
+  }
+  return label;
+}
+var MK_SEASON_START = '2025-11-22';
 function mk_haohStatus(rows, haoh, roster) {
   var last = (haoh || []).reduce(function (a, h) { return !a || h.date > a.date ? h : a; }, null);
   var cutoff = last ? last.date : '';
@@ -694,7 +707,7 @@ function mk_haohStatus(rows, haoh, roster) {
   (roster || []).forEach(function (r) { nm[r.id] = r.name; });
   var by = {};
   (rows || []).forEach(function (r) {
-    if (Number(r.rank) !== 1 || !r.date || (cutoff && r.date <= cutoff)) return;
+    if (Number(r.rank) !== 1 || !r.date || (mk_normDate(r.date) < MK_SEASON_START || (mk_normDate(cutoff) > MK_SEASON_START && mk_normDate(r.date) <= mk_normDate(cutoff)))) return;
     var key = r.mid || ('n:' + r.name);
     var e = by[key] || (by[key] = { key: key, name: nm[r.mid] || r.name, wins: 0, dates: {}, last: '' });
     if (e.dates[r.date]) return;
@@ -728,15 +741,8 @@ function mk_haohStatus(rows, haoh, roster) {
 
 
   /* ---------- 通信 ---------- */
-  var sample = {"state":{"ver":"2026.11.21-2","settings":{"大会名":"月いちモルック","開催日":"","時間":"12時〜17時","場所":"香川県高松市国分寺 B&G海洋センター ゲートボールコート","住所":"香川県高松市国分寺町新名2069-1","参加費":"1人200円","お知らせ":"","インスタ":"izumi_molkky","コート数":"4"},"hasInputPass":false,"players":[{"name":"デモ はると","team":6},{"name":"デモ ゆい","team":2},{"name":"デモ そうた","team":3},{"name":"デモ めい","team":4},{"name":"デモ けんた","team":8},{"name":"デモ あおい","team":1},{"name":"デモ りく","team":2},{"name":"デモ ひな","team":7},{"name":"デモ だいき","team":2},{"name":"デモ さくら","team":5},{"name":"デモ ゆうと","team":8},{"name":"デモ みお","team":3},{"name":"デモ こうき","team":7},{"name":"デモ りな","team":5},{"name":"デモ しょう","team":4},{"name":"デモ なな","team":8},{"name":"デモ たくみ","team":1},{"name":"デモ えま","team":3},{"name":"デモ れん","team":1},{"name":"デモ ここ","team":6},{"name":"デモ いつき","team":7}],"teams":[{"no":1,"name":"チームA"},{"no":2,"name":"チームB"},{"no":3,"name":"チームC"},{"no":4,"name":"チームD"},{"no":5,"name":"チームE"},{"no":6,"name":"チームF"},{"no":7,"name":"チームG"},{"no":8,"name":"チームH"}],"courts":4,"matches":[{"id":"1-1-1-96wj92","cycle":1,"round":1,"a":1,"b":8,"a1":"","a2":"","b1":"","b2":"","totalA":68,"totalB":75,"court":1,"wave":1},{"id":"1-1-2-gcxj12","cycle":1,"round":1,"a":2,"b":7,"a1":"","a2":"","b1":"","b2":"","totalA":77,"totalB":75,"court":2,"wave":1},{"id":"1-1-3-4odaq5","cycle":1,"round":1,"a":3,"b":6,"a1":"","a2":"","b1":"","b2":"","totalA":78,"totalB":81,"court":3,"wave":1},{"id":"1-1-4-e4222v","cycle":1,"round":1,"a":4,"b":5,"a1":"","a2":"","b1":"","b2":"","totalA":91,"totalB":97,"court":4,"wave":1},{"id":"1-2-1-1lskxu","cycle":1,"round":2,"a":1,"b":7,"a1":"","a2":"","b1":"","b2":"","totalA":88,"totalB":87,"court":1,"wave":1},{"id":"1-2-2-ij8dwc","cycle":1,"round":2,"a":2,"b":5,"a1":"","a2":"","b1":"","b2":"","totalA":76,"totalB":84,"court":3,"wave":1},{"id":"1-2-3-nwhru1","cycle":1,"round":2,"a":3,"b":4,"a1":"","a2":"","b1":"","b2":"","totalA":98,"totalB":93,"court":4,"wave":1},{"id":"1-2-4-5b58m5","cycle":1,"round":2,"a":6,"b":8,"a1":"","a2":"","b1":"","b2":"","totalA":90,"totalB":71,"court":2,"wave":1},{"id":"1-3-1-09sv1d","cycle":1,"round":3,"a":1,"b":6,"a1":"","a2":"","b1":"","b2":"","court":1,"wave":1},{"id":"1-3-2-b0g8sc","cycle":1,"round":3,"a":2,"b":3,"a1":"","a2":"","b1":"","b2":"","court":4,"wave":1},{"id":"1-3-3-tjp4yl","cycle":1,"round":3,"a":4,"b":8,"a1":"","a2":"","b1":"","b2":"","court":3,"wave":1},{"id":"1-3-4-lk3kum","cycle":1,"round":3,"a":5,"b":7,"a1":"","a2":"","b1":"","b2":"","court":2,"wave":1},{"id":"1-4-1-i17bf6","cycle":1,"round":4,"a":1,"b":5,"a1":"","a2":"","b1":"","b2":"","court":1,"wave":1},{"id":"1-4-2-4mbmf2","cycle":1,"round":4,"a":2,"b":8,"a1":"","a2":"","b1":"","b2":"","court":4,"wave":1},{"id":"1-4-3-g0d695","cycle":1,"round":4,"a":3,"b":7,"a1":"","a2":"","b1":"","b2":"","court":3,"wave":1},{"id":"1-4-4-vpj1xy","cycle":1,"round":4,"a":4,"b":6,"a1":"","a2":"","b1":"","b2":"","court":2,"wave":1},{"id":"1-5-1-jrv5di","cycle":1,"round":5,"a":1,"b":4,"a1":"","a2":"","b1":"","b2":"","court":1,"wave":1},{"id":"1-5-2-c5s9ki","cycle":1,"round":5,"a":2,"b":6,"a1":"","a2":"","b1":"","b2":"","court":3,"wave":1},{"id":"1-5-3-w49e6s","cycle":1,"round":5,"a":3,"b":5,"a1":"","a2":"","b1":"","b2":"","court":2,"wave":1},{"id":"1-5-4-up9vhq","cycle":1,"round":5,"a":7,"b":8,"a1":"","a2":"","b1":"","b2":"","court":4,"wave":1},{"id":"1-6-1-rcvq0y","cycle":1,"round":6,"a":1,"b":3,"a1":"","a2":"","b1":"","b2":"","court":1,"wave":1},{"id":"1-6-2-8frvgp","cycle":1,"round":6,"a":2,"b":4,"a1":"","a2":"","b1":"","b2":"","court":2,"wave":1},{"id":"1-6-3-v34cvm","cycle":1,"round":6,"a":5,"b":8,"a1":"","a2":"","b1":"","b2":"","court":3,"wave":1},{"id":"1-6-4-19bd0s","cycle":1,"round":6,"a":6,"b":7,"a1":"","a2":"","b1":"","b2":"","court":4,"wave":1},{"id":"1-7-1-nyxagl","cycle":1,"round":7,"a":1,"b":2,"a1":"","a2":"","b1":"","b2":"","court":1,"wave":1},{"id":"1-7-2-wa6y9k","cycle":1,"round":7,"a":3,"b":8,"a1":"","a2":"","b1":"","b2":"","court":2,"wave":1},{"id":"1-7-3-rfnd6n","cycle":1,"round":7,"a":4,"b":7,"a1":"","a2":"","b1":"","b2":"","court":3,"wave":1},{"id":"1-7-4-m93dbp","cycle":1,"round":7,"a":5,"b":6,"a1":"","a2":"","b1":"","b2":"","court":4,"wave":1}],"standings":[{"no":4,"name":"チームD","played":2,"total":184,"rank":1,"avg":92,"members":["デモ めい","デモ しょう"]},{"no":5,"name":"チームE","played":2,"total":181,"rank":2,"avg":90.5,"members":["デモ さくら","デモ りな"]},{"no":3,"name":"チームC","played":2,"total":176,"rank":3,"avg":88,"members":["デモ そうた","デモ みお","デモ えま"]},{"no":6,"name":"チームF","played":2,"total":171,"rank":4,"avg":85.5,"members":["デモ はると","デモ ここ"]},{"no":7,"name":"チームG","played":2,"total":162,"rank":5,"avg":81,"members":["デモ ひな","デモ こうき","デモ いつき"]},{"no":1,"name":"チームA","played":2,"total":156,"rank":6,"avg":78,"members":["デモ あおい","デモ たくみ","デモ れん"]},{"no":2,"name":"チームB","played":2,"total":153,"rank":7,"avg":76.5,"members":["デモ ゆい","デモ りく","デモ だいき"]},{"no":8,"name":"チームH","played":2,"total":146,"rank":8,"avg":73,"members":["デモ けんた","デモ ゆうと","デモ なな"]}],"inSync":true,"champions":[{"date":"2026-10-04","name":"チーム3","members":"例：デモA・デモB・デモC","total":412},{"date":"2026-09-06","name":"チーム5","members":"例：デモD・デモE・デモF","total":388}],"appUrl":"","updatedAt":"サンプル"},"records":{"rows":[],"haoh":[],"roster":[]}};
   var requests = {};
   function call(action) {
-    if (!sheetId) {
-      if (action === 'records') return Promise.resolve({extra:sample.records});
-      S = sample.state;
-      $('syncStatus').textContent = 'サンプル表示　本番の大会データは未接続です';
-      return Promise.resolve({state:S});
-    }
     if (requests[action]) return requests[action];
     var state = action === 'state', column = state ? 'A' : 'B';
     setBusy(1);
@@ -791,7 +797,7 @@ function mk_haohStatus(rows, haoh, roster) {
     var y = Number(m[1]) !== new Date().getFullYear() ? m[1] + '年' : '';
     return y + Number(m[2]) + '月' + Number(m[3]) + '日(' + WD[d.getDay()] + ')';
   }
-  function teamName(no) { if (!S) return 'チーム' + no; var t = S.teams.filter(function (x) { return x.no === no; })[0]; return t ? t.name : 'チーム' + no + '（解散）'; }
+  function teamName(no) { if (!S) return mk_teamLabel(no); var t = S.teams.filter(function (x) { return x.no === no; })[0]; return t ? t.name : mk_teamLabel(no) + '（解散）'; }
   function members(no) { return S.players.filter(function (p) { return p.team === no; }); }
   function tot(m, side) { return mk_total(m, side); }
   function sizeText(n, t) {
@@ -864,9 +870,9 @@ function mk_haohStatus(rows, haoh, roster) {
   $('simReset').onclick = function () { sim = { tot: 0, miss: 0, down: {} }; $('simTot').textContent = 0; $('simNow').textContent = 0; $('simMsg').textContent = '倒したいピンをタップして「投げる」'; $('pins').querySelectorAll('[data-pin]').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); }); };
 
   /* ---------- 記録・名簿 ---------- */
-  var REC = null, recYear = store.get('recYear', ''), recLoading = false;
+  var REC = null, recYear = store.get('recPeriod2', 'season'), recLoading = false;
   function loadRecords() {
-    if (recLoading) return;
+    if (!sheetId || recLoading) return;
     recLoading = true;
     call('records').then(function (r) { recLoading = false; REC = r.extra; renderRecords(); })
       .catch(function () { recLoading = false; if (!REC) $('recList').innerHTML = '<div class="box plain empty"><b>記録を読み込めませんでした</b>電波の良い場所で、もう一度「記録」を開いてください。</div>'; });
@@ -903,12 +909,12 @@ function mk_haohStatus(rows, haoh, roster) {
     var years = {};
     all.forEach(function (r) { var y = String(r.date).slice(0, 4); if (/^\d{4}$/.test(y)) years[y] = 1; });
     var ys = Object.keys(years).sort().reverse();
-    if (recYear && !years[recYear]) recYear = '';
-    $('recYears').innerHTML = ys.length ? ['<button class="chip" data-y="" aria-pressed="' + (recYear ? 'false' : 'true') + '">通算</button>'].concat(ys.map(function (y) {
+    if (recYear && recYear !== 'season' && !years[recYear]) recYear = 'season';
+    $('recYears').innerHTML = ['<button class="chip" data-y="season" aria-pressed="' + (recYear === 'season') + '">今シーズン（2025/11/22〜）</button>', '<button class="chip" data-y="" aria-pressed="' + (recYear ? 'false' : 'true') + '">通算</button>'].concat(ys.map(function (y) {
       return '<button class="chip" data-y="' + y + '" aria-pressed="' + (recYear === y ? 'true' : 'false') + '">' + y + '年</button>';
-    })).join('') : '';
-    $('recYears').querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { recYear = b.dataset.y; store.set('recYear', recYear); renderRecords(); }; });
-    var rows = recYear ? all.filter(function (r) { return String(r.date).slice(0, 4) === recYear; }) : all;
+    })).join('');
+    $('recYears').querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { recYear = b.dataset.y; store.set('recPeriod2', recYear); renderRecords(); }; });
+    var rows = recYear === 'season' ? all.filter(function (r) {return mk_normDate(r.date) >= MK_SEASON_START;}) : recYear ? all.filter(function (r) { return String(r.date).slice(0, 4) === recYear; }) : all;
     var stats = memberStats(rows).sort(function (a, b) { return b.count - a.count || b.wins - a.wins || b.pod - a.pod || (a.name < b.name ? -1 : 1); });
     var dates = {}; rows.forEach(function (r) { dates[r.date] = 1; });
     $('recSum').innerHTML = '<span>開催 <b class="num">' + Object.keys(dates).length + '</b> 回</span><span>参加した人 <b class="num">' + stats.length + '</b> 人</span><span>のべ <b class="num">' + stats.reduce(function (a, m) { return a + m.count; }, 0) + '</b> 人</span>';
@@ -947,7 +953,7 @@ function mk_haohStatus(rows, haoh, roster) {
       (kings.length ? '<ul class="kings">' + kings.map(function (h) {
         return '<li><span class="no">第' + h.no + '回</span><span class="kn">' + esc(h.name) + '</span><span class="crown">覇王</span><span class="muted">' + esc(fmtDate(h.date)) + '</span></li>';
       }).join('') + '</ul>' : '') +
-      '<div><b>次の覇王戦に出られる覇者</b> <span class="muted num">' + hs.eligible.length + '人</span>' + (hs.cutoff ? ' <span class="muted" style="white-space:nowrap">（' + esc(fmtDate(hs.cutoff)) + 'より後）</span>' : '') + '</div>' +
+      '<div><b>次の覇王戦に出られる覇者</b> <span class="muted num">' + hs.eligible.length + '人</span>' + (hs.cutoff ? ' <span class="muted" style="white-space:nowrap">（' + esc(fmtDate(hs.cutoff)) + (mk_normDate(hs.cutoff) <= MK_SEASON_START ? '以降' : 'より後') + '）</span>' : '') + '</div>' +
       (hs.eligible.length ? '<div class="elig">' + hs.eligible.map(function (e) { return '<span>' + esc(e.name) + (e.wins > 1 ? '<small class="num">×' + e.wins + '</small>' : '') + '</span>'; }).join('') + '</div>'
         : '<p class="muted" style="margin:0">まだいません。次の大会で優勝すると、ここに名前が入ります。</p>');
   }
@@ -1051,7 +1057,18 @@ function mk_boardOrder(group, teamNos, courts) {
   }
   function renderStandings() {
     $('rankBody').innerHTML=S.standings.length?'<table><thead><tr><th>順位</th><th>チーム・メンバー</th><th>試合</th><th>合計点</th></tr></thead><tbody>'+S.standings.map(function(row){return '<tr'+(row.no===ui.myTeam?' class="mine"':'')+'><td>'+row.rank+'</td><td>'+teamLabel(row.no)+'</td><td>'+row.played+'</td><td><strong>'+row.total+'</strong><small class="memberline">平均 '+row.avg+'</small></td></tr>';}).join('')+'</tbody></table>':'<p>抽選後に順位が表示されます。</p>';
+    if (!S.teams.length && S.previousResult) {
+      var prev = S.previousResult;
+      $('rankBody').innerHTML = '<h3>前回の大会結果　'+esc(fmtDate(prev.date))+'</h3><table><thead><tr><th>順位</th><th>チーム・メンバー</th><th>試合</th><th>合計点</th></tr></thead><tbody>'+prev.standings.map(function(r){
+        return '<tr><td>'+esc(r.rank)+'</td><td>'+esc(r.name)+'<small class="memberline">'+esc(r.members)+'</small></td><td>'+esc(r.played)+'</td><td>'+esc(r.total)+'</td></tr>';
+      }).join('')+'</tbody></table>';
+    } else if (resultAvailable()) {
+      $('rankBody').insertAdjacentHTML('afterbegin','<h3>大会結果　'+esc(fmtDate(S.settings['開催日']))+'</h3>');
+    }
     $('champBox').innerHTML=(S.champions||[]).length?'<h3>これまでの優勝チーム</h3><ul class="plan">'+S.champions.map(function(c){return '<li>'+esc(fmtDate(c.date))+'　'+esc(c.members || c.name)+'　'+Number(c.total)+'点</li>';}).join('')+'</ul>':'';
+  }
+  function resultAvailable() {
+    return S && ((!S.teams.length && S.previousResult) || (S.matches.length && S.matches.every(mk_hasResult)));
   }
   function showTab(name) {
     if(name==='rec'){name='rank';$('recordsPanel').open=true;}
@@ -1087,13 +1104,13 @@ function mk_boardOrder(group, teamNos, courts) {
   if(savedTheme)document.documentElement.setAttribute('data-theme',savedTheme);
   document.documentElement.classList.toggle('bigtext',store.get('scoreBig','0')==='1');
   paintDisplayButtons();
-  $('headReload').onclick=function(){refresh(false);if(ui.tab==='rank' && $('recordsPanel').open)loadRecords();};
+  $('headReload').onclick=function(){if(!sheetId){$('syncRetry').click();return;}refresh(false);if(ui.tab==='rank' && $('recordsPanel').open)loadRecords();};
   function renderAll() {
     if (!S) return;
     if(ui.myTeam && !S.teams.some(function(t){return t.no===ui.myTeam;})) {ui.myTeam=0;store.set('myTeam','0');}
     alignVenue(S);
     renderInfo();renderMine();renderGames();renderStandings();
-    $('progressLine').textContent=S.matches.length ? '試合結果　'+S.matches.filter(mk_hasResult).length+' / '+S.matches.length+'試合' : '対戦表の発表前';
+    $('progressLine').textContent=S.matches.length ? '試合結果　'+S.matches.filter(mk_hasResult).length+' / '+S.matches.length+'試合' : (S.previousResult ? '前回の大会結果を掲載中' : '対戦表の発表前');
   }
 
   function refresh(silent) {
@@ -1105,12 +1122,28 @@ function mk_boardOrder(group, teamNos, courts) {
     var tabs = ['rules','rank','match','team','rec'];
     var requested = new URLSearchParams(location.search).get('tab') || location.hash.slice(1);
     var initial = tabs.indexOf(requested) >= 0 ? requested : 'team';
-    if (!sheetId) {
-      $('sampleDemo').hidden = false;
-      $('sampleBanner').hidden = false;
-    }
+
     showTab(initial);
-    function update() { refresh(true); if (ui.tab === 'rank' && $('recordsPanel').open) loadRecords(); }
+    var first = true, touched = false, resolving = false;
+    document.getElementById('tabs').addEventListener('click',function () { touched = true; });
+    async function update() {
+      if (!sheetId) {
+        if (resolving) return;
+        resolving = true;
+        $('syncStatus').textContent = '大会速報は準備中です。公開後はこのページでご覧いただけます。';
+        try {
+          var response = await fetch('https://script.google.com/macros/s/AKfycbxNSXkTdeHkwgQlLBYezgAdjcoC0ufmjeYeEYd4h6xBFtSJ5mTS9C41bgg_RglZYzvT9w/exec?feed=viewer',{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(12000)});
+          var info = await response.json();
+          if (/^[a-zA-Z0-9_-]{20,120}$/.test(info.sheet || '')) sheetId = info.sheet;
+        } catch (err) {} finally { resolving = false; }
+        if (!sheetId) { $('syncRetry').hidden = false; return; }
+      }
+      if (await refresh(true)) {
+        if (first && !requested && !touched && resultAvailable()) showTab('rank');
+        first = false;
+        if (ui.tab === 'rank' && $('recordsPanel').open) loadRecords();
+      }
+    }
     $('syncRetry').onclick = update;
     update();
     setInterval(function () { if (document.visibilityState === 'visible') update(); },60000);
