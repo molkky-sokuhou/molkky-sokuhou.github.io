@@ -676,7 +676,8 @@ var SPONSORS = [
   { file: 'maruei.jpg',      name: '丸栄刺繍' },
   { file: 'redgorillas.jpg', name: 'レッドゴリラーズ' },
   { file: 'tokumoru.jpg',    name: '徳島モルックの会' },
-  { file: 'oshi.jpg',        name: '押しちゃんねる' }
+  { file: 'oshi.jpg',        name: '押しちゃんねる' },
+  { file: 'hokusetsu.jpg',   name: '北雪' }
 ];
 function spImg(sp, cls){ return '<img' + (cls ? ' class="' + cls + '"' : '') + ' src="sponsors/' + esc(sp.file) + '" alt="' + esc(sp.name) + '" loading="lazy">'; }
 function spGrid(big){ return SPONSORS.length ? '<div class="spgrid' + (big ? ' big' : '') + '">' + SPONSORS.map(function(sp){ return '<div>' + spImg(sp) + '</div>'; }).join('') + '</div>' : ''; }
@@ -976,7 +977,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/18-6';
+var VERSION = '11/21-1';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
