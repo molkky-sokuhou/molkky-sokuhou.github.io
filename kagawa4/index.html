@@ -286,7 +286,7 @@ var SHEET_ID = atob('TXljMmtybmZsZ3hLR0pfNUtlTDNnbHhrV3U4OER6RWhQMkdUMzgwLVFWdDE
 var TABS = {
   time:   { names: ['タイムスケジュール\u3000/\u3000試合概要', 'タイムスケジュール\u3000\u3000試合概要', 'タイムスケジュール'], range: 'A1:K40', sign: 'タイムスケジュール' },
   rule:   { names: ['レギュレーション'], range: 'A1:A40', sign: '基本ルール' },
-  yosen:  { names: ['【予選】対戦表\u3000/\u3000得点表', '【予選】対戦表\u3000\u3000得点表', '【予選】対戦表/得点表', '【予選】対戦表 / 得点表'], range: 'A1:AE60', sign: 'チーム名' },
+  yosen:  { names: ['【予選】対戦表\u3000/\u3000得点表', '【予選】対戦表\u3000\u3000得点表', '【予選】対戦表/得点表', '【予選】対戦表 / 得点表'], range: 'A1:AO80', sign: 'チーム名' },
   honsen: { names: ['【上位/下位】対戦表\u3000/\u3000得点表', '【上位下位】対戦表\u3000/\u3000得点表', '【上位下位】対戦表\u3000\u3000得点表', '【上位下位】対戦表/得点表', '【上位下位】対戦表 / 得点表'], range: 'A1:AB130', sign: '上位リーグ' },
   entry:  { names: ['エントリー情報'], range: 'A1:B60', sign: 'チーム名' }
 };
@@ -347,34 +347,50 @@ function parseTime(g){
 function parseYosen(g, entry){
   var out = { teams: [], byLot: {}, byName: {}, matches: [] };
   g = g || [];
-  var hdr = -1;
-  for (var r = 0; r < g.length; r++){ if (z(at(g, r, 2)).indexOf('抽選') >= 0 || z(at(g, r, 1)).replace(/\s/g, '') === 'チーム名'){ hdr = r; break; } }
+  var hdr = -1, nameCol = -1;
+  for (var r = 0; r < g.length; r++){
+    nameCol = g[r].findIndex(function(c){ return key(c) === 'チーム名'; });
+    if (nameCol < 0){
+      var drawHeader = g[r].findIndex(function(c){ return key(c) === '抽選番号'; });
+      if (drawHeader > 0) nameCol = drawHeader - 1;
+    }
+    if (nameCol >= 0){ hdr = r; break; }
+  }
   if (hdr >= 0){
+    // GViz may omit text headings in numeric columns. Use their offsets in the verified score block in that case.
+    var header = g[hdr].map(key);
+    var nextName = header.indexOf('チーム名', nameCol + 1);
+    function column(label, offset){
+      var col = header.indexOf(label, nameCol);
+      return col >= 0 && (nextName < 0 || col < nextName) ? col : nameCol + offset;
+    }
+    var lotCol = column('抽選番号', 1), totalCol = column('合計点', 5), rankCol = column('修正順位', 7);
+    var scores = [1, 2, 3].map(function(round){ return column('予選' + round + '回戦', round + 1); });
     for (r = hdr + 1; r < g.length; r++){
-      var name = v(at(g, r, 1));
-      if (!name && v(at(g, r, 0)) && hdr >= 0){ name = v(at(entry, out.teams.length + 1, 1)) || ('チーム' + (out.teams.length + 1)); }
+      var pref = v(at(g, r, nameCol - 1)), name = v(at(g, r, nameCol));
+      if (!name && pref){ name = v(at(entry, out.teams.length + 1, 1)) || ('チーム' + (out.teams.length + 1)); }
       if (!name){ if (out.teams.length) break; else continue; }
       if (name === 'チーム名') continue;
-      var t = { name: name, pref: v(at(g, r, 0)), lot: n(at(g, r, 2)),
-        sc: [n(at(g, r, 3)), n(at(g, r, 4)), n(at(g, r, 5))], total: n(at(g, r, 6)), rank: n(at(g, r, 8)) };
+      var t = { name: name, pref: pref, lot: n(at(g, r, lotCol)),
+        sc: scores.map(function(col){ return n(at(g, r, col)); }), total: n(at(g, r, totalCol)), rank: n(at(g, r, rankCol)) };
       out.teams.push(t); out.byName[key(name)] = t; if (t.lot != null) out.byLot[t.lot] = t;
     }
   }
-  var rnd = 0;
+  var rnd = 0, matchCol = -1;
   for (r = 0; r < g.length; r++){
-    var u = z(v(at(g, r, 20)));
-    if (/^予選/.test(u) && u.indexOf('試合') >= 0){ var m = u.match(/(\d+)/); rnd = m ? +m[1] : rnd + 1; continue; }
-    if (u === '第' && rnd){
-      var slots = [[23, 24], [26, 27], [29, 30]].map(function(c){
-        var lot = n(at(g, r, c[0])); var team = lot != null ? out.byLot[lot] : null;
-        return { lot: lot, team: team || null, name: team ? team.name : v(at(g, r, c[1])) };
-      });
-      out.matches.push({ round: rnd, court: n(at(g, r, 21)), slots: slots });
-    }
+    var heading = g[r].findIndex(function(cell){ return /^予選.*[1-3].*試合/.test(key(cell)); });
+    if (heading >= 0){ matchCol = heading; rnd = Number(key(g[r][heading]).match(/[1-3]/)[0]); }
+    if (matchCol < 0 || key(at(g, r, matchCol)) !== '第') continue;
+    var slots = [3, 6, 9].map(function(offset){
+      var lot = n(at(g, r, matchCol + offset)), team = out.byLot[lot];
+      return { lot: lot, team: team || null, name: team ? team.name : v(at(g, r, matchCol + offset + 1)) };
+    });
+    out.matches.push({ round: rnd, court: n(at(g, r, matchCol + 1)), slots: slots });
   }
   out.started = out.teams.some(function(t){ return t.sc.some(function(x){ return x != null; }); });
   out.done = out.teams.length > 0 && out.teams.every(function(t){ return t.sc.every(function(x){ return x != null; }); });
-  out.lotsIn = out.teams.some(function(t){ return t.lot != null; });
+  out.drawn = out.teams.filter(function(t){ return t.lot != null; }).length;
+  out.lotsIn = out.drawn > 0;
   return out;
 }
 
@@ -867,6 +883,7 @@ function viewGames(){
   if (k.charAt(0) === 'q'){
     var r = +k.charAt(1), ms = Y.matches.filter(function(m){ return m.round === r; }).sort(function(a, b){ return a.court - b.court; });
     if (!Y.lotsIn) h = h.replace('<ul class="mlist">', '<p class="note">受付で引いた番号カードで<wbr>チームが決まります。<wbr>いまは番号だけ<wbr>表示しています。</p><ul class="mlist">');
+    if (Y.lotsIn && Y.drawn < Y.teams.length) h = h.replace('<ul class="mlist">', '<p class="note">抽選番号を入力中です（' + Y.drawn + '／' + Y.teams.length + 'チーム）。未入力の枠は抽選番号で表示します。</p><ul class="mlist">');
     ms.forEach(function(m){
       var scs = m.slots.map(function(s){ return s.team ? s.team.sc[r - 1] : null; }), mx = Math.max.apply(null, scs.map(function(x){ return x == null ? -1 : x; }));
       items += '<li>' + cn(m.court) + '<div class="teams">' + m.slots.map(function(s, i){
@@ -977,7 +994,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/21-1';
+var VERSION = '11/22-1';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
@@ -993,11 +1010,21 @@ function health(){
   if (!M.Y.teams.length) out.push('予選の表からチームを見つけられません');
   else if (!M.Y.matches.length) out.push('予選の対戦表を見つけられません');
   else {
-    [1, 2, 3].forEach(function(r){ var c = M.Y.matches.filter(function(m){ return m.round === r; }).length; if (exp && c && c !== exp) out.push('予選' + r + '回戦の試合数が合いません'); });
-    if (M.Y.lotsIn){
-      var lost = M.Y.matches.some(function(m){ return m.slots.some(function(sl){ return sl.lot != null && !sl.team; }); });
-      if (lost) out.push('対戦表の抽選番号と、チームの抽選番号が合いません');
-    }
+    [1, 2, 3].forEach(function(round){
+      var games = M.Y.matches.filter(function(m){ return m.round === round; });
+      if (games.length !== exp){ out.push('予選' + round + '回戦の試合数が合いません'); return; }
+      var courts = new Set(), lots = new Set();
+      games.forEach(function(m){
+        if (Number.isInteger(m.court) && m.court >= 1 && m.court <= exp) courts.add(m.court);
+        m.slots.forEach(function(slot){
+          if (Number.isInteger(slot.lot) && slot.lot >= 1 && slot.lot <= M.Y.teams.length) lots.add(slot.lot);
+        });
+      });
+      if (courts.size !== exp || lots.size !== M.Y.teams.length) out.push('予選' + round + '回戦のコート番号・抽選番号に重複か欠落があります');
+    });
+    var assigned = M.Y.teams.map(function(t){ return t.lot; }).filter(function(lot){ return lot != null; });
+    if (new Set(assigned).size !== assigned.length || assigned.some(function(lot){ return !Number.isInteger(lot) || lot < 1 || lot > M.Y.teams.length; }))
+      out.push('チームの抽選番号に重複か範囲外の番号があります');
   }
   if ((g.honsen || []).length && !M.H.u1.length) out.push('上位トーナメントの表を見つけられません');
   if ((g.honsen || []).length && !M.H.l1.length) out.push('下位トーナメントの表を見つけられません');
@@ -1007,7 +1034,7 @@ function health(){
 }
 function brokenBox(){
   var hs = health(); if (!hs.length) return '';
-  return '<div class="broken" role="alert"><b>表示がずれている<wbr>おそれがあります</b><p>主催者の表の形が<wbr>変わったため、<wbr>このページが<wbr>正しく読めていない<wbr>可能性があります。<wbr>試合・コートは<wbr>大会チャットで<wbr>共有されている表と、<wbr>大会本部の案内で<wbr>確かめてください。</p><p class="s">（' + hs.map(esc).join('／') + '）</p></div>';
+  return '<div class="broken" role="alert"><b>表示がずれている<wbr>おそれがあります</b><p>主催者の表と<wbr>照合できない項目があります。<wbr>試合・コートは<wbr>大会チャットで<wbr>共有されている表と、<wbr>大会本部の案内で<wbr>確かめてください。</p><p class="s">（' + hs.map(esc).join('／') + '）</p></div>';
 }
 function footHtml(){ return '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の表を<wbr>自動で読み込んで<wbr>表示しています。<wbr>正式な案内は<wbr>大会本部と、<wbr>大会チャットで<wbr>共有されている表で<wbr>確かめてください。</p>'; }
 function render(){
