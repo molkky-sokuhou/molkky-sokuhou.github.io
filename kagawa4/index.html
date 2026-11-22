@@ -426,9 +426,16 @@ function parseHonsen(g){
   for (r = L; r < g.length; r++){
     if (z(v(at(g, r, 5))) === '予選' && n(at(g, r, 6)) != null) lo.push({ r: r, seed: n(at(g, r, 6)), name: v(at(g, r, 8)) });
   }
-  var l1 = [], cur = null;
-  lo.forEach(function(x){ if (!cur || x.r - cur.t[cur.t.length - 1].r > 2){ cur = { t: [] }; l1.push(cur); } cur.t.push(x); });
-  l1.forEach(function(grp){ for (r = grp.t[0].r - 1; r <= grp.t[grp.t.length - 1].r + 1 && !grp.court; r++) grp.court = courtNo(at(g, r, 13)); });
+  // GViz removes empty separator rows. Each lower first-round court has three seeds.
+  var l1 = [];
+  for (i = 0; i < lo.length; i += 3){
+    var group = lo.slice(i, i + 3), lowerCourt = null;
+    for (r = group[0].r; r <= group[group.length - 1].r; r++){
+      var label = v(at(g, r, 13));
+      if (/^(ｺｰﾄ|コート)/.test(label)){ lowerCourt = courtNo(label); break; }
+    }
+    l1.push({ t: group, court: lowerCourt });
+  }
   function awards(from, to){
     var o = {};
     for (r = from; r < to; r++) for (c = 14; c < (g[r] || []).length; c++){
@@ -994,7 +1001,7 @@ function viewVenue(){
 }
 
 /* ---------- render ---------- */
-var VERSION = '11/22-1';
+var VERSION = '11/22-2';
 function debugView(){
   var g = (RAW && RAW.grids) || {}, h = '<h2>読み込みの確認（版 ' + VERSION + '）</h2><ul class="plan">';
   Object.keys(TABS).forEach(function(k){ var x = g[k] || []; h += '<li><div><div class="t">' + k + '：' + x.length + '行</div><div class="s">' + esc(found[k] || '（見つからない）') + '</div><div class="s">' + esc(JSON.stringify(x.slice(0, 8)).slice(0, 300)) + '</div></div></li>'; });
@@ -1028,6 +1035,8 @@ function health(){
   }
   if ((g.honsen || []).length && !M.H.u1.length) out.push('上位トーナメントの表を見つけられません');
   if ((g.honsen || []).length && !M.H.l1.length) out.push('下位トーナメントの表を見つけられません');
+  if (M.H.l1.length && (M.H.l1.length !== 4 || new Set(M.H.l1.map(function(p){ return p.court; })).size !== 4 ||
+      M.H.l1.some(function(p){ return !p.court || p.t.length !== 3; }))) out.push('下位1回戦の4コートと組み合わせを確認できません');
   if (M.Y.done && M.H.u1.some(function(p){ return p.t.some(function(x){ return !x.name; }); })) out.push('予選は終わっていますが、トーナメントにチーム名が入っていません');
   if (!M.T.length) out.push('時間割を見つけられません');
   return out;
