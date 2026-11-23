@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="愛媛速報">
+<meta name="theme-color" content="#1c1c1a">
+<meta name="robots" content="noindex, nofollow">
+<title>第6回モルックえひめ大会 速報</title>
+<style>
+:root{
+  --paper:#f4f4ef; --card:#ffffff; --ink:#1c1c1a; --sub:#55554f; --soft:#d6d6ce;
+  --red:#cf1f29; --blue:#1e4fd6; --court:#e2eaf5; --mark:#ffe95c; --ok:#17733a; --warn:#b54a00;
+}
+:root[data-theme="dark"]{ --paper:#121314; --card:#1b1c1e; --ink:#eeeee8; --sub:#a8a8a1; --soft:#3a3b3e;
+    --red:#ff5d64; --blue:#8aa8ff; --court:#24303f; --mark:#6d5f00; --ok:#5fd28c; --warn:#ffad6b; }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --paper:#121314; --card:#1b1c1e; --ink:#eeeee8; --sub:#a8a8a1; --soft:#3a3b3e;
+    --red:#ff5d64; --blue:#8aa8ff; --court:#24303f; --mark:#6d5f00; --ok:#5fd28c; --warn:#ffad6b; }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:16px/1.7 system-ui,-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+  word-break:keep-all;overflow-wrap:anywhere;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+button{font:inherit;color:inherit}
+a{color:var(--blue)}
+
+#demo{background:var(--ink);color:var(--paper);font-size:14px;line-height:1.6;padding:8px 14px}
+
+header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:3px solid var(--ink);padding:10px 14px 8px}
+.pre{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--sub);line-height:1.6;margin-bottom:2px}
+.ttl{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ttl h1{margin:0;font-size:18px;line-height:1.35;letter-spacing:.01em}
+.ttl h1 small{display:block;font-size:14px;font-weight:600;color:var(--sub);letter-spacing:0}
+#reload{flex:none;min-height:44px;padding:0 14px;border:2px solid var(--ink);background:var(--card);font-weight:700;font-size:15px;border-radius:6px}
+#reload:active{transform:translateY(1px)}
+#reload[disabled]{opacity:.55}
+.sub2{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px}
+.stamp{font-size:14px;color:var(--sub);line-height:1.5}
+.thm2{position:relative;flex:none;height:32px;padding:0 10px;border:1.5px solid var(--ink);background:var(--card);color:var(--ink);border-radius:16px;font:inherit;font-size:14px;font-weight:700}
+.thm2::after{content:"";position:absolute;left:0;right:0;top:-6px;bottom:-6px}
+.thm{flex:none;min-height:44px;padding:0 10px;border:1.5px solid var(--sub);background:transparent;border-radius:6px;font-size:14px;font-weight:700;color:var(--sub)}
+.stamp.bad{color:var(--warn);font-weight:700}
+.unoff{display:inline-block;font-size:14px;font-weight:800;border:1.5px solid currentColor;border-radius:3px;padding:0 6px;margin-left:6px;vertical-align:2px;color:var(--sub);line-height:1.6}
+.broken{margin:12px 0 4px;padding:12px 14px;border:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--card));border-radius:4px}
+.broken b{display:block;font-size:17px;color:var(--warn);line-height:1.5}
+.broken p{margin:6px 0 0;font-size:15px;line-height:1.6}
+.broken a{font-weight:700}
+.footrow{display:flex;justify-content:flex-end;margin:22px 0 0}
+tr.mine td{background:color-mix(in srgb,var(--mark) 30%,transparent)}
+.mlist li.mine{background:color-mix(in srgb,var(--mark) 22%,transparent);box-shadow:inset 5px 0 0 var(--red);padding-left:12px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom));z-index:7;background:var(--ink);color:var(--paper);font-size:15px;font-weight:700;padding:10px 16px;border-radius:6px;width:max-content;max-width:92vw;text-align:center;line-height:1.5}
+.foot{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--soft);font-size:14px;color:var(--sub);line-height:1.6}
+
+main{padding:4px 14px 24px;max-width:640px;margin:0 auto}
+h2{font-size:19px;margin:22px 0 8px;line-height:1.4}
+h3{font-size:17px;margin:18px 0 6px;line-height:1.4}
+.lead{color:var(--sub);font-size:15px;margin:0 0 10px}
+.note{font-size:15px;color:var(--sub);margin:6px 0}
+
+/* court number: red circle like the venue map */
+.cn{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;border:2.5px solid var(--red);border-radius:50%;
+  color:var(--red);font-weight:800;font-size:18px;line-height:1;font-variant-numeric:tabular-nums;background:var(--card)}
+.cn.big{width:84px;height:84px;border-width:4px;font-size:44px}
+.cn.none{border-style:dashed;border-color:var(--sub);color:var(--sub);font-size:14px}
+.me{background:linear-gradient(transparent 52%,var(--mark) 52%);font-weight:800}
+
+/* next match */
+.next{border:2.5px solid var(--ink);background:var(--card);border-radius:4px;padding:14px;margin:12px 0 6px}
+.next .lbl{font-size:15px;font-weight:700;color:var(--sub)}
+.next .row{display:flex;gap:14px;align-items:center;margin-top:6px}
+.next .when{font-size:24px;font-weight:800;line-height:1.3}
+.next .what{font-size:16px;line-height:1.5}
+.next .vs{margin-top:10px;font-size:17px;line-height:1.6}
+.next .vs b{font-size:18px}
+.tag{display:inline-block;font-size:14px;font-weight:800;padding:1px 8px;border-radius:3px;line-height:1.6;vertical-align:2px}
+.tag.now{background:var(--red);color:#fff}
+.tag.done{background:var(--soft);color:var(--ink)}
+.tag.if{border:1.5px solid var(--sub);color:var(--sub)}
+
+.myhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-top:14px}
+.myhead .nm{font-size:22px;font-weight:800;line-height:1.35}
+.myhead .meta{font-size:15px;color:var(--sub)}
+.btn{min-height:44px;padding:0 14px;border:2px solid var(--ink);background:var(--card);border-radius:6px;font-weight:700;font-size:15px;flex:none}
+
+/* day plan */
+.plan{list-style:none;margin:8px 0 0;padding:0;border-top:2px solid var(--ink)}
+.plan li{display:flex;gap:12px;padding:12px 2px;border-bottom:1px solid var(--soft)}
+.plan li.cur{background:color-mix(in srgb,var(--mark) 28%,transparent)}
+.plan .t{font-weight:800;font-size:16px;line-height:1.4}
+.plan .s{font-size:15px;color:var(--sub);line-height:1.5}
+.plan .o{font-size:16px;line-height:1.55;margin-top:2px}
+.plan li.later{opacity:.75}
+
+/* match lists */
+.chips{margin:10px 0 4px}
+.chips .g{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0}
+.chips .gl{width:2.6em;font-weight:800;font-size:15px}
+.chips .gl.u{color:var(--red)} .chips .gl.l{color:var(--blue)}
+.chip{min-height:44px;padding:0 12px;border:1.5px solid var(--ink);border-radius:22px;background:var(--card);font-size:15px;font-weight:600}
+.chip.on{background:var(--ink);color:var(--paper)}
+.rhead{margin:14px 0 4px;padding:8px 0;border-bottom:2px solid var(--ink)}
+.rhead .t{font-size:19px;font-weight:800}
+.rhead .s{font-size:15px;color:var(--sub);line-height:1.6;word-break:normal;line-break:strict}
+.mlist{list-style:none;margin:0;padding:0}
+.mlist li{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--soft);align-items:flex-start}
+.mlist .teams{flex:1;min-width:0}
+.tm{display:flex;justify-content:space-between;gap:8px;line-height:1.5;padding:1px 0}
+.tm .nm{min-width:0}
+.tm .lot{color:var(--sub);font-size:14px;margin-right:4px;font-variant-numeric:tabular-nums}
+.tm .sc{flex:none;font-variant-numeric:tabular-nums;font-weight:700}
+.tm.win .nm{font-weight:800}
+.tm.win .sc::after{content:" 勝";color:var(--ok);font-size:14px}
+.tm.ph .nm{color:var(--sub)}
+.mlist .blk{font-size:14px;font-weight:800;color:var(--sub)}
+
+/* standings */
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:14px;color:var(--sub);font-weight:700;text-align:right;padding:6px 4px;border-bottom:2px solid var(--ink)}
+th:nth-child(2){text-align:left}
+td{padding:8px 4px;border-bottom:1px solid var(--soft);text-align:right;font-size:16px;line-height:1.45}
+td:nth-child(2){text-align:left}
+td.rk{font-weight:800;width:2.4em}
+td.tot{font-weight:800}
+.pf{display:block;font-size:14px;color:var(--sub);font-weight:400}
+td.n{white-space:nowrap;width:1.85em;font-size:15px}
+td.tot{white-space:nowrap;width:2.6em}
+th.n{width:1.85em}
+tr.cut td{border-bottom:3px double var(--red)}
+.cutnote{font-size:15px;color:var(--red);font-weight:700;margin:6px 0 0}
+.awards{border:2.5px solid var(--ink);background:var(--card);padding:10px 14px;margin:10px 0}
+.awards div{display:flex;gap:12px;padding:4px 0;font-size:17px}
+.awards b{width:4em;flex:none}
+
+.side-u{color:var(--red)} .side-l{color:var(--blue)}
+
+/* map */
+.map{width:100%;height:auto;display:block;margin:8px 0}
+.map .m-watch{fill:#fbf3cf} .map .m-hall{fill:#e5efdb;stroke:var(--ink);stroke-width:2}
+.map .m-room{fill:#ececec;stroke:var(--ink);stroke-width:1.5}
+.map .m-hq{fill:#f7a1a1;stroke:var(--ink);stroke-width:1.5}
+.map .m-smk{fill:#f5c242;stroke:var(--ink);stroke-width:1}
+.band{margin:8px -14px -8px;padding:8px 14px 9px;background:var(--ink);color:var(--paper);line-height:1.5}
+.band .b1{font-size:17px;font-weight:800}
+.band .b1,.band .b2{white-space:nowrap;overflow:hidden}
+.band .mq{display:inline-block;padding-right:3em}
+.band .track{display:inline-block;white-space:nowrap}
+.band .run .track{animation:mq var(--dur,12s) linear infinite;animation-delay:1.5s}
+.band.paused .track{animation-play-state:paused}
+@keyframes mq{0%{transform:translateX(0)}100%{transform:translateX(var(--dist,-100%))}}
+.band.wait{background:#b54a00;color:#fff}
+.band.wait .b2{color:#fff}
+.band.flash{animation:fl 1s ease-in-out 3}
+@keyframes fl{0%,100%{filter:none}50%{filter:invert(1)}}
+@media (prefers-reduced-motion: reduce){
+  .band .b1,.band .b2{white-space:normal}
+  .band .run .track{animation:none}
+  .band .run .mq[aria-hidden]{display:none}
+  .band.flash{animation:none;outline:4px solid var(--red);outline-offset:-4px}
+}
+.band .b1 small{font-size:15px;font-weight:700;opacity:.85}
+.band .b2{font-size:15px;font-weight:700;color:#ffd166;margin-top:2px}
+:root[data-theme="dark"] .band .b2{color:#b54a00}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .band .b2{color:#b54a00}}
+.tools{display:flex;gap:6px;flex:none}
+html.bigtext main,html.bigtext nav{zoom:1.22}
+.install{border:2px solid var(--ink);background:var(--card);padding:12px;margin:10px 0;border-radius:4px}
+.install ol{margin:6px 0 0;padding-left:1.4em;line-height:1.8}
+.install .big2{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;border:0;border-radius:6px;background:var(--ink);color:var(--paper);font-weight:800;font-size:17px;margin-top:8px}
+.tt{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
+.tt li{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--soft)}
+.tt .tm2{width:7.6em;flex:none;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tt .nt{font-size:15px;color:var(--sub);line-height:1.6;margin-top:2px;word-break:normal;line-break:strict}
+.tt li.cur{background:color-mix(in srgb,var(--mark) 28%,transparent)}
+.rule{white-space:pre-wrap;word-break:normal;line-break:strict;font-size:16px}
+details{border-top:2px solid var(--ink);border-bottom:1px solid var(--soft)}
+summary{min-height:48px;display:flex;align-items:center;font-weight:700;cursor:pointer;color:var(--blue)}
+.rule h4{margin:16px 0 4px;font-size:17px}
+
+.empty{padding:20px 0;color:var(--sub)}
+
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(4,1fr);background:var(--paper);
+  border-top:2.5px solid var(--ink);padding-bottom:env(safe-area-inset-bottom)}
+nav button{min-height:62px;border:0;background:transparent;font-size:15px;font-weight:700;line-height:1.3;padding:6px 2px}
+nav button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+
+.days{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.days button{min-height:48px;border:2px solid var(--ink);background:var(--card);border-radius:6px;font-size:15px;font-weight:700;line-height:1.35;padding:4px 6px}
+.days button b{display:block;font-size:14px}
+.days button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+h2 small{display:block;font-size:15px;font-weight:600;color:var(--sub)}
+.pend{border:2px dashed var(--ink);background:var(--card);padding:12px 14px;margin:10px 0 6px;border-radius:4px}
+.pend b{font-size:17px;line-height:1.5}
+.pend p{margin:6px 0 0;font-size:15px;color:var(--sub);line-height:1.65}
+.now{display:inline-block;font-size:13px;font-weight:800;background:var(--red);color:#fff;border-radius:3px;padding:0 6px;line-height:1.6;vertical-align:1px}
+.tt li.side .tm2,.tt li.side b{color:var(--sub)}
+.subwarn{margin:10px 0 0;padding:10px 12px;background:#fff1c2;color:#1c1c1a;border:2.5px solid #b54a00;border-radius:4px;font-size:16px;font-weight:600;line-height:1.65}
+.subwarn b{color:#b54a00}
+.place{font-size:17px;line-height:1.6}
+.maplink{display:flex;align-items:center;justify-content:center;min-height:50px;border:2px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);font-weight:800;text-decoration:none}
+.foot{margin-top:28px}
+</style>
+</head>
+<body>
+<header>
+  <div class="pre"><span id="dayline"><span style="white-space:nowrap">11月28日（土）</span>・<span style="white-space:nowrap">29日（日）</span><span class="unoff">非公式の速報</span></span><span class="tools"><button id="big" class="thm2" type="button"></button><button id="thm" class="thm2" type="button"></button></span></div>
+  <div class="ttl">
+    <h1>第6回 モルック<wbr>えひめ大会</h1>
+    <button id="reload" type="button">最新にする</button>
+  </div>
+  <div class="days" role="group" aria-label="どの日の大会を見るか">
+    <button type="button" data-day="team"><b>28日（土）</b>チーム<wbr>頂上決戦</button>
+    <button type="button" data-day="tag"><b>29日（日）</b>ザ・<wbr>タッグ</button>
+  </div>
+  <div class="band" id="band" role="status" hidden></div>
+</header>
+<main id="view"></main>
+<div id="toast" role="status" hidden></div>
+<nav id="tabs" role="tablist">
+  <button data-tab="now" role="tab">いま・<br>予定</button>
+  <button data-tab="fmt" role="tab">試合の<br>進め方</button>
+  <button data-tab="rule" role="tab">ルール</button>
+  <button data-tab="venue" role="tab">会場・<br>案内</button>
+</nav>
+<script>
+var VERSION = '11/24-1';
+var store = {
+  get: function(k){ try { return localStorage.getItem('ehm6:' + k); } catch(e){ return null; } },
+  set: function(k, v){ try { localStorage.setItem('ehm6:' + k, v); } catch(e){} }
+};
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function toMin(s){ var m = String(s).match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+function today(){ var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
+/* ---------- the two days, from the organizer's site (大会概要) ---------- */
+var DAYS = {
+  team: {
+    date: '2026-11-28', dateText: '11月28日（土）', name: 'チーム頂上決戦', sub: '〜漆黒の鳳凰旗争奪戦〜',
+    who: '1チーム4〜6人',
+    schedule: [
+      { s: '11:00', label: '受付開始' },
+      { s: '11:30', label: '開会式' },
+      { s: '12:00', e: '12:30', label: 'ラウンド1', g: 1 },
+      { s: '12:40', e: '13:10', label: 'ラウンド2', g: 1 },
+      { s: '13:20', e: '13:50', label: 'ラウンド3', g: 1 },
+      { s: '14:00', e: '14:30', label: 'ラウンド4', g: 1 },
+      { s: '14:40', e: '15:10', label: 'ラウンド5', g: 1 },
+      { s: '15:30', e: '16:10', label: '順位決定戦', g: 1 },
+      { s: '17:00', label: '終了予定', end: 1 }
+    ]
+  },
+  tag: {
+    date: '2026-11-29', dateText: '11月29日（日）', name: 'ザ・タッグ', sub: '',
+    who: '1チーム2人・64チーム',
+    schedule: [
+      { s: '8:30', label: '受付開始', note: '9:00までに受付をすませる' },
+      { s: '9:00', label: '開会式' },
+      { s: '9:30', e: '10:10', label: '予選①', g: 1 },
+      { s: '10:20', e: '11:00', label: '予選②', g: 1 },
+      { s: '11:00', e: '11:40', label: '予選③', g: 1 },
+      { s: '12:20', e: '13:00', label: '1回戦', note: '上位・下位トーナメント', g: 1 },
+      { s: '12:50', e: '15:10', label: 'レッゴリチャレンジ', note: 'トーナメントで負けた人が参加できる（無料）', side: 1 },
+      { s: '13:10', e: '13:50', label: '2回戦', g: 1 },
+      { s: '14:00', e: '14:40', label: '準々決勝', g: 1 },
+      { s: '14:50', e: '15:30', label: '準決勝', g: 1 },
+      { s: '15:40', label: '決勝', note: '上位トーナメント', g: 1, last: 1 },
+      { s: '17:00', label: '終了予定', end: 1 }
+    ]
+  }
+};
+var S = { day: null, tab: store.get('tab') || 'now' };
+(function(){
+  var saved = store.get('day'), t = today();
+  if (t === DAYS.team.date) S.day = 'team';
+  else if (t >= DAYS.tag.date) S.day = 'tag';
+  else S.day = saved === 'tag' ? 'tag' : 'team';
+})();
+function D(){ return DAYS[S.day]; }
+
+/* slots with an end time; an item without one lasts until the next item starts */
+function slots(){
+  var main = D().schedule.filter(function(x){ return !x.side; });
+  return main.map(function(x, i){
+    var nx = main[i + 1], s = toMin(x.s);
+    var e = x.e ? toMin(x.e) : x.last ? s + 50 : nx ? toMin(nx.s) : s;
+    return { x: x, s: s, e: e };
+  });
+}
+function left(m){ return m >= 60 ? Math.floor(m / 60) + '時間' + (m % 60 ? m % 60 + '分' : '') : m + '分'; }
+
+/* ---------- the band at the top ---------- */
+var lastBand = null;
+function band(){
+  var el = document.getElementById('band'), d = D(), t = today(), b1 = '', b2 = '';
+  if (t < d.date){ b1 = d.name + 'は ' + d.dateText + 'です'; b2 = ''; }
+  else if (t > d.date){ b1 = d.name + 'は 終了しました'; }
+  else {
+    var now = new Date(), m = now.getHours() * 60 + now.getMinutes(), L = slots();
+    var cur = L.filter(function(y){ return m >= y.s && m < y.e && !y.x.end; }).pop();
+    var nxt = L.find(function(y){ return y.s > m && !y.x.end; });
+    if (cur && cur.x.g){ b1 = cur.x.label + ' の時間 <small>' + (cur.x.e ? cur.x.e + 'まで' : cur.x.s + '〜') + '</small>'; if (nxt) b2 = '次は ' + nxt.x.label + '（' + nxt.x.s + '〜 あと' + left(nxt.s - m) + '）'; }
+    else if (cur){ b1 = (cur.x.label === '受付開始' ? '受付中' : cur.x.label); if (nxt) b1 += ' <small>次は ' + esc(nxt.x.label) + ' ' + nxt.x.s + '〜（あと' + left(nxt.s - m) + '）</small>'; }
+    else if (nxt){ b1 = '次は ' + nxt.x.label + ' <small>' + nxt.x.s + '〜（あと' + left(nxt.s - m) + '）</small>'; }
+    else b1 = '本日の予定は<wbr>すべて終わりました';
+    var side = d.schedule.find(function(x){ return x.side && m >= toMin(x.s) && m < toMin(x.e); });
+    if (side) b2 = (b2 ? b2 + '／' : '') + side.label + '：' + side.e + 'まで';
+  }
+  var html = '<div class="b1"><span class="mq">' + b1 + '</span></div>' + (b2 ? '<div class="b2"><span class="mq">' + esc(b2) + '</span></div>' : '');
+  el.hidden = false;
+  if (html === lastBand) return;
+  var first = lastBand === null; lastBand = html;
+  el.innerHTML = html;
+  /* run only the lines that do not fit, slowly */
+  el.querySelectorAll('.b1,.b2').forEach(function(line){
+    var sp = line.firstChild;
+    if (sp.getBoundingClientRect().width <= line.clientWidth + 4) return;
+    var c = sp.innerHTML;
+    line.innerHTML = '<span class="track"><span class="mq">' + c + '</span><span class="mq" aria-hidden="true">' + c + '</span></span>';
+    var w = line.querySelector('.mq').getBoundingClientRect().width, tr = line.firstChild;
+    tr.style.setProperty('--dist', -w + 'px'); tr.style.setProperty('--dur', Math.max(8, w / 40) + 's');
+    line.classList.add('run');
+  });
+  if (!first){ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); setTimeout(function(){ el.classList.remove('flash'); }, 3200); }
+}
+document.getElementById('band').addEventListener('click', function(){ this.classList.toggle('paused'); });
+
+/* ---------- views ---------- */
+function pending(){
+  return '<div class="pend"><b>対戦表と結果は、<wbr>準備ができしだい<wbr>ここに出します</b><p>主催者の表が<wbr>公開されたら、<wbr>このページで<wbr>自分の試合・コート・<wbr>順位が<wbr>見られるようになります。<wbr>それまでは<wbr>時間割とルールを<wbr>ご覧ください。</p></div>';
+}
+function viewNow(){
+  var d = D(), t = today(), m = new Date().getHours() * 60 + new Date().getMinutes();
+  var h = '<h2>' + esc(d.dateText) + ' ' + esc(d.name) + (d.sub ? '<small>' + esc(d.sub) + '</small>' : '') + '</h2>';
+  h += '<p class="lead">' + esc(d.who) + '。<wbr>試合の進み方で<wbr>時間が変わることが<wbr>あります。</p>';
+  h += pending();
+  h += '<h3>時間割</h3><ul class="tt">';
+  d.schedule.forEach(function(x){
+    var s = toMin(x.s), e = x.e ? toMin(x.e) : null;
+    var live = t === d.date && e != null && m >= s && m < e;
+    h += '<li class="' + (live ? 'cur' : '') + (x.side ? ' side' : '') + '"><span class="tm2">' + x.s + (x.e ? '〜' + x.e : x.end ? '' : '〜') + '</span><div><b>' + esc(x.label) + '</b>' + (live ? ' <span class="now">いま</span>' : '') + (x.note ? '<div class="nt">' + esc(x.note) + '</div>' : '') + '</div></li>';
+  });
+  h += '</ul>';
+  if (S.day === 'tag') h += '<p class="note">11:40〜12:20の<wbr>予定は、<wbr>大会のページに<wbr>書かれていません。</p>';
+  return h;
+}
+function viewFmt(){
+  var h;
+  if (S.day === 'team'){
+    h = '<h2>チーム頂上決戦の<wbr>進め方</h2>' +
+      '<h3>予選（ラウンド1〜5）</h3><ul class="rules">' +
+      '<li>全26チームを<wbr><b>AとBの<wbr>2グループ</b>に分け、<wbr>Aのチーム対Bのチームで<wbr>5試合します。</li>' +
+      '<li>1試合は<b>2チームの対戦</b>で、<wbr>2コートを使います。</li>' +
+      '<li>まず<b>シングルス</b>を<wbr>2コートで同時に<wbr>1ゲームずつ、<wbr>次に<b>ダブルス</b>を<wbr>2コートで同時に<wbr>1ゲームずつ。<wbr>全部で<b>4ゲーム</b>です。</li>' +
+      '<li>1試合<b>30分</b>・<b>12ターン</b>まで。</li>' +
+      '<li>ゲームごとに<wbr>勝ち<b>2ポイント</b>、<wbr>引き分け<b>1ポイント</b>、<wbr>負け<b>0ポイント</b>。</li>' +
+      '<li>グループの中の順位は、<wbr>①ポイントの合計 →<wbr>②ゲームの得点の合計 →<wbr>③本部でくじ引き<wbr>の順で決めます。</li></ul>' +
+      '<h3>順位決定戦</h3><ul class="rules">' +
+      '<li>もう一方のグループの<wbr><b>同じ順位のチーム</b>と<wbr>対戦します。</li>' +
+      '<li><b>40分</b>・<b>12ターン</b>まで。</li>' +
+      '<li>4ゲームで<b>2勝2敗</b>のときだけ、<wbr>5ゲーム目に<wbr>シングルスをします。<wbr>投げる順は、<wbr>それまでの得点の合計が<wbr>多いチームが選びます。</li>' +
+      '<li>5ゲーム目も引き分けなら、<wbr>2人で投げる<wbr>モルックアウトで決めます。</li></ul>' +
+      '<h3>チームの決まり</h3><ul class="rules">' +
+      '<li>先攻・後攻は<wbr>試合の前にジャンケン。<wbr>先攻のチームが<wbr>1ゲーム目と3ゲーム目、<wbr>後攻のチームが<wbr>2ゲーム目と4ゲーム目の<wbr>1投目を投げます。</li>' +
+      '<li>両チームとも<b>メンバー表</b>を書き、<wbr>同時に見せて<wbr>対戦表に貼ります。<wbr>書いたあとは<wbr>変えられません。</li>' +
+      '<li>同じ人が<wbr>1ゲーム目と2ゲーム目、<wbr>3ゲーム目と4ゲーム目の<wbr>両方に出ることは<wbr>できません。</li>' +
+      '<li>全員が出るのが原則。<wbr>体調が悪いときは、<wbr>相手チームの了承があれば<wbr>休めます。<wbr>4人のチームで<wbr>出られない人がいるときは、<wbr>そのゲームは<wbr>ミス・不戦勝の扱いです。</li>' +
+      '<li>チームの仲間の<wbr>助言はOK。<wbr>1投は<b>1分以内</b>に。</li>' +
+      '<li>各チーム<b>6試合</b>の予定です。</li></ul>' +
+      '<h3>試合が終わったら</h3><div class="subwarn"><b>⚠ 本部へ出すもの</b><br>対戦表と、<wbr>各ゲームの<wbr>スコアシートを<wbr>本部へ出します。</div>';
+  } else {
+    h = '<h2>ザ・タッグの<wbr>進め方</h2>' +
+      '<h3>予選（①〜③）</h3><ul class="rules">' +
+      '<li><b>3チーム戦</b>を<wbr>3試合します<wbr>（大会のページでは<wbr>「100点ゲーム」）。</li>' +
+      '<li>1試合<b>40分</b>・<b>12ターン</b>まで。<wbr>終わった時点の得点で<wbr>決まります。</li>' +
+      '<li>投げる順は<wbr>ジャンケンで決め、<wbr>1ゲーム目は①→②→③、<wbr>2ゲーム目は③→②→①。</li>' +
+      '<li>3試合の<b>得点の合計</b>で、<wbr>上位31チームが<wbr><b>上位トーナメント</b>、<wbr>残りの32チームが<wbr><b>下位トーナメント</b>へ。</li>' +
+      '<li>得点が同じときは<wbr>勝ち数が多いほうが上。<wbr>それも同じなら<wbr>「運命のカード」を引いて<wbr>決めます。</li>' +
+      '<li>前回優勝のチームは<wbr>予選なしで<wbr>上位トーナメントから<wbr>出ます。</li></ul>' +
+      '<h3>トーナメント（上位・下位）</h3><ul class="rules">' +
+      '<li><b>2チームの対戦</b>で、<wbr><b>2ゲーム先取</b>。</li>' +
+      '<li>1試合<b>40分</b>。</li>' +
+      '<li>1回戦の相手は<wbr>予選の結果で決まります。<wbr>投げる順は、<wbr>予選の順位が<wbr>上のチームが決めます。</li>' +
+      '<li>3ゲーム目が同点のときは<wbr>「運命のカード」で<wbr>勝ちを決めます。</li>' +
+      '<li>負けたら<wbr>その時点で終わりです。<wbr>決勝は15:40〜、<wbr>上位トーナメントの<wbr>2チームで行います。</li></ul>' +
+      '<h3>レッゴリチャレンジ<wbr>（12:50〜15:10・無料）</h3><ul class="rules">' +
+      '<li>トーナメントで<wbr>負けた人が参加できます。</li>' +
+      '<li>本部で<b>チャレンジカード</b>を<wbr>もらい、<wbr>自由に対戦します。<wbr>勝ったら相手から<wbr>「たまシール」を<wbr>もらいます。</li>' +
+      '<li>集めた数で、<wbr>応募できる賞品が<wbr>変わります。<wbr>抽選はザ・タッグの<wbr>表彰式のあとです。</li></ul>' +
+      '<h3>試合が終わったら</h3><p class="note">結果の出し方は、<wbr>大会のページに<wbr>書かれていません。<wbr>当日の本部の案内に<wbr>従ってください。</p>';
+  }
+  return h;
+}
+function viewRule(){
+  return '<h2>2日間共通のルール</h2><ul class="rules">' +
+    '<li>日本モルック協会（JMA）の<wbr>公式ルールに従います。<wbr>投げ方は<b>下投げ</b>。</li>' +
+    '<li>試合が終わる<b>3分前</b>に<wbr>本部から案内があり、<wbr>そのターンで終わりです。<wbr>12ターンまで。</li>' +
+    '<li>自分の棒（マイ棒）は<wbr><b>Tactic社製だけ</b><wbr>使えます。</li>' +
+    '<li>1ゲームの中で<wbr>棒は替えられません。<wbr>タッグ戦では<wbr>パートナーと<wbr>替えるのはOK。</li>' +
+    '<li>棒がコートの外に出たとき、<wbr>またはスキットルを<wbr>倒す見込みが<wbr>なくなったときは、<wbr>投げ終わったとみなし、<wbr>投げる場所から<wbr>出てかまいません。</li>' +
+    '<li>セット間の休憩は<wbr>相手チームと相談して<wbr>決めます。</li></ul>' +
+    '<h3>審判</h3><ul class="rules">' +
+    '<li><b>セルフジャッジ</b>です。<wbr>対戦しているチーム同士で<wbr>判定します。</li>' +
+    '<li>対戦している人以外からの<wbr>指摘はできません。<wbr>両チームが同意すれば、<wbr>得点の記録や<wbr>スキットルを立てる<wbr>手伝いはOK。</li>' +
+    '<li>モルッカーリの踏み越えなど、<wbr>基本のルールを<wbr>守りましょう。</li>' +
+    '<li>決まらないときは<wbr>審判長・運営責任者が<wbr>判断し、<wbr>それで確定です。</li></ul>' +
+    '<p class="note">くわしくは<wbr>主催者の<wbr>大会ページを<wbr>見てください。</p>';
+}
+function viewVenue(){
+  var q = encodeURIComponent('菊間緑の広場 今治市菊間町池原1463-2');
+  var h = '<h2>会場</h2><p class="place"><b>菊間緑の広場<wbr>運動公園<wbr>多目的広場</b><br>愛媛県今治市菊間町<wbr>池原1463-2</p>' +
+    '<p><a class="maplink" href="https://www.google.com/maps/search/?api=1&query=' + q + '" target="_blank" rel="noopener">地図アプリで開く</a></p>' +
+    '<ul class="rules"><li>駐車場に<wbr>限りがあります。<wbr>乗り合わせで<wbr>来てください。</li>' +
+    '<li>近くの施設の<wbr>トイレも使えます。</li>' +
+    '<li>少しの雨なら<wbr>開く予定です。<wbr>寒さと雨の<wbr>対策をしてきてください。</li></ul>' +
+    '<p class="note">コートの配置図は、<wbr>主催者から届いたら<wbr>ここに出します。</p>' +
+    '<h2>受付と参加費</h2><ul class="rules"><li><b>28日（土）</b><wbr>受付11:00〜、<wbr>開会式11:30</li><li><b>29日（日）</b><wbr>受付8:30〜<wbr>（9:00までに）、<wbr>開会式9:00</li><li>参加費は<wbr>どちらも<b>1チーム2,000円</b>。<wbr>受付で払います。<wbr>おつりのないように<wbr>用意してください。</li></ul>' +
+    '<h2>交流会（28日の夜）</h2><ul class="rules"><li>18:30ごろから、<wbr>なみっこ交流館<wbr>（今治市波方町波方2029）</li><li>会費 3,000円。<wbr>申し込んだ人が対象です<wbr>（締切は10月24日でした）。</li></ul>' +
+    '<h2>主催</h2><p>レッドゴリラーズ</p>' +
+    installBox();
+  return h;
+}
+
+var installEvt = null;
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); installEvt = e; if (S.tab === 'venue') render(); });
+function installBox(){
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  if (standalone) return '';
+  var ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document), inApp = /Line\/|FBAN|FBAV|Instagram/i.test(ua);
+  var h = '<h2>ホーム画面に追加</h2><div class="install"><p style="margin:0">スマホのホーム画面に<wbr>アイコンを置くと、<wbr>次から1回押すだけで<wbr>開けます。</p>';
+  if (inApp) h += '<ol><li>' + (ios ? '右下の<b>「︙」か共有ボタン</b>を押す' : '右上の<b>「︙」</b>を押す') + '</li><li><b>「ブラウザで開く」</b>を押す</li><li>開いたページで、<wbr>もう一度この場所の<wbr>案内に従う</li></ol><p class="note">LINEなどの中で開いていると、<wbr>ホーム画面に追加できません。</p>';
+  else if (ios) h += '<ol><li>画面の下（iPadは上）の<b>共有ボタン</b>（四角から矢印が出ている形）を押す</li><li><b>「ホーム画面に追加」</b>を押す<wbr>（見えないときは下へずらす）</li><li>右上の<b>「追加」</b>を押す</li></ol>';
+  else if (installEvt) h += '<button type="button" class="big2" data-act="install">ホーム画面に追加する</button>';
+  else h += '<ol><li>右上の<b>「︙」</b>を押す</li><li><b>「ホーム画面に追加」</b>か<b>「アプリをインストール」</b>を押す</li><li><b>「追加」</b>を押す</li></ol>';
+  return h + '</div>';
+}
+function footHtml(){ return '<p class="foot">このページは<wbr>有志が作った<wbr>非公式の速報です。<wbr>主催者の<wbr>大会ページの内容を<wbr>まとめています。<wbr>正式な案内は<wbr>大会本部と<wbr>主催者の<wbr>大会ページで<wbr>確かめてください。<br>版 ' + VERSION + '</p>'; }
+
+/* ---------- render ---------- */
+function render(){
+  band();
+  document.querySelectorAll('#tabs button').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)); });
+  document.querySelectorAll('.days button').forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.day === S.day)); });
+  var v = S.tab === 'fmt' ? viewFmt() : S.tab === 'rule' ? viewRule() : S.tab === 'venue' ? viewVenue() : viewNow();
+  document.getElementById('view').innerHTML = v + footHtml();
+}
+document.getElementById('tabs').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; S.tab = b.dataset.tab; store.set('tab', S.tab); render(); window.scrollTo(0, 0); });
+document.querySelector('.days').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b || b.dataset.day === S.day) return; S.day = b.dataset.day; store.set('day', S.day); lastBand = null; render(); });
+document.getElementById('view').addEventListener('click', function(e){ var b = e.target.closest('[data-act="install"]'); if (b && installEvt){ installEvt.prompt(); installEvt = null; } });
+var toastTimer = null;
+function toast(t){ var el = document.getElementById('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function(){ el.hidden = true; }, 3500); }
+document.getElementById('reload').addEventListener('click', function(){ store.set('toast', '最新の内容にしました'); location.reload(); });
+(function(){ var t = store.get('toast'); if (t){ store.set('toast', ''); setTimeout(function(){ toast(t); }, 300); } })();
+setInterval(band, 30000);
+
+function darkNow(){ var t = document.documentElement.dataset.theme; if (t) return t === 'dark'; try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch(e){ return false; } }
+(function(){ var t = store.get('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; })();
+function paintTheme(){ var b = document.getElementById('thm'), dk = darkNow(); b.textContent = dk ? '☀ 明るく' : '☾ 暗く'; b.setAttribute('aria-label', dk ? '明るい画面に切り替える' : '暗い画面に切り替える'); }
+paintTheme();
+function paintBig(){ var on = document.documentElement.classList.contains('bigtext'), b = document.getElementById('big'); b.textContent = on ? '文字 ふつう' : '文字 大'; b.setAttribute('aria-pressed', String(on)); }
+if (store.get('big') === '1') document.documentElement.classList.add('bigtext');
+paintBig();
+document.getElementById('big').addEventListener('click', function(){ var on = document.documentElement.classList.toggle('bigtext'); store.set('big', on ? '1' : '0'); paintBig(); });
+document.getElementById('thm').addEventListener('click', function(){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); paintTheme(); });
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintTheme); } catch(e){}
+render();
+</script>
+</body>
+</html>
