@@ -2,6 +2,7 @@
 const http = require('http');
 const { fakeServerCommit } = require('../src/fakeserver.js');
 let db = { docs: {}, ver: 0 };
+let slow = 0, failUntil = 0;
 const srv = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -11,8 +12,14 @@ const srv = http.createServer((req, res) => {
   req.on('end', () => {
     const u = new URL(req.url, 'http://x');
     if (u.pathname === '/state') { res.end(JSON.stringify(db)); return; }
-    if (u.pathname === '/reset') { db = { docs: {}, ver: 0 }; res.end('{}'); return; }
-    if (u.pathname === '/commit') { const r = fakeServerCommit(db, JSON.parse(body).writes, Date.now()); res.end(JSON.stringify(r)); return; }
+    if (u.pathname === '/reset') { db = { docs: {}, ver: 0 }; slow = 0; failUntil = 0; res.end('{}'); return; }
+    if (u.pathname === '/slow') { slow = +u.searchParams.get('ms') || 0; res.end('{}'); return; }
+    if (u.pathname === '/fail') { failUntil = Date.now() + (+u.searchParams.get('ms') || 0); res.end('{}'); return; }
+    if (u.pathname === '/commit') {
+      if (Date.now() < failUntil) { res.statusCode = 503; res.end('{}'); return; }
+      setTimeout(() => { const r = fakeServerCommit(db, JSON.parse(body).writes, Date.now()); res.end(JSON.stringify(r)); }, slow);
+      return;
+    }
     res.statusCode = 404; res.end();
   });
 });

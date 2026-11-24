@@ -17,27 +17,37 @@ function fakeApply(docs, writes, now) {
   }
   return after;
 }
-/* サーバー側：ルールで判定してから書く（まとめて全部通るか、全部断るか） */
+/* サーバー側：ルールで判定してから書く（まとめて全部通るか、全部断るか）。
+   ルールの参照回数の上限（1回のまとめ書きで20回、1つの書き込みで10回）も、キャッシュなしとして数える */
 function fakeServerCommit(db, writes, now) {
   const docs = db.docs;
   const after = fakeApply(docs, writes, now);
   if (!after) return { ok: false, code: 'not-found' };
-  const isOpen = (box, e) => { const ev = after['staff/' + box + '/events/' + e]; return !!ev && ev.status === 'open'; };
-  const notMerged = (box, rid) => { const r = after['staff/' + box + '/roster/' + rid]; return !!r && !r.mergedInto; };
+  let calls = 0;
+  const getAfter = (path) => { calls++; return after[path]; };
+  const isOpen = (box, e) => { const ev = getAfter('staff/' + box + '/events/' + e); return !!ev && ev.status === 'open'; };
+  const notMerged = (box, rid) => { const r = getAfter('staff/' + box + '/roster/' + rid); return !!r && !r.mergedInto; };
   for (const w of writes) {
-    const p = w.path.split('/'), del = w.op === 'delete', exists = !!docs[w.path];
+    const p = w.path.split('/'), del = w.op === 'delete', before = docs[w.path], next = after[w.path];
+    const c0 = calls;
     let ok = false;
     if (p[0] === 'public') ok = true;
     else if (p[0] === 'staff' && p.length === 2) ok = !del;
-    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'roster') ok = !del;
+    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'roster') {
+      const box = p[1], id = p[3];
+      if (del) ok = false;
+      else if (!before) ok = !(next && next.mergedInto);
+      else ok = !before.mergedInto && (!next.mergedInto || (next.mergedInto !== id && notMerged(box, next.mergedInto)));
+    }
     else if (p[0] === 'staff' && p.length === 4 && (p[2] === 'metrics' || p[2] === 'ping')) ok = true;
-    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'events') ok = !del && (!exists || docs[w.path].status === 'open');
+    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'events') ok = !del && (!before || before.status === 'open');
     else if (p[0] === 'staff' && p.length === 6 && p[2] === 'events') {
       const box = p[1], e = p[3], kind = p[4], id = p[5];
       if (kind === 'checkins') ok = del ? isOpen(box, e) : isOpen(box, e) && notMerged(box, id);
-      else if (kind === 'ops') ok = !del && !exists && isOpen(box, e);
+      else if (kind === 'ops') ok = !del && !before && isOpen(box, e);
       else if (kind === 'devices') ok = !del;
     }
+    if (calls - c0 > 10 || calls > 20) return { ok: false, code: 'permission-denied', path: w.path, why: 'too-many-calls' };
     if (!ok) return { ok: false, code: 'permission-denied', path: w.path };
   }
   db.docs = after; db.ver = (db.ver || 0) + 1;

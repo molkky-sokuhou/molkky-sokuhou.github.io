@@ -124,6 +124,13 @@
           <p class="muted" id="anonRow" hidden style="margin:6px 0 0">ログインなしの読み取りも確かめます。</p>
         </div>
         <div class="box">
+          <h2 class="h">Firestoreのルール</h2>
+          <p class="muted" style="margin-top:0">この運営アカウントの番号（UID）を入れたルールの全文です。Firebase の「Firestore Database」→「ルール」に、全部消してから貼り付けて「公開」を押します。</p>
+          <p id="uidLine" style="word-break:break-all"></p>
+          <textarea class="copyta" id="rulesTa" readonly></textarea>
+          <button class="btn cyan wide" id="rulesCopy" type="button">ルールの全文をコピー</button>
+        </div>
+        <div class="box">
           <h2 class="h">テスト用の操作</h2>
           <div class="actions">
             <button class="btn" id="seedBtn" type="button">架空の名簿24人を入れる</button>
