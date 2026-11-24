@@ -1,0 +1,152 @@
+<div class="wrap">
+  <!-- ===== パスコード ===== -->
+  <div class="lockwrap" id="lock">
+    <div class="vc-row">@@VIEWCTL@@</div>
+    <div>
+      <div class="org">泉鋼業(株)モルック部</div>
+      <h1 class="title" style="font-size:clamp(2.2rem,11vw,3.4rem)">運営<br>メニュー</h1>
+      <p class="mode-note">受付の試作（新しい仕組みのテスト版）。名簿は架空の24人です。</p>
+    </div>
+    <div class="box">
+      <p>運営パスコードを入れると、2台のスマホで同じ受付を使えます。</p>
+      <form id="lockForm" style="display:grid;gap:10px">
+        <input class="input big-in" id="passIn" type="password" autocomplete="current-password" placeholder="運営パスコード" aria-label="運営パスコード">
+        <button class="btn primary wide" id="passBtn" type="submit">運営モードにする</button>
+      </form>
+      <div class="err" id="lockErr" aria-live="polite"></div>
+    </div>
+    <div class="box plain lock-alt">
+      <p style="margin:0">パスコードなしで、この端末の中だけで操作を試すこともできます（ほかの端末とはつながりません）。</p>
+      <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
+    </div>
+    <p class="ver">版 @@VER@@</p>
+  </div>
+
+  <div id="app" hidden>
+    <header class="abar">
+      <div class="abar-in">
+        <div class="abar-top"><h1 class="abrand"><small>泉鋼業(株)モルック部</small>月いちモルック 運営</h1>@@VIEWCTL@@</div>
+        <div class="pills" id="pills"></div>
+      </div>
+      <div class="when-line" id="modeLine"></div>
+    </header>
+    <div class="savebar" id="saveBar"></div>
+
+    <main>
+      <!-- ===== 受付 ===== -->
+      <section class="panel" id="ph-entry">
+        <div class="statusbox" id="statusBox" role="status" aria-live="polite"></div>
+        <div class="box warnbox" id="rjBox" hidden>
+          <h2 class="h">届かなかった操作</h2>
+          <p class="muted" style="margin-top:0">この端末で押したのに、サーバーに断られた・届かなかった操作です。確かめて、受付し直すか消してください。</p>
+          <div class="rjlist" id="rjList"></div>
+        </div>
+        <div class="box" id="dupBox" hidden>
+          <h2 class="h">同じ人かもしれません</h2>
+          <p class="muted" style="margin-top:0">名前が同じ受付が2件あります。同じ人だと確かめたときだけ、まとめてください。</p>
+          <div class="rjlist" id="dupList"></div>
+        </div>
+        <div class="box">
+          <div class="sec-h"><h2 class="h">受付</h2><span class="stat" id="evName"></span></div>
+          <div class="subbox" id="evGate" hidden></div>
+          <div id="entryBox">
+          <div class="field">
+            <label for="eq">名前で探す</label>
+            <input class="input big-in" id="eq" type="search" autocomplete="off" enterkeyhint="done" placeholder="名前の一部（はじめての人はフルネーム）">
+          </div>
+          <div class="rgrid" id="rList"></div>
+          <div class="subbox" id="newBox" hidden style="margin-top:12px">
+            <div id="newMsg"></div>
+            <div class="actions">
+              <label class="switch"><input type="checkbox" id="pExp"><span class="tr"></span>経験豊富</label>
+              <label class="switch"><input type="checkbox" id="pEarly"><span class="tr"></span>早めに帰る</label>
+            </div>
+            <div class="field"><label for="pPair">同じチーム希望の目印（任意）</label><input class="input" id="pPair" autocomplete="off" maxlength="20" placeholder="例：A（同じ目印の人は同じチーム）"></div>
+            <button class="btn wide" id="newAdd" type="button">はじめての人として受付</button>
+          </div>
+          <p class="muted" id="rNote" style="margin:10px 0 0">タップでチェックして、下のボタンでまとめて受付します。押したらすぐ次の人に進めます。保存は裏で進みます。</p>
+          </div>
+        </div>
+        <div class="qbar" id="qBar" hidden><button class="btn primary" id="qAdd" type="button">チェックした人を受付</button></div>
+        <div class="box">
+          <div class="sec-h"><h2 class="h">受付済み</h2><div class="chiprow" id="pCount"></div></div>
+          <p class="muted" style="margin-top:0">「送信待ち」は、この端末にだけ入っていて、まだサーバーで確認できていない受付です。電波が戻れば自動で送られます。名前を押すと受付を取り消せます。</p>
+          <ul class="plist2" id="plist"></ul>
+        </div>
+      </section>
+
+      <!-- ===== まだ作っていないタブ ===== -->
+      <section class="panel" id="ph-other" hidden>
+        <div class="box">
+          <h2 class="h" id="otherH">チーム</h2>
+          <p>この試作は受付だけです。チーム・試合・記録は、受付の計測が済んでから作ります。</p>
+          <p class="muted" style="margin:0">記録タブには、リセットの前に「バックアップを保存」（NASへ入れる用のファイル）を入れる予定です。</p>
+        </div>
+      </section>
+
+      <!-- ===== 設定（計測） ===== -->
+      <section class="panel" id="ph-set" hidden>
+        <div class="box">
+          <h2 class="h">この端末の名前</h2>
+          <p class="muted" style="margin-top:0">計測の表で、どの端末の記録かを見分けるのに使います。</p>
+          <div class="actions"><input class="input" id="devName" maxlength="12" style="flex:1 1 160px"><button class="btn" id="devSave" type="button">決める</button></div>
+        </div>
+        <div class="box">
+          <div class="sec-h"><h2 class="h">計測</h2><button class="btn small" id="syncBtn" type="button">時計を合わせ直す</button></div>
+          <p class="muted" style="margin-top:0" id="clockLine"></p>
+          <div class="sumgrid" id="mSum"></div>
+          <details style="margin-top:12px"><summary style="font-weight:900;cursor:pointer">測り方</summary>
+            <ol class="steps">
+              <li>2台とも運営モードにして、端末の名前を「1台目」「2台目」などにする</li>
+              <li>1台目で受付する（1人ずつ・何人かまとめて、をそれぞれ10回ほど）。2台目は受付タブを開いておく</li>
+              <li>同じ人を2台で同時に押す。受付済みに1人だけ出ればOK</li>
+              <li>機内モードにして受付→「保存待ち」が出る→機内モードを切る→自動で保存される</li>
+              <li>保存待ちのまま画面を再読み込みする・タブを閉じて開き直す→保存待ちが残って、電波があれば送られる</li>
+            </ol>
+          </details>
+          <div class="mwrap" style="margin-top:12px"><table class="mtable"><thead><tr><th>端末・種類</th><th>人数</th><th>次の人へ</th><th>保存確定</th><th>もう1台</th></tr></thead><tbody id="mBody"></tbody></table></div>
+          <p class="muted" style="margin:10px 0 0">「次の人へ」は押してから次の人を入力できるまで、「保存確定」は押してから共有先に届くまで、「もう1台」は押してから別の端末に出るまで（別の端末の側で記録）。</p>
+          <div class="field" style="margin-top:12px"><label for="csv">計測結果（全部コピーしてClaudeに貼り付けてください）</label><textarea class="copyta" id="csv" readonly></textarea></div>
+          <button class="btn cyan wide" id="csvCopy" type="button">計測結果を全部コピー</button>
+        </div>
+        <div class="box">
+          <h2 class="h">開催回</h2>
+          <p id="evNow" style="margin-top:0"></p>
+          <p class="muted">受付は開催回ごとに分けて保存します。新しい回を始めると、いまの回は締められ、あとから圏外の端末の受付・取消が届いても受け付けません。</p>
+          <button class="btn" id="evNew" type="button">新しい回を始める</button>
+          <ul class="mini-list" id="evList"></ul>
+        </div>
+        <div class="box">
+          <h2 class="h">ルールの確認</h2>
+          <p class="muted" style="margin-top:0">本物のサーバーで、締めた回への受付・まとめた人への受付・ログインなしの読み取りなどが、きちんと断られるかを試します（テスト用の別の場所を使うので、受付には影響しません）。</p>
+          <button class="btn cyan" id="selfBtn" type="button">ルールを確かめる</button>
+          <ul class="mini-list" id="selfOut"></ul>
+          <p class="muted" id="anonRow" hidden style="margin:6px 0 0">ログインなしの読み取りも確かめます。</p>
+        </div>
+        <div class="box">
+          <h2 class="h">テスト用の操作</h2>
+          <div class="actions">
+            <button class="btn" id="seedBtn" type="button">架空の名簿24人を入れる</button>
+          </div>
+          <div class="subbox" id="demoNet" hidden>
+            <label class="switch"><input type="checkbox" id="demoOffline"><span class="tr"></span>電波なしにする（練習用）</label>
+            <small class="muted">オンにすると、受付は「送信待ち」のまま残ります。オフに戻すと送られます。練習モードはこの端末の中の模擬サーバーなので、本当に消えないかの確認は本番モードで行ってください。</small>
+          </div>
+        </div>
+        <div class="box">
+          <h2 class="h">この端末からデータを消す</h2>
+          <p class="muted" style="margin-top:0">借りた端末を返すときなどに使います。送信待ちや届かなかった操作が残っているあいだは消せません。サーバーのデータは消えません。</p>
+          <button class="btn" id="wipeBtn" type="button">この端末からデータを消す</button>
+          <p class="err" id="wipeMsg" aria-live="polite"></p>
+        </div>
+        <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
+      </section>
+      <p class="ver">版 @@VER@@</p>
+    </main>
+  </div>
+</div>
+
+@@NAV@@
+
+<div class="ov" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>

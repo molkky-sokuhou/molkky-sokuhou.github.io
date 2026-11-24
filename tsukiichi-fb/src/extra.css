@@ -1,0 +1,57 @@
+/* ===== 受付の試作で足したもの ===== */
+.savebar { position: sticky; top: 0; z-index: 25; margin: 0 -16px; padding: 8px 16px; display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; font-weight: 900; border-bottom: 2px solid var(--line); background: var(--good-soft); color: var(--good); }
+.savebar.wait { background: var(--warn-soft); color: var(--ink); border-bottom-color: var(--yellow); }
+.savebar.off { background: var(--danger-soft); color: var(--red); border-bottom-color: var(--red); }
+.savebar .big { font-size: 1.05rem; word-break: keep-all; overflow-wrap: anywhere; }
+.savebar .sub { font-size: .85rem; font-weight: 700; color: var(--muted); margin-left: auto; word-break: keep-all; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: .05em; }
+.savebar.wait .dot { background: var(--yellow); animation: blink 1s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+.prow .st { margin-left: auto; font-size: .8rem; font-weight: 900; white-space: nowrap; }
+.prow .st.ok { color: var(--good); }
+.prow .st.wait { color: var(--ink); background: var(--yellow); border-radius: 6px; padding: 0 6px; }
+.prow .st.err { color: #fff; background: var(--red); border-radius: 6px; padding: 0 6px; }
+.prow .by { font-size: .78rem; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.mode-note { font-size: .88rem; font-weight: 700; color: var(--muted); }
+.mtable { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.mtable th, .mtable td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.mtable th:first-child, .mtable td:first-child { text-align: left; }
+.mtable th { font-size: .78rem; color: var(--muted); }
+.mwrap { overflow-x: auto; }
+.sumgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; }
+.sum { background: var(--panel-2); border-radius: 10px; padding: 8px 10px; }
+.sum b { display: block; font-size: .82rem; color: var(--muted); }
+.sum .v { font-family: var(--f-display); font-weight: 400; font-size: 1.3rem; }
+.sum small { display: block; font-size: .8rem; color: var(--muted); font-weight: 700; }
+.copyta { width: 100%; min-height: 120px; font: .8rem/1.5 ui-monospace, Menlo, monospace; border: 2px solid var(--line); border-radius: 10px; padding: 8px; background: var(--panel); color: var(--ink); }
+.ver { margin: 28px 16px 20px; text-align: center; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.steps { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; }
+.lock-alt { display: grid; gap: 8px; }
+.toast { bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+/* 送信の状態：この端末／サーバー／ほかの端末 を分けて出す */
+.savebar { display: grid; gap: 0; padding: 0; background: var(--panel); color: var(--ink); }
+.sb-row { display: flex; align-items: baseline; gap: 2px 10px; flex-wrap: wrap; padding: 5px 16px; border-top: 1px solid var(--line); }
+.sb-row:first-child { border-top: 0; }
+.sb-row .big { font-size: .98rem; word-break: keep-all; overflow-wrap: anywhere; }
+.sb-row .sub { margin-left: 0; font-size: .82rem; font-weight: 700; color: var(--muted); word-break: keep-all; overflow-wrap: anywhere; }
+.sb-row.ok { background: var(--good-soft); color: var(--good); }
+.sb-row.wait { background: var(--warn-soft); }
+.sb-row.wait .dot { background: var(--yellow); animation: blink 1s ease-in-out infinite; }
+.sb-row.off { background: var(--danger-soft); color: var(--red); }
+.sb-row.info { background: var(--panel-2); color: var(--muted); }
+.warnbox { border-color: var(--red); }
+.rjlist { display: grid; gap: 8px; }
+.rjlist small { font-weight: 700; }
+.mini-list { margin: 10px 0 0; padding-left: 1.2em; display: grid; gap: 4px; font-size: .92rem; }
+.savebar .sb-row { padding: 6px 16px; }
+.savebar .sb-row .sub { margin-left: auto; }
+.statusbox { display: grid; border: 2px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
+.statusbox .sb-row { padding: 6px 12px; }
+.statusbox .sb-row .big { font-size: .92rem; }
+.statusbox .sb-row .sub { font-size: .8rem; }
+.sec-h .stat { max-width: 100%; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.toast { left: 16px; right: 16px; transform: none; margin-inline: auto; width: fit-content; max-width: calc(100% - 32px); }
+.plist2 > li { min-width: 0; }
+.prow { min-width: 0; }
+.prow .st { white-space: normal; word-break: keep-all; text-align: right; }
+.sb-row .big { word-break: normal; line-break: strict; }
