@@ -46,15 +46,22 @@ function fakeServerCommit(db, writes, now) {
       else {
         /* まとめを元に戻す：mergedInto を空にして unmergedAt（サーバー時刻）を書く。ほかの項目は変えない */
         const keys = new Set(Object.keys(before).concat(Object.keys(next))), changed = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k]));
-        ok = !next.mergedInto && next.unmergedAt === now && changed.every((k) => k === 'mergedInto' || k === 'unmergedAt');
+        ok = !next.mergedInto && next.unmergedAt === now && (next.unmergeOf || '') === (before.mergeId || 'x') && changed.every((k) => k === 'mergedInto' || k === 'unmergedAt' || k === 'unmergeOf');
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && (p[2] === 'metrics' || p[2] === 'ping')) ok = true;
-    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'hist') ok = !del;
+    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'hist') {
+      if (del) ok = false;
+      else if (!before) ok = true;
+      else {
+        const keys = new Set(Object.keys(before).concat(Object.keys(next))), changed = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k]));
+        ok = next.movedFrom === before.rid && next.rid !== before.rid && changed.every((k) => k === 'rid' || k === 'movedFrom' || k === 'movedAt') && notMerged(p[1], next.rid);
+      }
+    }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'events') {
       if (del) ok = false;
       else if (!before) { const bx = getAfter('staff/' + p[1]); ok = next.status === 'open' && !!bx && bx.currentEvent === p[3]; }
-      else ok = before.status === 'open';
+      else ok = before.status === 'open' && (next.status === 'open' || (next.closeRev || '') === (before.rev || ''));
     }
     else if (p[0] === 'staff' && p.length === 6 && p[2] === 'events') {
       const box = p[1], e = p[3], kind = p[4], id = p[5];

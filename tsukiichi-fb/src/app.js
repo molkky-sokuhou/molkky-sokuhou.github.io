@@ -41,12 +41,17 @@ const W = {
     return w;
   },
   cancel(root, eid, rawIds) { return rawIds.map((r) => ({ op: 'delete', path: root + '/events/' + eid + '/checkins/' + r })); },
-  merge(root, eid, keep, drop, opId, needKeepCheckin, tapAt) {
-    const w = [
-      { op: 'update', path: root + '/roster/' + drop.id, data: { mergedInto: keep.id, mergedAt: TS } },
-      { op: 'delete', path: root + '/events/' + eid + '/checkins/' + (drop.rawId || drop.id) }
-    ];
-    if (needKeepCheckin) w.push({ op: 'set', path: root + '/events/' + eid + '/checkins/' + keep.id, data: { name: keep.name, isNew: !!keep.isNew, at: TS, tapAt: keep.tapAt || tapAt, dev: DEV, devName, batch: opId, n: 1, op: opId } });
+  /* まとめる：まとめるごとに番号（mergeId）を付ける（元に戻すときにこの番号を確かめる）。
+     o.carry があれば、その回の早帰り・目印・チームをまとめ先へ引き継ぐ（抽選のあとにまとめても記録から漏れないように） */
+  merge(root, eid, keep, drop, opId, needKeepCheckin, tapAt, o) {
+    o = o || {};
+    const extra = o.keepNameBefore != null ? { keepNameBefore: o.keepNameBefore, keepNameAfter: o.keepNameAfter } : {};
+    const w = [{ op: 'update', path: root + '/roster/' + drop.id, data: { mergedInto: keep.id, mergedAt: TS, mergeId: o.mergeId || ('g' + opId), ...extra } }];
+    if (o.dropIn !== false) w.push({ op: 'delete', path: root + '/events/' + eid + '/checkins/' + (drop.rawId || drop.id) });
+    const c = o.carry;
+    if (needKeepCheckin) w.push({ op: 'set', path: root + '/events/' + eid + '/checkins/' + keep.id, data: { name: keep.name, isNew: !!keep.isNew, early: !!(c && c.early), pair: (c && c.pair) || '', at: TS, tapAt: keep.tapAt || tapAt, dev: DEV, devName, batch: opId, n: 1, op: opId } });
+    else if (c && c.fix) w.push({ op: 'update', path: root + '/events/' + eid + '/checkins/' + (keep.rawId || keep.id), data: c.fix });
+    if (c && c.team !== undefined) w.push({ op: 'update', path: root + '/events/' + eid, data: { ['assign.' + keep.id]: c.team || null, ['assign.' + drop.id]: null } });
     return w;
   },
   distinct(root, a, b) { return [{ op: 'update', path: root + '/roster/' + a.id, data: { ['notSame.' + b.id]: true } }, { op: 'update', path: root + '/roster/' + b.id, data: { ['notSame.' + a.id]: true } }]; },
@@ -111,20 +116,29 @@ service cloud.firestore {
         || (resource.data.get('mergedInto', '') != ''
           && request.resource.data.get('mergedInto', '') == ''
           && request.resource.data.get('unmergedAt', null) == request.time
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mergedInto', 'unmergedAt'])));
+          && request.resource.data.get('unmergeOf', '') == resource.data.get('mergeId', 'x')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mergedInto', 'unmergedAt', 'unmergeOf'])));
     }
-    // 大会の記録（1人1大会で1件）。分けるときは持ち主を書き換える。消さない
+    // 大会の記録（1人1大会で1件）。消さない。移すときは「いまの持ち主」を確かめ、移す先はまとめられていない名簿の人だけ
     match /staff/{box}/hist/{h} {
       allow read: if isStaff();
-      allow create, update: if isStaff();
+      // 作るのは締めるときに全員分をまとめて（参照回数の上限に当たらないよう、ここでは名簿を見ない）
+      allow create: if isStaff();
+      allow update: if isStaff()
+        && request.resource.data.movedFrom == resource.data.rid
+        && request.resource.data.rid != resource.data.rid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rid', 'movedFrom', 'movedAt'])
+        && notMerged(box, request.resource.data.rid);
     }
     match /staff/{box}/events/{e} {
       allow read: if isStaff();
       // 回を作れるのは、同じまとめ書きで「いまの回」をその回にするときだけ（開いている回は1つ）
       allow create: if isStaff() && request.resource.data.status == 'open'
         && getAfter(/databases/$(database)/documents/staff/$(box)).data.currentEvent == e;
-      // 締めた回は開け直さない
-      allow update: if isStaff() && resource.data.status == 'open';
+      // 締めた回は開け直さない。締めるときは、順位を計算したときの更新番号（closeRev）がいまの rev と同じときだけ
+      allow update: if isStaff() && resource.data.status == 'open'
+        && (request.resource.data.status == 'open'
+          || request.resource.data.get('closeRev', '') == resource.data.get('rev', ''));
     }
     match /staff/{box}/events/{e}/checkins/{rid} {
       allow read: if isStaff();
@@ -241,6 +255,7 @@ const unsent = () => S.ops.filter((o) => o.state === 'sending' || o.state === 'u
 const rejected = () => S.ops.filter((o) => o.state === 'rejected');
 
 function runOp(op, writes) {
+  bumpRev(op, writes);
   op.session = SESSION; op.state = 'sending'; op.dev = DEV; op.devName = devName;
   writes.push(W.opDoc(ROOT, op));
   S.ops.push(op); saveOps(); refreshConfirmedCount();
@@ -249,6 +264,16 @@ function runOp(op, writes) {
     (err) => { markRejected(op, err && err.code); });
   renderAll(); heartbeat();
   return p;
+}
+/* 順位や記録に関わる変更（開催回のチーム・試合・所属、受付の書き換え・取り消し）では、開催回の rev を新しくする。
+   締めるときは、順位を計算したときの rev を closeRev として送り、ルールで同じときだけ通す（直前に届いた得点の訂正と食い違わないように） */
+function bumpRev(op, writes) {
+  if (!op.eid) return;
+  const evPath = ROOT + '/events/' + op.eid, ckPath = evPath + '/checkins/';
+  if (!writes.some((w) => (w.path === evPath && w.op === 'update') || (w.path.startsWith(ckPath) && w.op !== 'set'))) return;
+  const rev = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const ew = writes.find((w) => w.path === evPath && w.op === 'update');
+  if (ew) ew.data.rev = rev; else writes.push({ op: 'update', path: evPath, data: { rev } });
 }
 async function markRejected(op, code) {
   op.state = 'rejected'; op.code = code || 'error'; op.reason = '確かめています…'; saveOps(); refreshConfirmedCount(); renderAll(); heartbeat();
@@ -873,20 +898,37 @@ function openMerge(pair) {
     $('sheet').innerHTML = '<h2 id="sheetTitle">同じ人としてまとめる</h2>' +
       '<p>残す方：<b>' + esc(keep.name) + '</b>（' + (keep.isNew ? 'はじめて' : '名簿') + '・' + esc(keep.devName || '') + ' ' + hm(keep.tapAt) + '）<br>' +
       'まとめて消す方：<b>' + esc(drop.name) + '</b>（' + (drop.isNew ? 'はじめて' : '名簿') + '・' + esc(drop.devName || '') + ' ' + hm(drop.tapAt) + '）</p>' +
-      '<p class="muted">まとめたあと、消す方への受付がほかの端末から遅れて届いても、受け付けません（人数は増えません）。</p>' +
+      '<p class="muted">まとめたあと、消す方への受付がほかの端末から遅れて届いても、受け付けません（人数は増えません）。早帰り・目印・チームは残す方へ引き継ぎます。</p>' +
+      teamChoiceHtml(teamChoice(people().find((x) => x.id === keep.id), people().find((x) => x.id === drop.id)), keep.name, drop.name) +
       '<div class="actions"><button class="btn primary" id="mgYes" type="button">まとめる</button><button class="btn small" id="mgSwap" type="button">残す方を入れ替える</button><button class="btn ghost" id="mgNo" type="button">やめる</button></div>';
     $('ov').hidden = false;
     $('mgNo').onclick = closeSheet;
     $('mgSwap').onclick = () => { [keep, drop] = [drop, keep]; show(); };
-    $('mgYes').onclick = () => { closeSheet(); doMerge(keep, drop); };
+    $('mgYes').onclick = () => { const t = $('mgTeam') ? +$('mgTeam').value : undefined; closeSheet(); doMerge(keep, drop, t); };
   };
   show();
 }
-function doMerge(keep, drop) {
+/* まとめるときに、その回の早帰り・目印・チームをどう引き継ぐか（keepP・dropP は people() の人。受付していなければ null） */
+function mergeCarry(keepP, dropP, team) {
+  if (!dropP) return null;
+  const early = !!((keepP && keepP.early) || dropP.early), pair = (keepP && keepP.pair) || dropP.pair || '';
+  const t = team !== undefined ? team : ((keepP && keepP.team) || dropP.team || 0);
+  const c = { early, pair, team: t };
+  if (keepP) { const fix = {}; if (early !== !!keepP.early) fix.early = early; if (pair !== (keepP.pair || '')) fix.pair = pair; if (Object.keys(fix).length) c.fix = fix; }
+  return c;
+}
+/* 2人とも別々のチームに入っているときだけ、残すチームを選んでもらう */
+function teamChoice(keepP, dropP) { return keepP && dropP && keepP.team && dropP.team && keepP.team !== dropP.team ? [keepP.team, dropP.team] : null; }
+function teamChoiceHtml(ch, keepName, dropName) {
+  return ch ? '<div class="field"><label for="mgTeam">残すチーム（2人が別々のチームに入っています）</label><select class="input" id="mgTeam">' +
+    '<option value="' + ch[0] + '">' + esc(teamName(ch[0])) + '（' + esc(keepName) + 'さんのチーム）</option><option value="' + ch[1] + '">' + esc(teamName(ch[1])) + '（' + esc(dropName) + 'さんのチーム）</option></select></div>' : '';
+}
+function doMerge(keep, drop, team) {
   if (needEvent()) return;
   const op = { id: rid('o'), type: 'merge', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: drop.id, name: drop.name }, { id: keep.id, name: keep.name }], tapAt: now() };
   const need = keep.rawId !== keep.id || !S.checkins.some((c) => c.id === keep.id);
-  runOp(op, W.merge(ROOT, S.cur, keep, drop, op.id, need, op.tapAt));
+  const ps = people(), keepP = ps.find((x) => x.id === keep.id) || null, dropP = ps.find((x) => x.id === drop.id) || null;
+  runOp(op, W.merge(ROOT, S.cur, keep, drop, op.id, need, op.tapAt, { carry: mergeCarry(keepP, dropP, team) }));
   toast(keep.name + ' さんにまとめました（送信待ち）');
 }
 function markDistinct(pair) {
@@ -1049,7 +1091,10 @@ function openNewEvent() {
     const d = new Date(), e = 'e' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + Math.random().toString(36).slice(2, 6);
     const writes = W.newEvent(ROOT, seen, Boolean(seen), e, name, seen && S.events[seen] ? courtsOf(S.events[seen]) : 0, seen ? closingData(seen) : null);
     closeSheet();
-    B.commit(writes).then(() => toast('「' + name + '」を始めました'), (err) => {
+    B.commit(writes).then(() => toast('「' + name + '」を始めました'), async (err) => {
+      if ((err && err.code) === 'permission-denied' && seen) {
+        try { const now2 = await B.getServer(ROOT + '/events/' + seen); if (now2 && now2.status === 'open') { toast('締める直前に、ほかの端末から結果やチームの変更が届きました。最新の順位で、もう一度「新しい回を始める」を押してください', true); return; } } catch (e) {}
+      }
       toast((err && err.code) === 'permission-denied' ? 'ほかの端末で先に回が始まったため、始めませんでした。いまの回を表示します' : '始められませんでした（' + ((err && err.code) || '') + '）', true);
     });
   };
@@ -1669,19 +1714,22 @@ const fmtDate = (d) => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d || ''); retu
 function closingData(eid) {
   if (eid !== S.cur) return null;
   const ev = S.events[eid] || {}, teams = evTeams(ev), ms = evMatches(ev);
-  if (!ms.some(hasRes)) return { ev: { final: null, noResult: true }, hist: [] };
+  const closeRev = ev.rev || '';
+  if (!ms.some(hasRes)) return { ev: { final: null, noResult: true, closeRev }, hist: [], n: people().length, missing: [] };
   const ps = people(), st = standings(teams, ms, ps), date = evDate(ev), by = {};
   st.forEach((x) => { by[x.no] = x; });
   return {
-    ev: { final: { date, teams: st.length, standings: st.map((x) => ({ rank: x.rank, name: x.name, members: x.members, played: x.played, total: x.total, avg: x.avg })) }, noResult: false },
+    ev: { final: { date, teams: st.length, standings: st.map((x) => ({ rank: x.rank, name: x.name, members: x.members, played: x.played, total: x.total, avg: x.avg })) }, noResult: false, closeRev },
+    n: ps.length, missing: ps.filter((p) => !p.team || !by[p.team]).map((p) => p.name),
     hist: ps.filter((p) => p.team && by[p.team]).map((p) => { const x = by[p.team]; return { id: eid + '_' + p.id, data: { eid, ename: ev.name || '', date, rid: p.id, name: p.name, team: x.name, members: x.members, rank: x.rank, teams: st.length, played: x.played, total: x.total, at: TS } }; })
   };
 }
 function closingSummary() {
   const c = closingData(S.cur); if (!c) return '';
-  if (!c.hist.length) return 'この回は試合の結果が1件もないので、順位や参加の記録は作りません。';
+  if (!c.hist.length) return 'この回は試合の結果が1件もないので、順位や参加の記録は作りません（受付 ' + c.n + '人）。';
   const top = c.ev.final.standings.filter((x) => x.rank === 1);
-  return 'この回の順位と、' + c.hist.length + '人の参加の記録を残します（1位：' + top.map((x) => x.name + '［' + x.members.join('・') + '］').join('／') + '）。';
+  return 'この回の順位と、' + c.hist.length + '人の参加の記録を残します（受付 ' + c.n + '人／記録 ' + c.hist.length + '人。1位：' + top.map((x) => x.name + '［' + x.members.join('・') + '］').join('／') + '）。' +
+    (c.missing.length ? 'チームに入っていない ' + esc(c.missing.join('・')) + ' さんは記録に入りません。入れるなら、先にチームに入れてください。' : '');
 }
 function histRows() { const rm = rosterById(); return S.hist.map((h) => ({ ...h, pid: resolveId(h.rid, rm) })); }
 /* 人ごとの数（参加は大会の日付で数える。同じ日が2件あっても1回） */
@@ -1689,10 +1737,14 @@ function personStats(season) {
   const out = {};
   histRows().forEach((h) => {
     if (season && (h.date || '') < SEASON_START) return;
-    const o = out[h.pid] || (out[h.pid] = { n: 0, win: 0, top3: 0, dates: {} });
-    if (o.dates[h.date]) return;
-    o.dates[h.date] = 1; o.n++; if (h.rank === 1) o.win++; if (h.rank <= 3) o.top3++;
+    const o = out[h.pid] || (out[h.pid] = { n: 0, win: 0, top3: 0, dates: {}, dup: [] });
+    const prev = o.dates[h.date];
+    if (prev === undefined) { o.dates[h.date] = h.rank; return; }
+    /* 同じ日に2件（まとめた2人が同じ日に出ていた）：参加は1回、順位は良い方で数え、要確認として出す（読み込み順で数が変わらないように） */
+    if (!o.dup.includes(h.date)) o.dup.push(h.date);
+    o.dates[h.date] = Math.min(prev, h.rank);
   });
+  Object.values(out).forEach((o) => { const r = Object.values(o.dates); o.n = r.length; o.win = r.filter((x) => x === 1).length; o.top3 = r.filter((x) => x <= 3).length; });
   return out;
 }
 const REC = { scope: 'all', q: '' };
@@ -1706,7 +1758,7 @@ function renderRec() {
   document.querySelectorAll('#recScope [data-sc]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.sc === REC.scope ? 'true' : 'false'));
   $('recCount').textContent = '記録 ' + new Set(S.hist.map((h) => h.date)).size + '大会・' + liveRoster().length + '人';
   $('recList').innerHTML = list.length ? list.map((x) => '<li><button type="button" class="prow" data-pp="' + esc(x.r.id) + '"><span class="pname">' + esc(x.r.name) + '</span>' +
-    (mergedBy[x.r.id] ? '<span class="tag cy">' + esc('まとめた人：' + mergedBy[x.r.id].join('・')) + '</span>' : '') +
+    (mergedBy[x.r.id] ? '<span class="tag cy">' + esc('まとめた人：' + mergedBy[x.r.id].join('・')) + '</span>' : '') + ((x.s.dup || []).length ? '<span class="tag early">要確認</span>' : '') +
     '<span class="rstat"><span>参加 ' + x.s.n + '回</span>' + (x.s.win ? '<span>優勝 ' + x.s.win + '</span>' : '') + (x.s.top3 ? '<span>3位以内 ' + x.s.top3 + '</span>' : '') + '</span></button></li>').join('')
     : '<li class="muted">' + (q ? '「' + esc(REC.q) + '」に当てはまる人はいません' : 'まだ名簿がありません') + '</li>';
   $('recList').querySelectorAll('[data-pp]').forEach((b) => { b.onclick = () => openPerson(b.dataset.pp); });
@@ -1728,6 +1780,7 @@ function openPerson(pid) {
   const opt = (r) => '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>';
   $('sheet').innerHTML = '<h2 id="sheetTitle">' + esc(me.name) + 'さんの記録</h2>' +
     '<p>参加 ' + s.n + '回・優勝 ' + s.win + '回・3位以内 ' + s.top3 + '回（通算）</p>' +
+    ((s.dup || []).length ? '<p class="warnline">同じ日の記録が2件あります（' + esc(s.dup.map(fmtDate).join('・')) + '）。いまは良い方の順位で数えています。別の人の記録なら、チェックして別の人へ移してください。</p>' : '') +
     (rows.length ? '<ul class="hrows">' + rows.map((h) => '<li><label><input type="checkbox" data-hr="' + esc(h.id) + '"><span><b>' + esc(fmtDate(h.date)) + '</b> ' + esc(h.ename || '') +
       '<br><small>' + esc(h.team || '') + '・' + h.rank + '位／' + h.teams + 'チーム・' + h.total + '点' + (h.rid !== pid ? '・記録の名前「' + esc((rm[h.rid] || {}).name || h.name) + '」' : '') + '</small></span></label></li>').join('') + '</ul>'
       : '<p class="muted">まだ大会の記録がありません。</p>') +
@@ -1739,7 +1792,7 @@ function openPerson(pid) {
       '<div class="field"><label for="mgWith">まとめる相手</label><select class="input" id="mgWith"><option value="">（選んでください）</option>' + others.map(opt).join('') + '</select></div>' +
       '<div id="mgMore" hidden></div></div>' +
     (merged.length ? '<div class="subbox"><b>まとめた人</b><ul class="hrows">' + merged.map((r) => '<li><span><b>' + esc(r.name) + '</b>' + (num(r.mergedAt) ? ' <small class="muted">' + esc(fmtDate(jstDate(num(r.mergedAt)))) + 'にまとめた</small>' : '') + '</span>' +
-      (r.keepNameBefore && r.keepNameBefore !== me.name ? '<label class="switch" style="margin-top:4px"><input type="checkbox" data-rn="' + esc(r.id) + '" checked><span class="tr"></span>' + esc(me.name) + 'さんの名前を「' + esc(r.keepNameBefore) + '」に戻す</label>' : '') +
+      (r.keepNameBefore && r.keepNameBefore !== me.name && (!r.keepNameAfter || r.keepNameAfter === me.name) ? '<label class="switch" style="margin-top:4px"><input type="checkbox" data-rn="' + esc(r.id) + '" checked><span class="tr"></span>' + esc(me.name) + 'さんの名前を「' + esc(r.keepNameBefore) + '」に戻す</label>' : '') +
       '<button class="btn small ghost" type="button" data-um="' + esc(r.id) + '">元に戻す（別の人にする）</button></li>').join('') + '</ul></div>' : '') +
     '<div class="actions"><button class="btn ghost" id="ppClose" type="button">閉じる</button></div>';
   $('ov').hidden = false;
@@ -1747,8 +1800,11 @@ function openPerson(pid) {
   const checked = () => [...$('sheet').querySelectorAll('[data-hr]:checked')].map((c) => rows.find((h) => h.id === c.dataset.hr));
   /* 記録を分ける */
   if ($('spGo')) {
-    $('spTo').onchange = () => { $('spNewBox').hidden = $('spTo').value !== '_new'; };
     let armed = false;
+    const disarm = () => { if (!armed) return; armed = false; $('spGo').textContent = '記録を移す'; $('spGo').classList.remove('primary'); $('spErr').textContent = ''; };
+    $('spTo').onchange = () => { $('spNewBox').hidden = $('spTo').value !== '_new'; disarm(); };
+    $('spNew').oninput = disarm;
+    $('sheet').querySelectorAll('[data-hr]').forEach((c) => { c.onchange = disarm; });
     $('spGo').onclick = () => {
       const sel = checked(), to = $('spTo').value, err = (m) => { $('spErr').textContent = m; armed = false; $('spGo').textContent = '記録を移す'; };
       if (!sel.length) return err('移す記録にチェックを入れてください');
@@ -1762,8 +1818,11 @@ function openPerson(pid) {
       } else tname = rm[to].name;
       const theirDates = new Set(histRows().filter((h) => h.pid === target).map((h) => h.date)), clash = sel.filter((h) => theirDates.has(h.date));
       if (!armed) { armed = true; $('spErr').textContent = clash.length ? '注意：' + tname + 'さんには同じ日の記録がすでにあります（' + clash.map((h) => fmtDate(h.date)).join('・') + '）。それでもよければ、もう一度押してください' : ''; $('spGo').textContent = 'もう一度押すと ' + sel.length + '件を' + tname + 'さんへ移します'; $('spGo').classList.add('primary'); return; }
-      sel.forEach((h) => w.push({ op: 'update', path: ROOT + '/hist/' + h.id, data: { rid: target, movedFrom: h.rid, movedAt: TS } }));
-      if (recOp(me.name + 'さんの記録' + sel.length + '件を' + tname + 'さんへ', w)) { closeSheet(); toast(sel.length + '件の記録を' + tname + 'さんへ移しました'); }
+      /* 1件ごとにルールで移す先を確かめるので、15件ずつ別の操作にする */
+      const moves = sel.map((h) => ({ op: 'update', path: ROOT + '/hist/' + h.id, data: { rid: target, movedFrom: h.rid, movedAt: TS } }));
+      let okAll = true;
+      chunks(moves, 15).forEach((part, i) => { okAll = recOp(me.name + 'さんの記録を' + tname + 'さんへ（' + part.length + '件）', (i ? [] : w).concat(part)) && okAll; });
+      if (okAll) { closeSheet(); toast(sel.length + '件の記録を' + tname + 'さんへ移しました'); }
     };
   }
   /* まとめる */
@@ -1776,19 +1835,22 @@ function openPerson(pid) {
       '<p style="margin:6px 0 4px"><b>残す名前</b></p><div class="mg-names">' +
       '<label><input type="radio" name="mgName" value="me" checked> ' + esc(me.name) + '</label><label><input type="radio" name="mgName" value="other"> ' + esc(other.name) + '</label>' +
       '<label><input type="radio" name="mgName" value="new"> ほかの名前：<input class="input" id="mgNew" maxlength="30" autocomplete="off"></label></div>' +
+      teamChoiceHtml(teamChoice(people().find((x) => x.id === pid), people().find((x) => x.id === other.id)), me.name, other.name) +
       '<p class="err" id="mgErr"></p><button class="btn small" id="mgGo" type="button">' + esc(other.name) + 'さんを' + esc(me.name) + 'さんとまとめる</button>';
     let armed = false;
+    $('mgMore').querySelectorAll('input,select').forEach((x) => { x.addEventListener('change', () => { if (armed) { armed = false; $('mgGo').classList.remove('primary'); $('mgGo').textContent = other.name + 'さんを' + me.name + 'さんとまとめる'; } }); });
     $('mgGo').onclick = () => {
       const pick = (($('sheet').querySelector('[name=mgName]:checked') || {}).value) || 'me';
       const nn = pick === 'me' ? me.name : pick === 'other' ? other.name : $('mgNew').value.trim().replace(/\s+/g, ' ').slice(0, 30);
       if (!nn) { $('mgErr').textContent = '残す名前を入れてください'; return; }
       if (nn !== me.name && nn !== other.name && liveRoster().some((r) => r.id !== pid && r.id !== other.id && norm(r.name) === norm(nn))) { $('mgErr').textContent = '名簿に「' + nn + '」さんがほかにもいます。別の名前にしてください'; return; }
       if (!armed) { armed = true; $('mgGo').textContent = 'もう一度押すとまとめます（残す名前「' + nn + '」）'; $('mgGo').classList.add('primary'); return; }
-      /* いまの回に、まとめられる側（other）が受付済みなら、受付のまとめと同じ書き込みにする */
-      const inNow = S.cur && S.checkins.some((c) => c.id === other.id), keepIn = people().some((x) => x.id === pid);
-      let w;
-      if (inNow) { w = W.merge(ROOT, S.cur, { id: pid, name: nn, isNew: false }, { id: other.id, name: other.name, rawId: other.id }, rid('o'), !keepIn, now()); w[0].data.keepNameBefore = me.name; }
-      else w = [{ op: 'update', path: ROOT + '/roster/' + other.id, data: { mergedInto: pid, mergedAt: TS, keepNameBefore: me.name } }];
+      /* いまの回に、まとめられる側（other）が受付済みなら、受付のまとめと同じ書き込みにして、早帰り・目印・チームも引き継ぐ */
+      const ps = people(), keepP = ps.find((x) => x.id === pid) || null, dropP = ps.find((x) => x.id === other.id) || null;
+      const inNow = !!(S.cur && S.checkins.some((c) => c.id === other.id));
+      const t = $('mgTeam') ? +$('mgTeam').value : undefined;
+      const w = W.merge(ROOT, S.cur, { id: pid, name: nn, isNew: false, rawId: keepP ? keepP.rawId : pid }, { id: other.id, name: other.name, rawId: other.id }, rid('o'), inNow && !keepP, now(),
+        { keepNameBefore: me.name, keepNameAfter: nn, dropIn: inNow, carry: inNow ? mergeCarry(keepP, dropP, t) : null });
       if (nn !== me.name) w.push({ op: 'update', path: ROOT + '/roster/' + pid, data: { name: nn, norm: norm(nn) } });
       if (recOp(other.name + 'さんを' + nn + 'さんとまとめる', w)) { closeSheet(); toast(other.name + 'さんを' + nn + 'さんとまとめました。記録は合わせて数えます'); }
     };
@@ -1799,7 +1861,7 @@ function openPerson(pid) {
     b.onclick = () => {
       const r = rm[b.dataset.um]; if (!r) return;
       if (!armed) { armed = true; b.textContent = 'もう一度押すと、' + r.name + 'さんを別の人に戻します'; b.classList.remove('ghost'); b.classList.add('primary'); return; }
-      const w = [{ op: 'update', path: ROOT + '/roster/' + r.id, data: { mergedInto: '', unmergedAt: TS } }];
+      const w = [{ op: 'update', path: ROOT + '/roster/' + r.id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: r.mergeId || '' } }];
       const back = $('sheet').querySelector('[data-rn="' + r.id + '"]');
       if (back && back.checked) w.push({ op: 'update', path: ROOT + '/roster/' + pid, data: { name: r.keepNameBefore, norm: norm(r.keepNameBefore) } });
       if (recOp(r.name + 'さんのまとめを元に戻す', w)) { closeSheet(); toast(r.name + 'さんを別の人に戻しました。記録も分かれて数えます'); }
@@ -1918,17 +1980,24 @@ $('selfBtn').onclick = async () => {
     await tryW('まとめたBに受付（断られるはず）', W.checkin(R, e1, [Bp], 'ob' + t, now(), null), 'denied');
     await tryW('自分自身にまとめる（断られるはず）', [{ op: 'update', path: R + '/roster/' + ppl[3].id, data: { mergedInto: ppl[3].id } }], 'denied');
     await tryW('まとめ済みのBへまとめる（断られるはず）', [{ op: 'update', path: R + '/roster/' + ppl[3].id, data: { mergedInto: Bp.id } }], 'denied');
-    await tryW('まとめを元に戻すついでに名前も変える（断られるはず）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS, name: 'X' } }], 'denied');
-    await tryW('まとめを元に戻す操作（アプリと同じ）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS } }], 'ok');
-    await tryW('戻したBを、もう一度Aにまとめる', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: A.id, mergedAt: TS, keepNameBefore: A.name } }], 'ok');
-    await tryW('大会の記録を書く', [{ op: 'set', path: R + '/hist/h1' + t, data: { eid: e1, date: '2026-01-01', rid: ppl[3].id, name: ppl[3].name, rank: 1, teams: 4, at: TS } }], 'ok');
-    await tryW('記録を別の人へ移す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[4].id, movedFrom: ppl[3].id, movedAt: TS } }], 'ok');
+    const g1 = 'g' + om.id;
+    await tryW('まとめを元に戻すついでに名前も変える（断られるはず）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: g1, name: 'X' } }], 'denied');
+    await tryW('違うまとめの番号で元に戻す（断られるはず）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: 'gx' + t } }], 'denied');
+    await tryW('まとめを元に戻す操作（アプリと同じ）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: g1 } }], 'ok');
+    await tryW('戻したBを、こんどはCにまとめる', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: ppl[3].id, mergedAt: TS, mergeId: 'g2' + t } }], 'ok');
+    await tryW('前のまとめを見て押した古い「元に戻す」が遅れて届く（断られるはず）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: g1 } }], 'denied');
+    await tryW('大会の記録を書く', [{ op: 'set', path: R + '/hist/h1' + t, data: { eid: e1, date: '2026-01-01', rid: ppl[4].id, name: ppl[4].name, rank: 1, teams: 4, at: TS } }], 'ok');
+    await tryW('記録を別の人へ移す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[5].id, movedFrom: ppl[4].id, movedAt: TS } }], 'ok');
+    await tryW('同じ記録を、古い持ち主のつもりで別の端末が移す（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[6].id, movedFrom: ppl[4].id, movedAt: TS } }], 'denied');
+    await tryW('まとめ済みの人へ記録を移す（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: Bp.id, movedFrom: ppl[5].id, movedAt: TS } }], 'denied');
     await tryW('大会の記録を消す（断られるはず）', [{ op: 'delete', path: R + '/hist/h1' + t }], 'denied');
     await tryW('名簿にない人だけの受付（断られるはず）', [{ op: 'set', path: R + '/events/' + e1 + '/checkins/zz' + t, data: { name: 'Z' } }], 'denied');
     { const r = await run(W.checkin(R, e1, ppl.slice(4), 'oz' + t, now(), null).concat([W.opDoc(R, { id: 'oz' + t, type: 'in', eid: e1, items: ppl.slice(4), tapAt: now() })]));
       res.push(['（参考）20人を分けずに1回で受付', 'info', r === 'ok' ? '書けた（この環境では上限に届かなかった）' : r === 'denied' ? '断られた（だから' + CHUNK + '人ずつに分けています）' : '判定不能（' + r.slice(6) + '）']); }
     /* 回を締める→旧回への操作は断られる */
-    await tryW('新しい回を始める（いまの回を締める）', W.newEvent(R, e1, true, e2, '試験の回2'), 'ok');
+    await tryW('結果を入れる（回の更新番号が変わる）', [{ op: 'update', path: R + '/events/' + e1, data: { rev: 'r1' + t } }], 'ok');
+    await tryW('古い順位で締める（直前の結果が入っていない。断られるはず）', W.newEvent(R, e1, true, 'ec' + t, '試験の回C', 0, { ev: { closeRev: 'r0' } }), 'denied');
+    await tryW('新しい回を始める（いまの回を締める）', W.newEvent(R, e1, true, e2, '試験の回2', 0, { ev: { closeRev: 'r1' + t } }), 'ok');
     await tryW('古い画面から新しい回を始める（断られるはず）', W.newEvent(R, e1, false, 'ez' + t, '試験の回Z'), 'denied');
     const old = { id: 'oo' + t, type: 'in', eid: e1, items: [ppl[5]], tapAt: now() };
     await tryW('締めた回への受付（断られるはず）', W.checkin(R, e1, [ppl[5]], old.id, now(), null).concat([W.opDoc(R, old)]), 'denied');
@@ -2081,6 +2150,6 @@ $('rulesCopy').onclick = () => {
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
 };
-window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows };
+window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e) };
 
 boot();
