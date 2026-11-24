@@ -108,3 +108,4 @@
 @media (prefers-reduced-motion: reduce) { .reveal li { animation: none; } }
 #cfErr:empty { display: none; }
 .tcard .thd .tm-meta { white-space: nowrap; }
+.nm1 { white-space: nowrap; }

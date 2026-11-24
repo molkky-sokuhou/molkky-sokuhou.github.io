@@ -50,10 +50,10 @@ const W = {
     return w;
   },
   distinct(root, a, b) { return [{ op: 'update', path: root + '/roster/' + a.id, data: { ['notSame.' + b.id]: true } }, { op: 'update', path: root + '/roster/' + b.id, data: { ['notSame.' + a.id]: true } }]; },
-  newEvent(root, curId, curOpen, newId, name) {
+  newEvent(root, curId, curOpen, newId, name, courts) {
     const w = [];
     if (curId && curOpen) w.push({ op: 'update', path: root + '/events/' + curId, data: { status: 'closed', closedAt: TS } });
-    w.push({ op: 'set', path: root + '/events/' + newId, data: { name, status: 'open', createdAt: TS } });
+    w.push({ op: 'set', path: root + '/events/' + newId, data: { name, status: 'open', createdAt: TS, ...(courts ? { courts } : {}) } });
     /* prevEvent：押した端末が見ていた「いまの回」。ルールでサーバーの値と同じときだけ通す（2台が同時に始めても1つだけ） */
     w.push({ op: 'merge', path: root, data: { currentEvent: newId, prevEvent: curId || '', updatedAt: TS } });
     return w;
@@ -724,7 +724,7 @@ function renderSel() {
 $('eq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (!$('newBox').hidden && $('newAdd').classList.contains('primary')) $('newAdd').click(); } });
 
 /* ===== 表示 ===== */
-function renderAll() { renderBar(); renderEventGate(); renderRoster(); renderDup(); renderList(); renderRejected(); renderPills(); renderEventBox(); if (S.phase === 'team' && !teamEditing()) renderTeam(); }
+function renderAll() { renderBar(); renderEventGate(); renderRoster(); renderDup(); renderList(); renderRejected(); renderPills(); renderEventBox(); if (S.phase === 'team' && !teamEditing()) renderTeam(); if (S.phase === 'game') renderGame(); }
 /* 入力中（目印・チーム名）は書き換えない */
 function teamEditing() { const a = document.activeElement; return !!(a && a.closest && a.closest('#ph-team') && (a.tagName === 'SELECT' || (a.tagName === 'INPUT' && a.type !== 'checkbox'))); }
 
@@ -992,7 +992,13 @@ function closeSheet() { $('ov').hidden = true; clearInterval(revealTimer); }
 $('ov').addEventListener('click', (e) => { if (e.target === $('ov')) closeSheet(); });
 
 /* ===== 開催回 ===== */
+$('courtSave').onclick = () => {
+  const n = Math.floor(Number($('courtIn').value.normalize('NFKC')));
+  if (!(n >= 1 && n <= 50)) { toast('コート数は1〜50の数字で入れてください', true); return; }
+  teamOp('コート数 ' + n + '面', { courts: n }); toast('コート数を' + n + '面にしました');
+};
 function renderEventBox() {
+  if (document.activeElement !== $('courtIn')) $('courtIn').value = courtsOf(S.events[S.cur]);
   const ev = S.events[S.cur];
   const list = Object.keys(S.events).map((k) => ({ id: k, ...S.events[k] })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
   $('evNow').innerHTML = ev ? 'いまの回：<b>' + esc(ev.name) + '</b>（' + (ev.status === 'open' ? '受付中' : '締め済み') + '）' : 'いまの回：まだありません';
@@ -1026,7 +1032,7 @@ function openNewEvent() {
     if (!canStartEvent() || unsent().length) { closeSheet(); toast('開催回と送信状況を確認してから、もう一度開いてください', true); return; }
     const name = $('evNameIn').value.trim() || defaultEventName();
     const d = new Date(), e = 'e' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + Math.random().toString(36).slice(2, 6);
-    const writes = W.newEvent(ROOT, seen, Boolean(seen), e, name);
+    const writes = W.newEvent(ROOT, seen, Boolean(seen), e, name, seen && S.events[seen] ? courtsOf(S.events[seen]) : 0);
     closeSheet();
     B.commit(writes).then(() => toast('「' + name + '」を始めました'), (err) => {
       toast((err && err.code) === 'permission-denied' ? 'ほかの端末で先に回が始まったため、始めませんでした。いまの回を表示します' : '始められませんでした（' + ((err && err.code) || '') + '）', true);
@@ -1312,7 +1318,10 @@ function renderTeamAdjust(ps, ev, saved) {
     teamOp(teamName(no) + 'の解散', d);
     toast('解散しました。メンバーをほかのチームに入れてください');
   }; });
-  $('tmResAct').innerHTML = legacy ? '' : '<button class="btn" id="tmAdd" type="button">チームを1つ追加</button>';
+  const ms = evMatches(ev), sync = inSync(saved, ms);
+  $('tmChecks').insertAdjacentHTML('afterbegin', ms.length ? (sync ? '<li>✓ 対戦表はいまのチームに合っています</li>' : '<li><b class="warnline">対戦表が古いままです。調整が終わったら「対戦表を作り直す」を押してください（入力済みの試合はそのまま残ります）。</b></li>') : '');
+  $('tmResAct').innerHTML = legacy ? '' : '<button class="btn" id="tmAdd" type="button">チームを1つ追加</button>' + (ms.length ? '<button class="btn' + (sync ? ' ghost' : ' primary') + '" id="tmRebuild" type="button"' + (saved.length % 2 ? ' disabled' : '') + '>対戦表を作り直す</button>' : '');
+  if ($('tmRebuild')) $('tmRebuild').onclick = rebuildNow;
   if (!legacy) $('tmAdd').onclick = () => {
     const nos = Object.keys(ev.tm || {}).map((k) => +k.slice(1)), no = (nos.length ? Math.max(...nos) : 0) + 1;
     teamOp('チーム' + teamLabel(no) + 'の追加', { ['tm.t' + no]: { name: teamLabel(no) } });
@@ -1383,10 +1392,13 @@ function doDraw() {
 }
 $('tmDraw').onclick = () => {
   const ev = S.events[S.cur] || {};
-  if (ev.teams && ev.teams.length && !T.preview) {
-    $('sheet').innerHTML = '<h2 id="sheetTitle">抽選し直しますか？</h2><p>決まったチームがあります。抽選し直して「この結果で決める」を押すと、いまのチームは置き換わります。</p>' +
-      '<div class="actions"><button class="btn primary" id="rdYes" type="button">抽選し直す</button><button class="btn ghost" id="rdNo" type="button">やめる</button></div>';
+  if (evTeams(ev).length && !T.preview) {
+    const nres = evMatches(ev).filter(hasRes).length;
+    $('sheet').innerHTML = '<h2 id="sheetTitle">抽選し直しますか？</h2><p>決まったチームがあります。抽選し直して「この結果で決める」を押すと、いまのチームと対戦表は置き換わります。</p>' +
+      (nres ? '<p class="warnline">試合の結果が ' + nres + '件 入っています。やり直すと結果も消えます。</p><label class="switch"><input type="checkbox" id="rdForce"><span class="tr"></span>入力済みの結果を消してやり直す</label>' : '') +
+      '<div class="actions"><button class="btn primary" id="rdYes" type="button"' + (nres ? ' disabled' : '') + '>抽選し直す</button><button class="btn ghost" id="rdNo" type="button">やめる</button></div>';
     $('ov').hidden = false; $('rdNo').onclick = closeSheet; $('rdYes').onclick = () => { closeSheet(); doDraw(); };
+    if (nres) $('rdForce').onchange = () => { $('rdYes').disabled = !$('rdForce').checked; };
     return;
   }
   doDraw();
@@ -1402,7 +1414,9 @@ function saveTeams() {
     t.members.forEach((m) => { assign[m.id] = i + 1; order.push({ name: m.name, team: t.name }); });
   });
   const op = { id: rid('o'), type: 'draw', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: T.preview.map((t) => ({ id: t.name, name: t.name + '（' + t.members.length + '人）' })), tapAt: now() };
-  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, teams: null, drawnAt: TS, drawBy: devName, drawCount: T.preview.length } }]);
+  /* 抽選と同時に総当たりの対戦表を作る（11/22版と同じ）。やり直しのときは前の対戦表と結果を置き換える */
+  const mt = {}; buildMatches(T.preview.map((t, i) => i + 1), 1).forEach((m) => { const { id, ...d } = m; mt[id] = d; });
+  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, mt, teams: null, drawnAt: TS, drawBy: devName, drawCount: T.preview.length } }]);
   const bad = checkTeams(T.preview, ps).filter((c) => c[2] === 'warn' && !c[0]).map((c) => c[1]);
   T.preview = null; T.msg = ''; T.rm = 0;
   renderTeam();
@@ -1423,15 +1437,223 @@ function showReveal(order, notes) {
   $('rvClose').onclick = () => { closeSheet(); window.scrollTo(0, 0); };
 }
 
+
+/* ===== 試合（11/22版から移植）：総当たり・コート・合計点・順位・巡。
+   試合は開催回の mt（試合番号→内容）に入れる。結果は試合ごとの欄だけを書き換えるので、2台で別々の試合を入れても消し合わない ===== */
+const MT = { filter: 'todo' };
+function courtsOf(ev) { const n = Math.floor(Number((ev || {}).courts)); return n >= 1 && n <= 50 ? n : 6; }
+function evMatches(ev) { const mt = (ev || {}).mt || {}; return Object.keys(mt).filter((k) => mt[k] && mt[k].a && mt[k].b).map((k) => ({ id: k, ...mt[k] })).sort((x, y) => x.c - y.c || x.r - y.r || x.k - y.k); }
+const okTotal = (v) => Number.isInteger(v) && v >= 0 && v <= 100;
+const hasRes = (m) => okTotal(m.ta) && okTotal(m.tb);
+const resKey = (m) => hasRes(m) ? m.ta + ',' + m.tb : '';
+/* 総当たり（サークル方式）。同じチーム構成なら毎回同じ表になる */
+function rrList(nos) {
+  const list = nos.slice().sort((a, b) => a - b);
+  if (list.length % 2) list.push(0);
+  const M = list.length, rounds = []; let arr = list.slice();
+  for (let r = 0; r < M - 1; r++) {
+    const pairs = [];
+    for (let k = 0; k < M / 2; k++) { const a = arr[k], b = arr[M - 1 - k]; if (a && b) pairs.push(a < b ? [a, b] : [b, a]); }
+    pairs.sort((x, y) => x[0] - y[0]); rounds.push(pairs);
+    arr = [arr[0], arr[M - 1]].concat(arr.slice(1, M - 1));
+  }
+  return rounds;
+}
+function newMatch(c, r, k, a, b) { return { id: 'm' + c + '_' + r + '_' + k + '_' + Math.random().toString(36).slice(2, 7), c, r, k, a, b, ta: null, tb: null, by: '', at: null }; }
+function buildMatches(nos, c) { const out = []; rrList(nos).forEach((pairs, r) => pairs.forEach((q, k) => out.push(newMatch(c, r + 1, k + 1, q[0], q[1])))); return out; }
+/* 大会の途中でチームが変わったとき：結果の入った試合は残し、まだ当たっていない組み合わせだけで続きのラウンドを組む */
+function rebuildMatches(nos, ms) {
+  const kept = ms.filter(hasRes), last = ms.reduce((mx, m) => Math.max(mx, m.c || 1), 1), has = {};
+  nos.forEach((n) => { has[n] = 1; });
+  const out = kept.slice();
+  ms.forEach((m) => { if (!hasRes(m) && m.c < last && has[m.a] && has[m.b]) out.push(m); });
+  return out.concat(rebuildCycle(nos, kept, last, ms));
+}
+function rebuildCycle(nos, kept, c, old) {
+  const key = (a, b) => Math.min(a, b) + '-' + Math.max(a, b), oldId = {}, played = {};
+  old.forEach((m) => { if (!hasRes(m) && m.c === c) oldId[key(m.a, m.b)] = m.id; }); // 同じ2チームのまだの試合は、もとの試合番号を引き継ぐ
+  kept.forEach((m) => { if (m.c === c) played[key(m.a, m.b)] = 1; });
+  let remaining = [];
+  rrList(nos).forEach((pairs) => pairs.forEach((q) => { if (!played[q[0] + '-' + q[1]]) remaining.push(q); }));
+  let round = kept.filter((m) => m.c === c).reduce((mx, m) => Math.max(mx, m.r), 0);
+  const out = [], sorted = nos.slice().sort((a, b) => a - b);
+  /* 1ラウンドで全チームが試合できる組み方を探す。見つからなければできるだけ多く組む */
+  const perfect = (pool) => {
+    const used = {}, pick = []; let tries = 0;
+    const dfs = () => {
+      if (++tries > 20000) return false;
+      const t = sorted.find((n) => !used[n]); if (t === undefined) return true;
+      for (let i = 0; i < pool.length; i++) { const q = pool[i];
+        if ((q[0] === t || q[1] === t) && !used[q[0]] && !used[q[1]]) { used[q[0]] = used[q[1]] = 1; pick.push(i); if (dfs()) return true; used[q[0]] = used[q[1]] = 0; pick.pop(); } }
+      return false;
+    };
+    return dfs() ? pick : null;
+  };
+  while (remaining.length) {
+    round++;
+    const idxs = perfect(remaining), take = {};
+    if (idxs) idxs.forEach((i) => { take[i] = 1; });
+    else { const used = {}; remaining.forEach((q, i) => { if (!used[q[0]] && !used[q[1]]) { used[q[0]] = used[q[1]] = 1; take[i] = 1; } }); }
+    const next = []; let k = 0;
+    remaining.forEach((q, i) => {
+      if (take[i]) { const nm = newMatch(c, round, ++k, q[0], q[1]), id = oldId[q[0] + '-' + q[1]]; if (id) nm.id = id; out.push(nm); } else next.push(q);
+    });
+    remaining = next;
+  }
+  return out;
+}
+/* 対戦表が今のチームとずれていないか（まだの試合に、いないチームが入っている／当たる予定のないチームがいる） */
+function inSync(teams, ms) {
+  if (!teams.length || !ms.length) return true;
+  const nos = {}; teams.forEach((t) => { nos[t.no] = 1; });
+  const c = ms.reduce((mx, m) => Math.max(mx, m.c || 1), 1), seen = {};
+  for (const m of ms) { if (!hasRes(m) && (!nos[m.a] || !nos[m.b])) return false; if (m.c === c) { seen[m.a] = 1; seen[m.b] = 1; } }
+  return teams.every((t) => seen[t.no]);
+}
+/* 会場掲示の8チーム表。Aを固定し、各ラウンドの両端から1〜4コートに置く */
+function boardOrder(group, nos, courts) {
+  if (courts < 4 || nos.length !== 8 || group.length !== 4) return null;
+  const round = group[0].r; if (!(round >= 1 && round <= 7)) return null;
+  const ring = nos.slice().sort((a, b) => a - b);
+  for (let r = 1; r < round; r++) ring.splice(1, 0, ring.pop());
+  const ordered = [];
+  for (let c = 0; c < 4; c++) { const a = ring[c], b = ring[7 - c]; const m = group.find((x) => (x.a === a && x.b === b) || (x.a === b && x.b === a)); if (!m) return null; ordered.push(m); }
+  return ordered;
+}
+function assignCourts(ms, courts) {
+  const groups = {}, sets = {}, out = {};
+  ms.forEach((m) => { (groups[m.c + '-' + m.r] = groups[m.c + '-' + m.r] || []).push(m); (sets[m.c] = sets[m.c] || new Set()).add(m.a).add(m.b); });
+  Object.values(groups).forEach((g) => {
+    const ordered = boardOrder(g, Array.from(sets[g[0].c]), courts) || g.slice().sort((x, y) => x.k - y.k);
+    ordered.forEach((m, i) => { out[m.id] = { court: (i % courts) + 1, wave: Math.floor(i / courts) + 1 }; });
+  });
+  return out;
+}
+/* 順位：合計点の多い順。同点は同じ順位にして、次の番号を飛ばす（100・100・90 → 1・1・3位） */
+function standings(teams, ms, ps) {
+  const st = {}; teams.forEach((t) => { st[t.no] = { no: t.no, name: t.name, played: 0, total: 0 }; });
+  ms.forEach((m) => { if (!hasRes(m)) return; if (st[m.a]) { st[m.a].played++; st[m.a].total += m.ta; } if (st[m.b]) { st[m.b].played++; st[m.b].total += m.tb; } });
+  const arr = Object.values(st).sort((x, y) => y.total - x.total || x.no - y.no);
+  let rank = 0, prev = null;
+  arr.forEach((s, i) => { if (s.total !== prev) { rank = i + 1; prev = s.total; } s.rank = rank; s.avg = s.played ? Math.round(s.total / s.played * 10) / 10 : 0; s.members = ps.filter((p) => p.team === s.no).map((p) => p.name); });
+  return arr;
+}
+/* 名前の途中で改行しない（区切りの「・」でだけ折り返す） */
+const nameList = (arr) => arr.map((n) => '<span class="nm1">' + esc(n) + '</span>').join('・');
+const mtFields = (list) => { const o = {}; list.forEach((m) => { const { id, ...d } = m; o['mt.' + id] = d; }); return o; };
+function renderGame() {
+  if (!S.mode) return;
+  const ev = S.events[S.cur] || {}, teams = evTeams(ev), ms = evMatches(ev), ps = people(), courts = courtsOf(ev);
+  const pos = assignCourts(ms, courts), done = ms.filter(hasRes).length;
+  const mem = (no) => nameList(ps.filter((p) => p.team === no).map((p) => p.name));
+  $('gProg').innerHTML = '<div class="actions" style="justify-content:space-between"><b>入力済み <span class="num">' + done + ' / ' + ms.length + '</span></b><span class="muted">' + esc(ev.name || '') + '</span></div>' +
+    '<div class="bar"><i style="width:' + (ms.length ? Math.round(done / ms.length * 100) : 0) + '%"></i></div>' +
+    (teams.length && !inSync(teams, ms) ? '<p class="warnline" style="margin:6px 0 0">対戦表がいまのチームと合っていません。チームタブで調整が終わったら「対戦表を作り直す」を押してください。</p>' : '');
+  document.querySelectorAll('#gFilter [data-f]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.f === MT.filter ? 'true' : 'false'));
+  if (!ms.length) $('gBody').innerHTML = '<div class="box plain empty"><b>対戦表はまだありません</b>チームタブで抽選して「この結果で決める」を押すと、総当たりの対戦表が自動で作られます。</div>';
+  else {
+    const groups = [], gk = {}, cycles = ms.reduce((mx, m) => Math.max(mx, m.c), 1);
+    ms.forEach((m) => { const k = m.c + '-' + m.r; if (!gk[k]) { gk[k] = { c: m.c, r: m.r, list: [] }; groups.push(gk[k]); } gk[k].list.push({ ...m, ...(pos[m.id] || { court: 1, wave: 1 }) }); });
+    const side = (no, t, win, d) => '<div class="t' + (win ? ' win' : '') + '">' + esc(teamName(no)) + '<small>' + mem(no) + '</small>' + (d ? '<span class="tot num">' + t + '点</span>' : '') + '</div>';
+    const card = (m) => { const d = hasRes(m); return '<button type="button" class="mt' + (d ? ' done' : '') + '" data-m="' + esc(m.id) + '" aria-label="' + esc(teamName(m.a)) + '対' + esc(teamName(m.b)) + (d ? ' 入力済み' : ' 未入力') + '">' +
+      side(m.a, m.ta, d && m.ta > m.tb, d) + '<div class="mid"><span class="court">コート' + m.court + (m.wave > 1 ? '<small>' + m.wave + '組目</small>' : '') + '</span><span class="vs">VS</span><span class="state">' + (d ? '修正・取り消し' : '結果を入力') + '</span></div>' +
+      side(m.b, m.tb, d && m.tb > m.ta, d) + '</button>'; };
+    $('gBody').innerHTML = groups.map((g) => {
+      const shown = g.list.slice().sort((a, b) => a.wave - b.wave || a.court - b.court).filter((m) => MT.filter === 'all' || !hasRes(m));
+      if (!shown.length) return '';
+      return '<div class="round"><div class="round-h"><h3>' + (cycles > 1 ? g.c + '巡目・' : '') + '第' + g.r + 'ラウンド</h3><span class="bye">' + g.list.filter(hasRes).length + '/' + g.list.length + '試合 入力済み</span></div>' + shown.map(card).join('') + '</div>';
+    }).join('') || '<div class="box plain empty"><b>全試合の結果が入りました</b>お疲れさまでした。順位を確認して表彰へ。</div>';
+    $('gBody').querySelectorAll('[data-m]').forEach((b) => { b.onclick = () => openScore(b.dataset.m); });
+  }
+  const st = standings(teams, ms, ps);
+  $('gRank').innerHTML = st.length ? st.map((x) => '<li><span class="r num">' + x.rank + '</span><span><b>' + esc(x.name) + '</b> <span class="muted">' + nameList(x.members) + '</span></span><span class="p num">' + x.total + '<small class="muted">点・' + x.played + '試合</small></span></li>').join('') : '<li class="muted">チームが決まると出ます</li>';
+  const cyc = ms.reduce((mx, m) => Math.max(mx, m.c), 0), per = Math.floor(teams.length / 2);
+  $('cycleInfo').textContent = (ms.length ? cyc + '巡ぶん・全' + ms.length + '試合。' : 'まだ対戦表がありません。') + 'コートは' + courts + '面' + (per > courts ? '。1ラウンド' + per + '試合なので、コートが空いた順に2組目が入ります（設定タブでコート数を変えられます）' : '') + '。';
+  $('addCycle').disabled = !teams.length || !ms.length;
+  $('rmCycle').disabled = cyc <= 1;
+}
+document.querySelectorAll('#gFilter [data-f]').forEach((b) => { b.onclick = () => { MT.filter = b.dataset.f; renderGame(); }; });
+function openScore(id) {
+  const ev = S.events[S.cur] || {}, m = evMatches(ev).find((x) => x.id === id); if (!m) return;
+  const prev = resKey(m), ps = people(), pos = assignCourts(evMatches(ev), courtsOf(ev))[id] || { court: 1 };
+  const field = (side, no) => '<label class="field"><strong>' + esc(teamName(no)) + '</strong><small>' + nameList(ps.filter((p) => p.team === no).map((p) => p.name)) +
+    '</small><input class="input" id="sc_' + side + '" inputmode="numeric" autocomplete="off" aria-label="' + esc(teamName(no)) + 'の2セット合計点" placeholder="0〜100" value="' + (prev ? m['t' + side] : '') + '"></label>';
+  $('sheet').innerHTML = '<h2 id="sheetTitle">第' + m.r + 'ラウンド・コート' + pos.court + '</h2><p>各チームの2セット合計点を入力してください。</p>' + field('a', m.a) + field('b', m.b) +
+    '<div class="err" id="scErr" role="alert"></div><div class="actions"><button class="btn primary" id="scSave" type="button">保存する</button><button class="btn ghost" id="scCancel" type="button">閉じる</button></div>' +
+    (prev ? '<button class="btn small ghost" id="scClear" type="button">この試合の結果を取り消す</button>' : '');
+  $('ov').hidden = false;
+  const read = () => { const a = $('sc_a').value.normalize('NFKC').trim(), b = $('sc_b').value.normalize('NFKC').trim(); return { a: +a, b: +b, bad: ![a, b].every((v) => /^\d{1,3}$/.test(v) && Number(v) <= 100) }; };
+  $('scCancel').onclick = closeSheet;
+  const send = (force) => {
+    const v = read();
+    if (v.bad) { $('scErr').textContent = '両チームの2セット合計点を0〜100の整数で入力してください'; return; }
+    if (needEvent()) return;
+    const cur = evMatches(S.events[S.cur]).find((x) => x.id === id);
+    if (!cur || cur.a !== m.a || cur.b !== m.b) { $('scErr').textContent = '対戦表が作り直されたため保存しませんでした。最新の対戦表から入れ直してください'; return; }
+    /* 画面を開いたあとに、ほかの端末がこの試合の結果を入れた・取り消したとき */
+    if (resKey(cur) !== prev && !force) {
+      $('scErr').textContent = resKey(cur) ? 'この試合は、先にほかの人が結果を入れていました（' + teamName(cur.a) + ' ' + cur.ta + '点、' + teamName(cur.b) + ' ' + cur.tb + '点' + (cur.by ? '・' + cur.by : '') + '）。確かめて、直す必要があるときだけ上書きしてください' : 'この試合の結果は、ほかの端末で取り消されました。入れ直す必要があるときだけ上書きしてください';
+      if (!$('scForce')) { const b = document.createElement('button'); b.className = 'btn small'; b.id = 'scForce'; b.type = 'button'; b.textContent = '今のマスの数字で上書きする'; b.onclick = () => send(true); $('scErr').after(b); }
+      return;
+    }
+    if (resKey(cur) === v.a + ',' + v.b) { closeSheet(); toast('同じ結果が入っています'); return; }
+    const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id, name: teamName(m.a) + ' 対 ' + teamName(m.b) + '（' + v.a + '対' + v.b + '）' }], tapAt: now() };
+    runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { ['mt.' + id + '.ta']: v.a, ['mt.' + id + '.tb']: v.b, ['mt.' + id + '.by']: devName, ['mt.' + id + '.at']: TS } }]);
+    closeSheet(); toast('保存しました（' + teamName(m.a) + ' ' + v.a + '点・' + teamName(m.b) + ' ' + v.b + '点）');
+  };
+  $('scSave').onclick = () => send(false);
+  if ($('scClear')) {
+    let armed = false;
+    $('scClear').onclick = () => {
+      if (!armed) { armed = true; $('scClear').textContent = 'もう一度押すと取り消します'; $('scClear').classList.remove('ghost'); $('scClear').classList.add('primary'); return; }
+      if (needEvent()) return;
+      const cur = evMatches(S.events[S.cur]).find((x) => x.id === id);
+      if (!cur || resKey(cur) !== prev) { $('scErr').textContent = '画面を開いたあとに、この試合の結果が変わりました。閉じて確かめてください'; return; }
+      const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id, name: teamName(m.a) + ' 対 ' + teamName(m.b) + 'の結果の取り消し' }], tapAt: now() };
+      runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { ['mt.' + id + '.ta']: null, ['mt.' + id + '.tb']: null, ['mt.' + id + '.by']: '', ['mt.' + id + '.at']: null } }]);
+      closeSheet(); toast('結果を取り消しました');
+    };
+  }
+}
+$('addCycle').onclick = () => {
+  const ev = S.events[S.cur] || {}, teams = evTeams(ev), ms = evMatches(ev);
+  if (!teams.length || !ms.length) return toast('先にチーム抽選をしてください', true);
+  if (teams.length % 2) return toast('チーム数が奇数です。偶数にしてから追加してください', true);
+  const c = ms.reduce((mx, m) => Math.max(mx, m.c), 0) + 1;
+  teamOp(c + '巡目の追加', mtFields(buildMatches(teams.map((t) => t.no), c)));
+  toast('対戦表をもう1巡追加しました');
+};
+$('rmCycle').onclick = () => {
+  const ms = evMatches(S.events[S.cur]), last = ms.reduce((mx, m) => Math.max(mx, m.c), 0);
+  if (last <= 1) return toast('1巡目は消せません', true);
+  if (ms.some((m) => m.c === last && hasRes(m))) return toast(last + '巡目には結果が入っているので消せません', true);
+  const d = {}; ms.filter((m) => m.c === last).forEach((m) => { d['mt.' + m.id] = null; });
+  teamOp(last + '巡目の削除', d);
+  toast('最後の巡を消しました');
+};
+function rebuildNow() {
+  const ev = S.events[S.cur] || {}, teams = evTeams(ev), ms = evMatches(ev);
+  if (teams.length < 2) return toast('チームが2つ以上必要です', true);
+  if (teams.length % 2) return toast('チーム数が奇数です。1つ追加するか解散して偶数にしてください', true);
+  const next = rebuildMatches(teams.map((t) => t.no), ms), d = {}, keep = {};
+  next.forEach((m) => { keep[m.id] = 1; const o = ms.find((x) => x.id === m.id); if (!o || o.c !== m.c || o.r !== m.r || o.k !== m.k || o.a !== m.a || o.b !== m.b) { const { id, ...x } = m; d['mt.' + id] = { ...x, ta: o ? o.ta : null, tb: o ? o.tb : null, by: o ? o.by || '' : '', at: o ? o.at || null : null }; } });
+  ms.forEach((m) => { if (!keep[m.id]) d['mt.' + m.id] = null; });
+  if (!Object.keys(d).length) return toast('対戦表はいまのチームに合っています');
+  teamOp('対戦表の作り直し', d);
+  toast('対戦表を作り直しました（入力済みの試合はそのまま）');
+}
+
 /* ===== タブ ===== */
 function showPhase(ph) {
   S.phase = ph; ls.set('phase', ph);
   $('ph-entry').hidden = ph !== 'entry';
   $('ph-set').hidden = ph !== 'set';
   $('ph-team').hidden = ph !== 'team';
-  $('ph-other').hidden = ph === 'entry' || ph === 'set' || ph === 'team';
-  $('otherH').textContent = { game: '試合', rec: '記録' }[ph] || '';
+  $('ph-game').hidden = ph !== 'game';
+  $('ph-other').hidden = ph !== 'rec';
+  $('otherH').textContent = { rec: '記録' }[ph] || '';
   if (ph === 'team') renderTeam();
+  if (ph === 'game') renderGame();
   document.querySelectorAll('.nb').forEach((b) => b.setAttribute('aria-current', b.dataset.ph === ph ? 'page' : 'false'));
   window.scrollTo(0, 0);
 }
@@ -1672,6 +1894,6 @@ $('rulesCopy').onclick = () => {
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
 };
-window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups };
+window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes };
 
 boot();

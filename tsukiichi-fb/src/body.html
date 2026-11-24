@@ -106,11 +106,31 @@
         </div>
       </section>
 
+      <!-- ===== 試合（11/22版の試合タブ） ===== -->
+      <section class="panel" id="ph-game" hidden>
+        <div class="box plain prog" id="gProg"></div>
+        <div class="chiprow" id="gFilter">
+          <button class="chip" type="button" data-f="todo" aria-pressed="true">未入力だけ</button>
+          <button class="chip" type="button" data-f="all" aria-pressed="false">すべての試合</button>
+        </div>
+        <div id="gBody" class="panel"></div>
+        <div class="box">
+          <h2 class="h">いまの順位</h2>
+          <ol class="mini" id="gRank"></ol>
+        </div>
+        <div class="box">
+          <h2 class="h">対戦表の巡</h2>
+          <p id="cycleInfo"></p>
+          <div class="actions"><button class="btn cyan" id="addCycle" type="button">もう1巡追加</button><button class="btn ghost" id="rmCycle" type="button">最後の巡を消す</button></div>
+          <p class="muted" style="margin:8px 0 0">1巡が終わってまだ時間があるときは、同じ組み合わせでもう1巡追加できます。</p>
+        </div>
+      </section>
+
       <!-- ===== まだ作っていないタブ ===== -->
       <section class="panel" id="ph-other" hidden>
         <div class="box">
           <h2 class="h" id="otherH">チーム</h2>
-          <p>この試作は受付とチーム抽選までです。試合・記録はこのあと作ります。</p>
+          <p>記録（参加回数・優勝・覇王戦・過去の結果）と、今月の締めはこのあと作ります。</p>
           <p class="muted" style="margin:0">記録タブには、リセットの前に「バックアップを保存」（NASへ入れる用のファイル）を入れる予定です。</p>
         </div>
       </section>
@@ -145,6 +165,9 @@
           <p id="evNow" style="margin-top:0"></p>
           <p class="muted">受付は開催回ごとに分けて保存します。新しい回を始めると、いまの回は締められ、あとから圏外の端末の受付・取消が届いても受け付けません。</p>
           <button class="btn" id="evNew" type="button">新しい回を始める</button>
+          <div class="field" style="margin-top:12px"><label for="courtIn">コート数（この回）</label>
+            <div class="actions" style="margin-top:0"><input class="input" id="courtIn" inputmode="numeric" maxlength="2" style="flex:0 1 6em"><button class="btn" id="courtSave" type="button">決める</button></div>
+            <small class="muted">1ラウンドの試合数よりコートが少ないときは、空いたコートに2組目が入ります。新しい回にも引き継ぎます。</small></div>
           <ul class="mini-list" id="evList"></ul>
         </div>
         <div class="box">
