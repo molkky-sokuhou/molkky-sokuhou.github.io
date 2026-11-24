@@ -660,7 +660,7 @@ $('eq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventD
 /* ===== 表示 ===== */
 function renderAll() { renderBar(); renderEventGate(); renderRoster(); renderDup(); renderList(); renderRejected(); renderPills(); renderEventBox(); if (S.phase === 'team' && !teamEditing()) renderTeam(); }
 /* 入力中（目印・チーム名）は書き換えない */
-function teamEditing() { const a = document.activeElement; return !!(a && a.closest && a.closest('#ph-team') && /INPUT|SELECT/.test(a.tagName)); }
+function teamEditing() { const a = document.activeElement; return !!(a && a.closest && a.closest('#ph-team') && (a.tagName === 'SELECT' || (a.tagName === 'INPUT' && a.type !== 'checkbox'))); }
 
 function serverState() {
   const s = S.sync;
@@ -941,25 +941,31 @@ function drawPeople() {
   const rm = rosterById();
   return people().map((p) => { const r = rm[p.id] || {}; return { id: p.id, rawId: p.rawId, name: p.name, exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : 0, early: !!r.early, pair: String(p.pair || '').trim(), pending: p.pending }; });
 }
-/* 目印ごとのまとまり（2人以上）と、目印が1人だけの人 */
-function pairGroups(ps) {
-  const by = {};
-  ps.forEach((p) => { if (p.pair) (by[norm(p.pair)] = by[norm(p.pair)] || { label: p.pair, members: [] }).members.push(p); });
+/* 目印ごとのまとまり（2人以上）と、目印が1人だけの人。
+   「ほかの人が入ってもよい」（本人に確認済み）にした2〜3人のまとまりは open：同じチームに入れたうえで、ほかの人で埋める */
+const OPEN_MAX = 3;
+function openMarks() { return (S.events[S.cur] || {}).openMarks || {}; }
+function pairGroups(ps, opens) {
+  const om = opens || openMarks(), by = {};
+  ps.forEach((p) => { if (p.pair) (by[norm(p.pair)] = by[norm(p.pair)] || { key: norm(p.pair), label: p.pair, members: [] }).members.push(p); });
   const groups = [], lonely = [];
-  Object.values(by).forEach((g) => { if (g.members.length >= 2) groups.push(g); else lonely.push(g.members[0]); });
-  return { groups, lonely };
+  Object.values(by).forEach((g) => { if (g.members.length >= 2) { g.open = !!om[g.key] && g.members.length <= OPEN_MAX; groups.push(g); } else lonely.push(g.members[0]); });
+  return { groups, closed: groups.filter((g) => !g.open), opened: groups.filter((g) => g.open), lonely };
 }
 /* 選べるチーム数と、そのときの人数の内訳 */
-function teamOptions(ps) {
-  const { groups } = pairGroups(ps);
-  const G = groups.length, inG = groups.reduce((s, g) => s + g.members.length, 0), R = ps.length - inG;
+function teamOptions(ps, opens) {
+  const { groups, closed, opened } = pairGroups(ps, opens);
+  const G = closed.length, inG = closed.reduce((s, g) => s + g.members.length, 0), R = ps.length - inG;
   const out = [];
   if (groups.some((g) => g.members.length > TEAM_MAX)) return { groups, out, why: '同じ目印の人が' + TEAM_MAX + '人より多いまとまりがあります（' + groups.filter((g) => g.members.length > TEAM_MAX).map((g) => g.label + '：' + g.members.length + '人').join('・') + '）' };
+  const osz = opened.map((g) => g.members.length);
   for (let K = 1; K <= R; K++) {
     const base = Math.floor(R / K), extra = R % K;
     if (base < TEAM_MIN || base + (extra ? 1 : 0) > TEAM_MAX) continue;
     if (EVEN_ONLY && (G + K) % 2) continue;
-    out.push({ T: G + K, K, base, extra, fixed: groups.map((g) => g.members.length) });
+    /* ほかの人も可のまとまりが、それぞれ別のチームに収まるか */
+    if (osz.length > K || osz.some((n) => n > base + (extra ? 1 : 0)) || osz.filter((n) => n > base).length > extra) continue;
+    out.push({ T: G + K, K, base, extra, fixed: closed.map((g) => g.members.length), opened: opened.map((g) => ({ label: g.label, n: g.members.length })) });
   }
   return { groups, out, why: out.length ? '' : '人数が足りないか、目印の組み方で、偶数のチーム数（1チーム' + TEAM_MIN + '〜' + TEAM_MAX + '人）に分けられません' };
 }
@@ -967,12 +973,14 @@ function sizesText(o) {
   const parts = o.fixed.map((n) => '希望' + n + '人');
   if (o.extra) parts.push((o.base + 1) + '人×' + o.extra);
   if (o.K - o.extra) parts.push(o.base + '人×' + (o.K - o.extra));
-  return parts.join('＋');
+  return parts.join('＋') + ((o.opened || []).length ? '（' + o.opened.map((g) => '目印「' + g.label + '」の' + g.n + '人').join('・') + 'は、ほかの人と同じチーム）' : '');
 }
 /* 残りの人を K チームに分ける。経験豊富を蛇行順で配って人数をそろえ、入れ替えで評価の合計の差を小さくする。
    何通りも作って、いちばん良いものに近い結果の中から1つを選ぶ（毎回同じにならないように） */
-function balance(rest, K) {
+function balance(rest, K, seeds) {
+  seeds = seeds || [];
   const R = rest.length, base = Math.floor(R / K), extra = R % K;
+  const locked = {}; seeds.forEach((g) => g.forEach((p) => { locked[p.id] = 1; }));
   const score = (teams) => {
     const sums = teams.map((t) => t.reduce((s, p) => s + p.level, 0)), exps = teams.map((t) => t.filter((p) => p.exp).length);
     const early = teams.reduce((s, t) => s + Math.max(0, t.filter((p) => p.early).length - 1), 0);
@@ -982,7 +990,12 @@ function balance(rest, K) {
   for (let n = 0; n < 300; n++) {
     const caps = shuffle(Array.from({ length: K }, (_, i) => base + (i < extra ? 1 : 0)));
     const teams = caps.map(() => []);
-    const exps = shuffle(rest.filter((p) => p.exp)).sort((a, b) => b.level - a.level);
+    /* ほかの人も可のまとまりを、先に別々のチームへ（大きいまとまりから、入る余地のあるチームへ） */
+    seeds.slice().sort((a, b) => b.length - a.length).forEach((g) => {
+      const fit = teams.map((t, i) => i).filter((i) => !teams[i].length && caps[i] >= g.length);
+      teams[fit[rint(fit.length)]].push(...g);
+    });
+    const exps = shuffle(rest.filter((p) => p.exp && !locked[p.id])).sort((a, b) => b.level - a.level);
     const order = shuffle(Array.from({ length: K }, (_, i) => i));
     let k = 0, dir = 1;
     exps.forEach((p) => {
@@ -992,7 +1005,7 @@ function balance(rest, K) {
       k += dir; if (k >= K || k < 0) { dir = -dir; k += dir; }
     });
     /* 経験豊富でない人：早帰りの人を先に、早帰りがいない・人数の多いチームへ */
-    const others = shuffle(rest.filter((p) => !p.exp)).sort((a, b) => (b.early ? 1 : 0) - (a.early ? 1 : 0));
+    const others = shuffle(rest.filter((p) => !p.exp && !locked[p.id])).sort((a, b) => (b.early ? 1 : 0) - (a.early ? 1 : 0));
     others.forEach((p) => {
       const open = teams.map((t, i) => i).filter((i) => teams[i].length < caps[i]);
       const pick = p.early ? open.sort((a, b) => teams[a].filter((x) => x.early).length - teams[b].filter((x) => x.early).length || caps[b] - caps[a] || rint(3) - 1)[0] : open[rint(open.length)];
@@ -1005,7 +1018,7 @@ function balance(rest, K) {
       for (let a = 0; a < K; a++) for (let b = a + 1; b < K; b++) {
         for (let i = 0; i < teams[a].length; i++) for (let j = 0; j < teams[b].length; j++) {
           const x = teams[a][i], y = teams[b][j];
-          if (x.exp !== y.exp || x.level === y.level) continue;
+          if (x.exp !== y.exp || x.level === y.level || locked[x.id] || locked[y.id]) continue;
           teams[a][i] = y; teams[b][j] = x;
           const s = score(teams);
           if (s < best) { best = s; improved = true; } else { teams[a][i] = x; teams[b][j] = y; }
@@ -1018,25 +1031,28 @@ function balance(rest, K) {
   const near = tries.filter((t) => t.s <= min + 10);
   return near[rint(near.length)].teams;
 }
-function drawTeams(ps, opt) {
-  const { groups } = pairGroups(ps);
-  const inG = {}; groups.forEach((g) => g.members.forEach((m) => { inG[m.id] = 1; }));
+function drawTeams(ps, opt, opens) {
+  const { closed, opened } = pairGroups(ps, opens);
+  const inG = {}; closed.forEach((g) => g.members.forEach((m) => { inG[m.id] = 1; }));
   const rest = ps.filter((p) => !inG[p.id]);
-  const teams = groups.map((g) => ({ fixed: g.label, members: g.members })).concat(balance(rest, opt.K).map((m) => ({ fixed: '', members: m })));
-  return shuffle(teams).map((t, i) => ({ name: LETTERS[i] || ('T' + (i + 1)), fixed: t.fixed, members: shuffle(t.members) }));
+  const mark = (m) => { const g = opened.find((x) => x.members.some((p) => m.some((q) => q.id === p.id))); return g ? g.label : ''; };
+  const teams = closed.map((g) => ({ fixed: g.label, mark: '', members: g.members }))
+    .concat(balance(rest, opt.K, opened.map((g) => g.members)).map((m) => ({ fixed: '', mark: mark(m), members: m })));
+  return shuffle(teams).map((t, i) => ({ name: LETTERS[i] || ('T' + (i + 1)), fixed: t.fixed, mark: t.mark, members: shuffle(t.members) }));
 }
 /* 結果の点検：全員が1回ずつ・目印のまとまり・人数・経験豊富の偏り */
-function checkTeams(teams, ps) {
+function checkTeams(teams, ps, opens) {
   const seen = {}, dup = [], res = [];
   teams.forEach((t) => t.members.forEach((m) => { if (seen[m.id]) dup.push(m.name); seen[m.id] = 1; }));
   const missing = ps.filter((p) => !seen[p.id]).map((p) => p.name);
   const extra = Object.keys(seen).filter((id) => !ps.some((p) => p.id === id));
   res.push([!dup.length && !missing.length && !extra.length, ps.length + '人全員が、重複なく1回ずつ入っています' + (dup.length ? '（重複：' + dup.join('・') + '）' : '') + (missing.length ? '（入っていない：' + missing.join('・') + '）' : '') + (extra.length ? '（受付にいない人が' + extra.length + '人）' : '')]);
-  const { groups } = pairGroups(ps);
+  const { groups } = pairGroups(ps, opens);
   groups.forEach((g) => {
     const t = teams.find((x) => x.members.some((m) => m.id === g.members[0].id));
-    const ok = t && t.members.length === g.members.length && g.members.every((m) => t.members.some((x) => x.id === m.id));
-    res.push([ok, '目印「' + g.label + '」の' + g.members.length + '人だけで ' + (t ? t.name : '?') + ' チーム']);
+    const together = t && g.members.every((m) => t.members.some((x) => x.id === m.id));
+    if (g.open) res.push([together, '目印「' + g.label + '」の' + g.members.length + '人は ' + (t ? t.name : '?') + ' チームに一緒（ほかの人も可）']);
+    else res.push([together && t.members.length === g.members.length, '目印「' + g.label + '」の' + g.members.length + '人だけで ' + (t ? t.name : '?') + ' チーム']);
   });
   const normal = teams.filter((t) => !t.fixed), sz = normal.map((t) => t.members.length);
   if (normal.length) res.push([Math.max(...sz) - Math.min(...sz) <= 1 && Math.min(...sz) >= TEAM_MIN, 'ほかのチームは ' + [...new Set(sz)].sort().join('〜') + '人（人数差1人以内）']);
@@ -1065,6 +1081,11 @@ function renderTeam() {
   $('tmGate').innerHTML = (why ? '<b>' + esc(why) + '</b>' : '') +
     (others.length ? '<p style="margin:4px 0 0">' + esc(others.map((d) => d.name + 'の最後の報告：' + ago(srvNow() - (d.at || 0)) + '・送信待ち' + (d.pending || 0) + '件').join('／')) + '。抽選の前に、その端末の送信待ちが0件か確かめてください。</p>' : '') +
     (lonely.length ? '<p style="margin:4px 0 0">目印が1人だけ：' + esc(lonely.map((p) => p.name + '（' + p.pair + '）').join('・')) + '。この人は普通に抽選します。</p>' : '');
+  $('tmMarks').innerHTML = groups.map((g) => '<li>目印「' + esc(g.label) + '」' + g.members.length + '人（' + esc(g.members.map((m) => m.name).join('・')) + '）' +
+    (g.members.length <= OPEN_MAX ? '<br><label class="switch" style="margin-top:4px"><input type="checkbox" data-open="' + esc(g.key) + '"' + (g.open ? ' checked' : '') + '><span class="tr"></span>ほかの人が入ってもよい（本人に確認済み）</label>' : '') +
+    '<br><small class="muted">' + (g.open ? 'この人たちを同じチームに入れ、ほかの人で人数をそろえます' : 'この人たちだけで1チームにします') + '</small></li>').join('');
+  $('tmMarks').hidden = !groups.length;
+  $('tmMarks').querySelectorAll('[data-open]').forEach((c) => { c.onchange = () => setOpenMark(c.dataset.open, c.checked); });
   const { out, why: optWhy } = teamOptions(ps);
   if (!out.some((o) => o.T === T.count)) {
     /* はじめは、2人のチームができない数のうち、1チーム3人にいちばん近い数を選んでおく */
@@ -1086,7 +1107,7 @@ function teamCard(t, i, edit) {
   const lv = t.members.reduce((s, m) => s + (m.level || 0), 0), ex = t.members.filter((m) => m.exp).length;
   return '<div class="tcard' + (t.fixed ? ' fixed' : '') + '"><div class="thd">' +
     (edit ? '<input class="input tm-name" data-tn="' + i + '" value="' + esc(t.name) + '" maxlength="12" aria-label="チーム名">' : '<span class="tm-name">' + esc(t.name) + '</span>') + '</div>' +
-    '<div class="tm-meta">' + t.members.length + '人' + (t.fixed ? '・同じチーム希望「' + esc(t.fixed) + '」' : '') + '・経験豊富 ' + ex + '人・評価計 ' + lv + '</div>' +
+    '<div class="tm-meta">' + t.members.length + '人' + (t.fixed ? '・同じチーム希望「' + esc(t.fixed) + '」' : '') + (t.mark ? '・目印「' + esc(t.mark) + '」の人とほかの人' : '') + '・経験豊富 ' + ex + '人・評価計 ' + lv + '</div>' +
     '<ul class="tm-mem">' + t.members.map((m) => '<li>' + esc(m.name) + (m.exp ? '<span class="lv">経験' + m.level + '</span>' : '') + (m.early ? '<span class="tag early">早帰り</span>' : '') + '</li>').join('') + '</ul></div>';
 }
 function renderTeamResult(ps) {
@@ -1135,6 +1156,13 @@ function renderTeamPeople(ps) {
     };
   });
 }
+function setOpenMark(key, on) {
+  if (needEvent()) return;
+  const m = Object.assign({}, openMarks()); if (on) m[key] = true; else delete m[key];
+  const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: 'mark', name: '目印「' + key + '」' }], tapAt: now() };
+  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { openMarks: m } }]);
+  T.preview = null; T.count = 0;
+}
 function editRoster(p, data) {
   if (!p || needEvent()) return;
   const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: p.id, name: p.name }], tapAt: now() };
@@ -1173,7 +1201,7 @@ function saveTeams() {
   const why = teamReady(); if (why) { T.msg = why; renderTeam(); return; }
   const ps = drawPeople();
   if (!checkTeams(T.preview, ps)[0][0]) { T.msg = '抽選のあとに受付が変わりました。もう一度抽選してください'; T.preview = null; renderTeam(); return; }
-  const teams = T.preview.map((t) => ({ name: t.name, fixed: t.fixed || '', members: t.members.map((m) => ({ id: m.id, name: m.name })) }));
+  const teams = T.preview.map((t) => ({ name: t.name, fixed: t.fixed || '', mark: t.mark || '', members: t.members.map((m) => ({ id: m.id, name: m.name })) }));
   const op = { id: rid('o'), type: 'draw', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: teams.map((t) => ({ id: t.name, name: t.name + '（' + t.members.length + '人）' })), tapAt: now() };
   runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { teams, drawnAt: TS, drawBy: devName, drawCount: teams.length } }]);
   T.preview = null; T.msg = '';
