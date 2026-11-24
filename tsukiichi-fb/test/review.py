@@ -1,12 +1,12 @@
 import asyncio, json, urllib.request
 from playwright.async_api import async_playwright
-URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','index.html')); SRV='http://localhost:8765'
+URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','admin','index.html')); SRV='http://localhost:8765'
 def get(p): return urllib.request.urlopen(SRV+p).read()
 def docs(): return json.loads(get('/state'))['docs']
 def roster(id): return [v for k,v in docs().items() if k.endswith('/roster/'+id)][0]
 def hist(): return {k.split('/')[-1]:v for k,v in docs().items() if '/hist/' in k}
 def cur_ev():
-    d=docs(); box=[v for k,v in d.items() if k.count('/')==1][0]; return box['currentEvent'], d['staff/test/events/'+box['currentEvent']] if 'staff/test/events/'+box['currentEvent'] in d else [v for k,v in d.items() if k.endswith('/events/'+box['currentEvent'])][0]
+    d=docs(); box=[v for k,v in d.items() if k.startswith('staff/') and k.count('/')==1][0]; return box['currentEvent'], d['staff/test/events/'+box['currentEvent']] if 'staff/test/events/'+box['currentEvent'] in d else [v for k,v in d.items() if k.endswith('/events/'+box['currentEvent'])][0]
 res=[]; errs=[]
 def ok(c,l): res.append(bool(c)); print(('OK ' if c else 'NG ')+l)
 async def mk(b,name,theme='light'):

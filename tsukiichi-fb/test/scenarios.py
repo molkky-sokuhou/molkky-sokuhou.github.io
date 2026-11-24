@@ -1,6 +1,6 @@
 import asyncio, json, urllib.request
 from playwright.async_api import async_playwright
-URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','index.html'))
+URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','admin','index.html'))
 SRV='http://localhost:8765'
 def server(): return json.loads(urllib.request.urlopen(SRV+'/state').read())
 def srv_checkins(eid): return sorted(v['name'] for k,v in server()['docs'].items() if k.startswith(f'staff/proto/events/{eid}/checkins/'))

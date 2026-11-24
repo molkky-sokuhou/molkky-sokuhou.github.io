@@ -1,6 +1,6 @@
 import asyncio, json, urllib.request
 from playwright.async_api import async_playwright
-URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','index.html')); SRV='http://localhost:8765'
+URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','admin','index.html')); SRV='http://localhost:8765'
 def get(path): return urllib.request.urlopen(SRV+path).read()
 def server(): return json.loads(get('/state'))
 def open_events(): return [k for k,v in server()['docs'].items() if k.count('/')==3 and '/events/' in k and v.get('status')=='open']

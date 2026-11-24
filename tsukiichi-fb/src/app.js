@@ -541,6 +541,7 @@ async function enter(mode) {
   }, onErr('box'));
   B.sub(ROOT + '/events', (list, fc) => { mark('events', fc); S.events = {}; list.forEach((d) => { S.events[d.id] = d.data; }); renderAll(); }, onErr('events'));
   B.sub(ROOT + '/roster', (list, fc) => { mark('roster', fc); S.roster = list.map((d) => ({ id: d.id, ...d.data, pending: d.pending })); renderAll(); }, onErr('roster'));
+  B.subDoc(PUB, (d, fc) => { S.sync.pub = { cache: fc }; S.pub = d; }, () => {});
   B.sub(ROOT + '/hist', (list, fc) => { mark('hist', fc); S.hist = list.map((d) => ({ id: d.id, ...d.data })); renderAll(); }, onErr('hist'));
   B.subMetrics((m) => { S.metrics = m; renderMetrics(); });
   clockSync();
@@ -762,7 +763,7 @@ function renderSel() {
 $('eq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (!$('newBox').hidden && $('newAdd').classList.contains('primary')) $('newAdd').click(); } });
 
 /* ===== 表示 ===== */
-function renderAll() { renderBar(); renderEventGate(); renderRoster(); renderDup(); renderList(); renderRejected(); renderPills(); renderEventBox(); if (S.phase === 'team' && !teamEditing()) renderTeam(); if (S.phase === 'game') renderGame(); if (S.phase === 'rec') renderRec(); }
+function renderAll() { renderBar(); renderEventGate(); renderRoster(); renderDup(); renderList(); renderRejected(); renderPills(); renderEventBox(); if (S.phase === 'team' && !teamEditing()) renderTeam(); if (S.phase === 'game') renderGame(); if (S.phase === 'rec') renderRec(); schedulePublish(); }
 /* 入力中（目印・チーム名）は書き換えない */
 function teamEditing() { const a = document.activeElement; return !!(a && a.closest && a.closest('#ph-team') && (a.tagName === 'SELECT' || (a.tagName === 'INPUT' && a.type !== 'checkbox'))); }
 
@@ -1379,6 +1380,8 @@ function renderTeamAdjust(ps, ev, saved) {
     toast('解散しました。メンバーをほかのチームに入れてください');
   }; });
   const ms = evMatches(ev), sync = inSync(saved, ms);
+  if (!legacy) $('tmChecks').insertAdjacentHTML('afterbegin', ev.shown ? '<li>✓ 参加者画面にチームと対戦表を出しています</li>' : '<li><b class="warnline">参加者画面にはまだチームを出していません（発表の「チームを見る」で出ます）。</b> <button type="button" class="btn small" id="tmShow">いま参加者画面に出す</button></li>');
+  if ($('tmShow')) $('tmShow').onclick = () => setShown(true);
   $('tmChecks').insertAdjacentHTML('afterbegin', ms.length ? (sync ? '<li>✓ 対戦表はいまのチームに合っています</li>' : '<li><b class="warnline">対戦表が古いままです。調整が終わったら「対戦表を作り直す」を押してください（入力済みの試合はそのまま残ります）。</b></li>') : '');
   $('tmResAct').innerHTML = legacy ? '' : '<button class="btn" id="tmAdd" type="button">チームを1つ追加</button>' + (ms.length ? '<button class="btn' + (sync ? ' ghost' : ' primary') + '" id="tmRebuild" type="button"' + (saved.length % 2 ? ' disabled' : '') + '>対戦表を作り直す</button>' : '');
   if ($('tmRebuild')) $('tmRebuild').onclick = rebuildNow;
@@ -1476,7 +1479,7 @@ function saveTeams() {
   const op = { id: rid('o'), type: 'draw', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: T.preview.map((t) => ({ id: t.name, name: t.name + '（' + t.members.length + '人）' })), tapAt: now() };
   /* 抽選と同時に総当たりの対戦表を作る（11/22版と同じ）。やり直しのときは前の対戦表と結果を置き換える */
   const mt = {}; buildMatches(T.preview.map((t, i) => i + 1), 1).forEach((m) => { const { id, ...d } = m; mt[id] = d; });
-  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, mt, teams: null, drawnAt: TS, drawBy: devName, drawCount: T.preview.length } }]);
+  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, mt, teams: null, shown: false, drawnAt: TS, drawBy: devName, drawCount: T.preview.length } }]);
   const bad = checkTeams(T.preview, ps).filter((c) => c[2] === 'warn' && !c[0]).map((c) => c[1]);
   T.preview = null; T.msg = ''; T.rm = 0;
   renderTeam();
@@ -1494,7 +1497,8 @@ function showReveal(order, notes) {
   clearInterval(revealTimer);
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) all(); else revealTimer = setInterval(step, 280);
   $('rvAll').onclick = all;
-  $('rvClose').onclick = () => { closeSheet(); window.scrollTo(0, 0); };
+  /* 発表が終わったら（「チームを見る」を押したら）参加者画面にもチームと対戦表を出す */
+  $('rvClose').onclick = () => { closeSheet(); if (!(S.events[S.cur] || {}).shown) setShown(true); window.scrollTo(0, 0); };
 }
 
 
@@ -1731,7 +1735,7 @@ function closingSummary() {
   return 'この回の順位と、' + c.hist.length + '人の参加の記録を残します（受付 ' + c.n + '人／記録 ' + c.hist.length + '人。1位：' + top.map((x) => x.name + '［' + x.members.join('・') + '］').join('／') + '）。' +
     (c.missing.length ? 'チームに入っていない ' + esc(c.missing.join('・')) + ' さんは記録に入りません。入れるなら、先にチームに入れてください。' : '');
 }
-function histRows() { const rm = rosterById(); return S.hist.map((h) => ({ ...h, pid: resolveId(h.rid, rm) })); }
+function histRows() { const rm = rosterById(); return S.hist.filter((h) => !h.kind).map((h) => ({ ...h, pid: resolveId(h.rid, rm) })); }
 /* 人ごとの数（参加は大会の日付で数える。同じ日が2件あっても1回） */
 function personStats(season) {
   const out = {};
@@ -1884,6 +1888,75 @@ function seedHistory() {
   B.commit(w).then(() => toast('架空の過去の記録（3大会）を入れました'), (e) => toast('入れられませんでした（' + ((e && e.code) || '') + '）', true));
 }
 
+
+/* ===== 参加者画面への公開（11/22版の参加者ページと同じ形のデータ）=====
+   運営の端末が public/tsukiichi_{箱} に1件だけ書く。ログインなしで読める場所なので、
+   名前・チーム・コート・得点・順位・記録だけを入れる（経験豊富・評価・初心者・早帰り・目印・UID・端末の記録は入れない）。
+   チームと対戦表は、抽選の発表が終わる（開催回の shown）まで出さない。出すまでは前回の結果を出す */
+const PUB = 'public/tsukiichi_' + BOX;
+const SETTINGS = { '大会名': '月いちモルック', '時間': '12時〜17時', '場所': '香川県高松市国分寺 B&G海洋センター ゲートボールコート', '住所': '香川県高松市国分寺町新名2069-1', '参加費': '1人200円', 'お知らせ': '指導員6名在籍なので初心者の方も大歓迎！小学生もガンガン投げてますよ。家族で参加大歓迎。', 'インスタ': 'izumi_molkky' };
+function stamp(ms) { const d = new Date(ms + 9 * 3600000); return d.toISOString().slice(0, 16).replace('T', ' ').replace(/-/g, '/'); }
+/* 記録（hist）を大会ごとにまとめる：前回の結果と、これまでの優勝チーム */
+function histEvents() {
+  const rm = rosterById(), by = {};
+  S.hist.filter((h) => !h.kind).forEach((h) => {
+    const k = h.eid || h.date, e = by[k] || (by[k] = { eid: k, date: h.date, teams: {} });
+    const t = e.teams[h.team] || (e.teams[h.team] = { name: h.team, rank: h.rank, total: h.total, played: h.played, members: [] });
+    t.members.push((rm[resolveId(h.rid, rm)] || {}).name || h.name);
+  });
+  return Object.values(by).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+function publicData() {
+  const ev = S.events[S.cur] || {}, shown = !!ev.shown, teams = shown ? evTeams(ev) : [], ms = shown ? evMatches(ev) : [], ps = people();
+  const pos = assignCourts(ms, courtsOf(ev)), rm = rosterById();
+  const evs = histEvents(), last = evs.find((e) => Object.values(e.teams).some((t) => t.total != null));
+  const state = {
+    settings: { ...SETTINGS, '開催日': evDate(ev) }, courts: courtsOf(ev),
+    players: shown ? ps.filter((p) => p.team).map((p) => ({ name: p.name, team: p.team })) : [],
+    teams: teams.map((t) => ({ no: t.no, name: t.name })),
+    matches: ms.map((m) => ({ id: m.id, cycle: m.c, round: m.r, a: m.a, b: m.b, totalA: hasRes(m) ? m.ta : '', totalB: hasRes(m) ? m.tb : '', court: (pos[m.id] || {}).court || 1, wave: (pos[m.id] || {}).wave || 1 })),
+    standings: shown ? standings(teams, ms, ps).map((x) => ({ no: x.no, name: x.name, rank: x.rank, played: x.played, total: x.total, avg: x.avg, members: x.members.join('・') })) : [],
+    champions: evs.map((e) => { const w = Object.values(e.teams).filter((t) => t.rank === 1); return w.length ? { date: e.date, members: w.map((t) => t.members.join('・')).join('／'), total: w[0].total } : null; }).filter(Boolean),
+    previousResult: last ? { date: last.date, standings: Object.values(last.teams).sort((a, b) => a.rank - b.rank).map((t) => ({ name: t.name, total: t.total, members: t.members.join('・'), rank: t.rank, played: t.played == null ? '―' : t.played })) } : null
+  };
+  const live = {}; histRows().forEach((h) => { live[h.pid] = 1; });
+  const records = {
+    rows: histRows().map((h) => ({ name: (rm[h.pid] || {}).name || h.name, mid: h.pid, rank: h.rank, date: h.date, team: h.team, total: h.total == null ? null : h.total, teams: h.teams || null })),
+    roster: liveRoster().filter((r) => live[r.id]).map((r) => ({ id: r.id, name: r.name })),
+    haoh: S.hist.filter((h) => h.kind === 'haoh').map((h) => ({ no: h.no, name: (rm[resolveId(h.rid, rm)] || {}).name || h.name, date: h.date, mid: h.rid ? resolveId(h.rid, rm) : '' })).sort((a, b) => a.no - b.no)
+  };
+  return { state, records };
+}
+let pubTimer = null, pubBusy = false;
+function schedulePublish() {
+  if (!S.mode || !B || serverState() !== 'ok' || !S.sync.hist || S.sync.hist.cache || !S.sync.pub) return;
+  clearTimeout(pubTimer); pubTimer = setTimeout(publishNow, 1200);
+}
+function publishNow() {
+  if (pubBusy || serverState() !== 'ok') return;
+  const body = JSON.stringify(publicData());
+  if (S.pub && S.pub.body === body) return;
+  pubBusy = true;
+  B.commit([{ op: 'set', path: PUB, data: { body, updatedAt: stamp(Date.now()), at: TS } }]).then(() => { pubBusy = false; }, () => { pubBusy = false; });
+}
+function setShown(on) { teamOp(on ? '参加者画面にチームを出す' : '参加者画面からチームを下げる', { shown: !!on }); }
+/* テスト用：いまの参加者ページに載っている過去の記録（2025/12〜の優勝、11/21の全結果、覇王戦）を取り込む */
+const PAST = /*@@PAST@@*/ { rows: [], haoh: [] }; // 組み立てのとき（build.py）に src/past.json の中身へ置き換える
+function importPast() {
+  if (S.hist.some((h) => /^imp-/.test(h.eid || ''))) { toast('過去の記録はもう取り込んであります'); return; }
+  const live = liveRoster(), byNorm = {}; live.forEach((r) => { byNorm[norm(r.name)] = r.id; });
+  const roster = [], hist = [];
+  const idOf = (name) => { const k = norm(name); if (!byNorm[k]) { byNorm[k] = 'm' + Math.random().toString(36).slice(2, 9); roster.push({ op: 'set', path: ROOT + '/roster/' + byNorm[k], data: { name, norm: k, exp: false, beg: false, createdAt: TS, createdIn: 'import' } }); } return byNorm[k]; };
+  const members = {}; PAST.rows.forEach((r) => { (members[r.date + '|' + r.team] = members[r.date + '|' + r.team] || []).push(r.name); });
+  PAST.rows.forEach((r) => {
+    const id = idOf(r.name), full = r.total != null;
+    hist.push({ op: 'set', path: ROOT + '/hist/imp-' + r.date + '_' + id, data: { eid: 'imp-' + r.date, ename: '月いちモルック（' + fmtDate(r.date) + '）', date: r.date, rid: id, name: r.name, team: full ? r.team : '優勝チーム', members: members[r.date + '|' + r.team], rank: r.rank, teams: r.teams || null, played: null, total: full ? r.total : null, src: 'import', at: TS } });
+  });
+  PAST.haoh.forEach((h) => { const id = idOf(h.name); hist.push({ op: 'set', path: ROOT + '/hist/haoh_' + h.no, data: { kind: 'haoh', no: h.no, date: h.date, rid: id, name: h.name, src: 'import', at: TS } }); });
+  const all = roster.concat(hist);
+  Promise.all(chunks(all, 400).map((part) => B.commit(part))).then(() => toast('過去の記録を取り込みました（' + PAST.rows.length + '件・覇王戦' + PAST.haoh.length + '件）'), (e) => toast('取り込めませんでした（' + ((e && e.code) || '') + '）', true));
+}
+
 /* ===== タブ ===== */
 function showPhase(ph) {
   S.phase = ph; ls.set('phase', ph);
@@ -2030,6 +2103,7 @@ $('seedBtn').onclick = () => {
     .then(() => toast('架空の名簿24人を入れました'), (e) => toast('入れられませんでした（' + ((e && e.code) || '') + '）', true));
 };
 $('seedHist').onclick = seedHistory;
+$('importPast').onclick = importPast;
 $('demoOffline').onchange = () => { if (B && B.setOffline) B.setOffline($('demoOffline').checked); renderBar(); };
 $('logout').onclick = async () => { try { await B.logout(); } catch (e) {} ls.set('mode', ''); location.reload(); };
 /* この端末からデータを消す：送信待ち・届かなかった操作があるあいだは消さない */

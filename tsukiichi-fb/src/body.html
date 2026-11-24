@@ -19,13 +19,14 @@
       <p style="margin:0">パスコードなしで、この端末の中だけで操作を試すこともできます（ほかの端末とはつながりません）。</p>
       <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
     </div>
+    <p style="text-align:center;margin:8px 0 0"><a class="btn ghost small" href="../">参加者の画面へ戻る</a></p>
     <p class="ver">版 @@VER@@</p>
   </div>
 
   <div id="app" hidden>
     <header class="abar">
       <div class="abar-in">
-        <div class="abar-top"><h1 class="abrand"><small>泉鋼業(株)モルック部</small>月いちモルック 運営</h1>@@VIEWCTL@@</div>
+        <div class="abar-top"><h1 class="abrand"><small>泉鋼業(株)モルック部</small>月いちモルック 運営</h1><a class="to-view" href="../">参加者の画面</a>@@VIEWCTL@@</div>
         <div class="pills" id="pills"></div>
       </div>
       <div class="when-line" id="modeLine"></div>
@@ -199,6 +200,7 @@
           <div class="actions">
             <button class="btn" id="seedBtn" type="button">架空の名簿24人を入れる</button>
             <button class="btn" id="seedHist" type="button">架空の過去の記録を入れる</button>
+            <button class="btn" id="importPast" type="button">いまの参加者ページの過去の記録を取り込む</button>
           </div>
           <div class="subbox" id="demoNet" hidden>
             <label class="switch"><input type="checkbox" id="demoOffline"><span class="tr"></span>電波なしにする（練習用）</label>
@@ -213,6 +215,7 @@
           <p class="err" id="wipeMsg" aria-live="polite"></p>
         </div>
         <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
+        <a class="btn ghost" href="../" style="margin-left:8px">参加者の画面</a>
       </section>
       <p class="ver">版 @@VER@@</p>
     </main>

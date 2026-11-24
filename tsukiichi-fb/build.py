@@ -30,11 +30,14 @@ html = f'''<!DOCTYPE html>
 {body}
 <script type="module">
 {r('fakeserver.js')}
-{r('app.js').replace('@@VER@@', VER)}
+{r('app.js').replace('@@VER@@', VER).replace('/*@@PAST@@*/ { rows: [], haoh: [] }', r('past.json'))}
 </script>
 </body>
 </html>
 '''
-out = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else '/home/claude/tsukiichi-fb/index.html')
-out.write_text(html, encoding='utf8')
-print(out, len(html))
+# 運営の画面は admin/、参加者の画面（11/22版の参加者ページ）は入口の index.html
+base = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else '/home/claude/tsukiichi-fb')
+(base / 'admin').mkdir(exist_ok=True)
+(base / 'admin' / 'index.html').write_text(html, encoding='utf8')
+(base / 'index.html').write_text(r('view.html').replace('@@VER@@', VER), encoding='utf8')
+print(base, len(html))

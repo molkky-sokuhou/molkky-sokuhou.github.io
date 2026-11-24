@@ -122,3 +122,5 @@
 #recList .prow { flex-wrap: wrap; }
 .rstat { margin-left: auto; display: flex; flex-wrap: wrap; gap: 2px 8px; justify-content: flex-end; font-size: .82rem; font-weight: 900; color: var(--muted); }
 .rstat span { white-space: nowrap; }
+.to-view { margin-left: auto; align-self: center; font-size: .78rem; font-weight: 900; color: var(--muted); border: 2px solid var(--line); border-radius: 999px; padding: 4px 10px; text-decoration: none; white-space: nowrap; }
+.abar-top .viewctl { margin-left: 8px; }

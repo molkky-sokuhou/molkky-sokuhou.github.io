@@ -1,6 +1,6 @@
 import asyncio, json, urllib.request
 from playwright.async_api import async_playwright
-URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','index.html')); SRV='http://localhost:8765'
+URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','admin','index.html')); SRV='http://localhost:8765'
 OLD=open(__import__('os').path.join(__import__('os').path.dirname(__file__),'old1122.js')).read()
 def get(p): return urllib.request.urlopen(SRV+p).read()
 def docs(): return json.loads(get('/state'))['docs']
