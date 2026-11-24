@@ -1,6 +1,6 @@
 import asyncio, json, urllib.request
 from playwright.async_api import async_playwright
-URL='file:///home/claude/tsukiichi-fb/index.html'; SRV='http://localhost:8765'
+URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','index.html')); SRV='http://localhost:8765'
 def get(path): return urllib.request.urlopen(SRV+path).read()
 def server(): return json.loads(get('/state'))
 def open_events(): return [k for k,v in server()['docs'].items() if k.count('/')==3 and '/events/' in k and v.get('status')=='open']
@@ -43,7 +43,7 @@ async def main():
             await A.fill('#eq',n); await A.locator('#rList .rc span',has_text=n).first.click()
         await A.fill('#eq',''); await A.click('#qAdd'); await A.wait_for_timeout(2500)
         get('/slow?ms=1500')
-        await A.locator('#plist .prow',has_text='はると').first.click(); await A.click('#cxYes'); await A.wait_for_timeout(300)
+        await A.locator('#plist .prow',has_text='はると').first.click(); await A.click('#cxYes'); await A.click('#cxYes'); await A.wait_for_timeout(300)
         s1=(await st(A))['box']
         await A.wait_for_timeout(2500); get('/slow?ms=0'); await A.wait_for_timeout(1000)
         s2=(await st(A))['box']

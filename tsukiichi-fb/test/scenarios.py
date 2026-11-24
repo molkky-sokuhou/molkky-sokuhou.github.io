@@ -1,6 +1,6 @@
 import asyncio, json, urllib.request
 from playwright.async_api import async_playwright
-URL='file:///home/claude/tsukiichi-fb/index.html'
+URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','index.html'))
 SRV='http://localhost:8765'
 def server(): return json.loads(urllib.request.urlopen(SRV+'/state').read())
 def srv_checkins(eid): return sorted(v['name'] for k,v in server()['docs'].items() if k.startswith(f'staff/proto/events/{eid}/checkins/'))
@@ -28,7 +28,7 @@ async def pick(pg,names):
 async def newp(pg,name):
     await pg.fill('#eq',name); await pg.wait_for_timeout(80); await pg.click('#newAdd'); await pg.wait_for_timeout(100)
 async def cancel(pg,name):
-    await pg.locator('#plist .prow',has_text=name).first.click(); await pg.click('#cxYes'); await pg.wait_for_timeout(100)
+    await pg.locator('#plist .prow',has_text=name).first.click(); await pg.click('#cxYes'); await pg.click('#cxYes'); await pg.wait_for_timeout(100)
 def ok(c,label): print(('OK ' if c else 'NG ')+label); return c
 async def main():
     urllib.request.urlopen(SRV+'/reset')

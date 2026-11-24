@@ -103,7 +103,7 @@ async def main():
         print('   ',stat)
         ok(stat['bad']==0 and stat['bspread']<=1,'初心者を多めにしても200回すべて点検合格・初心者の差は1人以内')
         # 取り消しも残っている
-        await A.locator('#plist [data-c]',has_text=p3).click(); await A.click('#cxYes'); await A.wait_for_timeout(2500)
+        await A.locator('#plist [data-c]',has_text=p3).click(); await A.click('#cxYes'); await A.click('#cxYes'); await A.wait_for_timeout(2500)
         ok(not byname('checkins',p3),'編集画面から受付の取り消しもできる')
         print('errs',errs); print('合計',sum(res),'/',len(res)); await b.close()
 asyncio.run(main())

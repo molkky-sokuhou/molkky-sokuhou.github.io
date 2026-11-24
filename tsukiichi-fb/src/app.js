@@ -613,8 +613,27 @@ function people() {
     if (!prev || (prev.merged && !entry.merged)) out[id] = entry;
     if (prev && c.pending) out[id].pending = true;
   });
-  return Object.values(out);
+  const asg = evAssign(S.events[S.cur]);
+  return Object.values(out).map((p) => ({ ...p, team: asg[p.id] || 0 }));
 }
+/* ===== チーム（決まったあと）：開催回の tm（t番号→名前）と assign（名簿の番号→チーム番号）。
+   付け替えは1人の欄だけを書き換えるので、2台で別々の人を動かしても消し合わない ===== */
+function teamLabel(no) { let s = ''; for (let n = Math.floor(no); n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; }
+function evTeams(ev) {
+  ev = ev || {};
+  if (ev.tm) return Object.keys(ev.tm).filter((k) => ev.tm[k] && !ev.tm[k].gone).map((k) => { const no = +k.slice(1); return { no, name: ev.tm[k].name || teamLabel(no), fixed: ev.tm[k].fixed || '', mark: ev.tm[k].mark || '' }; }).sort((a, b) => a.no - b.no);
+  if (ev.teams && ev.teams.length) return ev.teams.map((t, i) => ({ no: i + 1, name: t.name, fixed: t.fixed || '', mark: t.mark || '', legacy: true })); // 版8までの保存形式（表示だけ）
+  return [];
+}
+function evAssign(ev) {
+  ev = ev || {};
+  const out = {}, rm = rosterById(), live = {};
+  evTeams(ev).forEach((t) => { live[t.no] = 1; });
+  if (ev.tm) Object.keys(ev.assign || {}).forEach((k) => { const n = ev.assign[k]; if (n && live[n]) out[resolveId(k, rm)] = n; });
+  else if (ev.teams) ev.teams.forEach((t, i) => (t.members || []).forEach((m) => { out[resolveId(m.id, rm)] = i + 1; }));
+  return out;
+}
+function teamName(no) { const t = evTeams(S.events[S.cur]).find((x) => x.no === no); return t ? t.name : teamLabel(no); }
 
 /* ===== 受付する ===== */
 function needEvent() {
@@ -873,7 +892,7 @@ function renderList() {
     const r = rm[c.id] || {};
     const st = c.pending ? '<span class="st wait">送信待ち</span>' : '<span class="st ok">確認済み ' + hms(c.at) + '</span>';
     return '<li><button class="prow" data-c="' + esc(c.id) + '"><span class="pname">' + esc(c.name) + '</span>' +
-      (c.isNew ? '<span class="tag cy">はじめて</span>' : '') + (r.exp ? '<span class="tag">経験豊富</span>' : r.beg ? '<span class="tag beg">初心者</span>' : '') + (c.early ? '<span class="tag early">早帰り</span>' : '') + (c.pair ? '<span class="tag pod">目印 ' + esc(c.pair) + '</span>' : '') +
+      (c.isNew ? '<span class="tag cy">はじめて</span>' : '') + (r.exp ? '<span class="tag">経験豊富</span>' : r.beg ? '<span class="tag beg">初心者</span>' : '') + (c.early ? '<span class="tag early">早帰り</span>' : '') + (c.pair ? '<span class="tag pod">目印 ' + esc(c.pair) + '</span>' : '') + (c.team ? '<span class="tag cy">チーム ' + esc(teamName(c.team)) + '</span>' : '') +
       (c.dev && c.dev !== DEV ? '<span class="by">' + esc(c.devName || '別の端末') + '</span>' : '') + st + '</button></li>';
   }).join('') : '<li class="muted">' + (S.sync.checkins && !S.sync.checkins.cache ? 'まだ誰も受付していません' : '受付を読み込んでいます…') + '</li>') +
     outPend.map((o) => '<li><div class="prow" style="opacity:.75"><span class="pname">' + esc(o.items[0].name) + '</span><span class="st wait">取消の送信待ち</span></div></li>').join('');
@@ -910,45 +929,66 @@ function resend(id) {
 function openCheckin(id) {
   const c = people().find((x) => x.id === id); if (!c) return;
   const r = rosterById()[c.id] || {};
+  const ev = S.events[S.cur] || {}, teams = evTeams(ev), canTeam = teams.length && !teams[0].legacy;
   const f = { exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : LV_DEFAULT, beg: !r.exp && !!r.beg, early: !!c.early, pair: String(c.pair || '') };
   const sw = (k, label) => '<label class="switch"><input type="checkbox" id="cf_' + k + '"' + (f[k] ? ' checked' : '') + '><span class="tr"></span>' + label + '</label>';
+  const cnt = {}; people().forEach((p) => { if (p.team) cnt[p.team] = (cnt[p.team] || 0) + 1; });
   $('sheet').innerHTML = '<h2 id="sheetTitle">' + esc(c.name) + 'さん</h2>' +
     '<p>' + (c.pending ? 'まだ送信待ちです。電波が戻れば自動で送られます。' : esc(hms(c.at)) + 'に' + esc(c.devName || '') + 'で受付済み（サーバーで確認済み）。') + '</p>' +
+    '<div class="field"><label for="cf_name">名前</label><input class="input" id="cf_name" maxlength="30" autocomplete="off" value="' + esc(c.name) + '"></div>' +
     '<div class="cf-grid">' + sw('exp', '経験豊富') + '<label class="cf-lv" id="cfLvBox"' + (f.exp ? '' : ' hidden') + '>評価 ' + lvSelect('id="cf_level"', f.level, c.name + 'の評価') + '<small class="muted">10がいちばん強い</small></label>' +
     sw('beg', '初心者') + sw('early', '早めに帰る') + '</div>' +
-    '<div class="field"><label for="cf_pair">同じチーム希望の目印</label><input class="input" id="cf_pair" maxlength="10" autocomplete="off" value="' + esc(f.pair) + '" placeholder="例：A（同じ目印の人は同じチーム）"></div>' +
-    '<p class="muted" style="margin:0">経験豊富・評価・初心者は名簿に残り、次の回にも使います。早めに帰る・目印はこの回だけです。</p>' +
-    '<div class="actions"><button class="btn primary" id="cfSave" type="button">変更を保存</button><button class="btn ghost" id="cxNo" type="button">閉じる</button></div>' +
-    '<div class="actions cf-danger"><button class="btn small" id="cxYes" type="button">受付を取り消す</button></div>';
+    '<div class="field"><label for="cf_pair">同じチーム希望の目印</label><input class="input" id="cf_pair" maxlength="10" autocomplete="off" value="' + esc(f.pair) + '" placeholder="空にすると解除"></div>' +
+    (canTeam ? '<div class="field"><label for="cf_team">チーム</label><select class="input" id="cf_team"><option value="0">チームなし</option>' +
+      teams.map((t) => '<option value="' + t.no + '"' + (t.no === c.team ? ' selected' : '') + '>' + esc(t.name) + '（' + (cnt[t.no] || 0) + '人）</option>').join('') + '</select></div>' : '') +
+    '<p class="muted" style="margin:0">経験豊富・評価・初心者は名簿に残り、次の回にも使います。早めに帰る・目印・チームはこの回だけです。参加者の画面には出ません。</p>' +
+    '<p class="err" id="cfErr" aria-live="polite"></p>' +
+    '<div class="actions"><button class="btn primary" id="cfSave" type="button">保存</button><button class="btn ghost" id="cxNo" type="button">閉じる</button></div>' +
+    '<div class="actions cf-danger"><button class="btn small ghost" id="cxYes" type="button">この人の受付を取り消す</button></div>';
   $('ov').hidden = false;
   const ex = $('cf_exp'), bg = $('cf_beg');
   ex.onchange = () => { if (ex.checked) bg.checked = false; $('cfLvBox').hidden = !ex.checked; };
   bg.onchange = () => { if (bg.checked) { ex.checked = false; $('cfLvBox').hidden = true; } };
   $('cxNo').onclick = closeSheet;
   $('cfSave').onclick = () => {
+    const nn = $('cf_name').value.trim().replace(/\s+/g, ' ').slice(0, 30);
+    const err = (m) => { $('cfErr').textContent = m; };
+    if (!nn) return err('名前を入れてください');
+    if (nn !== c.name) {
+      if (people().some((x) => x.id !== c.id && norm(x.name) === norm(nn))) return err('「' + nn + '」さんはもう受付されています。別の名前にしてください');
+      if (S.roster.some((x) => !x.mergedInto && x.id !== c.id && norm(x.name) === norm(nn))) return err('名簿に「' + nn + '」さんがすでにいます。同じ人なら、この受付を取り消して名簿から受付し直してください');
+    }
     const nf = { exp: ex.checked, level: +$('cf_level').value, beg: bg.checked, early: $('cf_early').checked, pair: $('cf_pair').value.trim() };
-    closeSheet();
+    const nt = canTeam ? +$('cf_team').value : c.team;
     if (needEvent()) return;
-    const w = [], upd = rosterDiff(r, nf), cu = {};
-    if (upd) w.push({ op: 'update', path: ROOT + '/roster/' + c.id, data: upd });
+    const w = [], upd = rosterDiff(r, nf) || {}, cu = {};
+    if (nn !== c.name) { upd.name = nn; upd.norm = norm(nn); cu.name = nn; }
+    if (Object.keys(upd).length) w.push({ op: 'update', path: ROOT + '/roster/' + c.id, data: upd });
     if (nf.early !== !!c.early) cu.early = nf.early;
     if (nf.pair !== String(c.pair || '').trim()) cu.pair = nf.pair;
     if (Object.keys(cu).length) w.push({ op: 'update', path: ROOT + '/events/' + S.cur + '/checkins/' + c.rawId, data: cu });
+    if (nt !== c.team) w.push({ op: 'update', path: ROOT + '/events/' + S.cur, data: { ['assign.' + c.id]: nt || null } });
+    closeSheet();
     if (!w.length) { toast('変更はありませんでした'); return; }
-    const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: c.id, name: c.name }], tapAt: now() };
+    const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: ev.name || '', items: [{ id: c.id, name: nn }], tapAt: now() };
     runOp(op, w); T.preview = null;
-    toast(c.name + ' さんの印を変えました');
+    toast(nn + ' さんを直しました' + (nt !== c.team ? '（' + (nt ? teamName(nt) + 'チームへ' : 'チームなし') + '）' : ''));
   };
+  /* 取り消しは2回押して確定（11/22版と同じ。印を直したい人と押し間違えないように） */
+  let armed = false;
   $('cxYes').onclick = () => {
+    if (!armed) { armed = true; $('cxYes').textContent = 'もう一度押すと取り消します'; $('cxYes').classList.remove('ghost'); $('cxYes').classList.add('primary'); return; }
     closeSheet();
     if (needEvent()) return;
     const raws = S.checkins.filter((x) => resolveId(x.id, rosterById()) === c.id).map((x) => x.id);
-    const op = { id: rid('o'), type: 'out', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: c.id, name: c.name }], tapAt: now() };
-    runOp(op, W.cancel(ROOT, S.cur, raws));
+    const op = { id: rid('o'), type: 'out', eid: S.cur, ename: ev.name || '', items: [{ id: c.id, name: c.name }], tapAt: now() };
+    const w = W.cancel(ROOT, S.cur, raws);
+    if (c.team) w.push({ op: 'update', path: ROOT + '/events/' + S.cur, data: { ['assign.' + c.id]: null } });
+    runOp(op, w);
     toast(c.name + ' さんの受付を取り消しました（送信待ち）');
   };
 }
-function closeSheet() { $('ov').hidden = true; }
+function closeSheet() { $('ov').hidden = true; clearInterval(revealTimer); }
 $('ov').addEventListener('click', (e) => { if (e.target === $('ov')) closeSheet(); });
 
 /* ===== 開催回 ===== */
@@ -1011,7 +1051,7 @@ function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--
 /* 抽選に使う参加者（受付済み＋名簿の経験豊富・評価・初心者＋その回の受付の早帰り・目印） */
 function drawPeople() {
   const rm = rosterById();
-  return people().map((p) => { const r = rm[p.id] || {}; return { id: p.id, rawId: p.rawId, name: p.name, exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : 0, beg: !r.exp && !!r.beg, early: !!p.early, pair: String(p.pair || '').trim(), pending: p.pending }; });
+  return people().map((p) => { const r = rm[p.id] || {}; return { id: p.id, rawId: p.rawId, name: p.name, exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : 0, beg: !r.exp && !!r.beg, early: !!p.early, pair: String(p.pair || '').trim(), pending: p.pending, team: p.team || 0 }; });
 }
 /* 目印ごとのまとまり（2人以上）と、目印が1人だけの人。
    「ほかの人が入ってもよい」（本人に確認済み）にした2〜3人のまとまりは open：同じチームに入れたうえで、ほかの人で埋める */
@@ -1031,6 +1071,8 @@ function teamOptions(ps, opens) {
   const out = [];
   if (groups.some((g) => g.members.length > TEAM_MAX)) return { groups, out, why: '同じ目印の人が' + TEAM_MAX + '人より多いまとまりがあります（' + groups.filter((g) => g.members.length > TEAM_MAX).map((g) => g.label + '：' + g.members.length + '人').join('・') + '）' };
   const osz = opened.map((g) => g.members.length);
+  /* 全員が「その人たちだけのチーム」の目印のとき（残りの人がいない）も、偶数ならそのまま組める */
+  if (R === 0 && !osz.length && G >= 2 && (!EVEN_ONLY || G % 2 === 0)) out.push({ T: G, K: 0, base: 0, extra: 0, fixed: closed.map((g) => g.members.length), opened: [] });
   for (let K = 1; K <= R; K++) {
     const base = Math.floor(R / K), extra = R % K;
     if (base < TEAM_MIN || base + (extra ? 1 : 0) > TEAM_MAX) continue;
@@ -1057,7 +1099,9 @@ function balance(rest, K, seeds) {
     const sums = teams.map((t) => t.reduce((s, p) => s + p.level, 0)), exps = teams.map((t) => t.filter((p) => p.exp).length);
     const early = teams.reduce((s, t) => s + Math.max(0, t.filter((p) => p.early).length - 1), 0);
     const begs = teams.map((t) => t.filter((p) => p.beg).length);
-    return (Math.max(...sums) - Math.min(...sums)) * 10 + (Math.max(...exps) - Math.min(...exps)) * 100 + early * 30 + (Math.max(...begs) - Math.min(...begs)) * 40;
+    /* 早めに帰る人が抜けると1人だけ残るチームは、何よりも避ける（11/22版と同じ考え方）。全員が早帰りのチームは少し避ける */
+    const stay = teams.reduce((s, t) => { const e = t.filter((p) => p.early).length, st = t.length - e; return s + (e && st === 1 ? 10000 : 0) + (e && st === 0 ? 500 : 0); }, 0);
+    return stay + (Math.max(...sums) - Math.min(...sums)) * 10 + (Math.max(...exps) - Math.min(...exps)) * 100 + early * 30 + (Math.max(...begs) - Math.min(...begs)) * 40;
   };
   const tries = [];
   for (let n = 0; n < 300; n++) {
@@ -1094,12 +1138,26 @@ function balance(rest, K, seeds) {
         for (let i = 0; i < teams[a].length; i++) for (let j = 0; j < teams[b].length; j++) {
           const x = teams[a][i], y = teams[b][j];
           if (x.exp !== y.exp || locked[x.id] || locked[y.id]) continue;
-          if (x.exp ? x.level === y.level : (x.beg === y.beg && x.early === y.early)) continue;
+          if (x.level === y.level && x.beg === y.beg && x.early === y.early) continue;
           teams[a][i] = y; teams[b][j] = x;
           const s = score(teams);
           if (s < best) { best = s; improved = true; } else { teams[a][i] = x; teams[b][j] = y; }
         }
       }
+    }
+    /* 人数の多いチームから1人少ないチームへ、経験豊富でない人を動かす（チームの人数の組み合わせは変わらない） */
+    for (let guard = 0; guard < 30; guard++) {
+      let moved = false;
+      for (let a = 0; a < K && !moved; a++) for (let b = 0; b < K && !moved; b++) {
+        if (a === b || teams[a].length - teams[b].length !== 1) continue;
+        for (let i = 0; i < teams[a].length && !moved; i++) {
+          const x = teams[a][i]; if (x.exp || locked[x.id]) continue;
+          teams[a].splice(i, 1); teams[b].push(x);
+          const sc = score(teams);
+          if (sc < best) { best = sc; moved = true; } else { teams[b].pop(); teams[a].splice(i, 0, x); }
+        }
+      }
+      if (!moved) break;
     }
     tries.push({ teams, s: best });
   }
@@ -1113,7 +1171,7 @@ function drawTeams(ps, opt, opens) {
   const rest = ps.filter((p) => !inG[p.id]);
   const mark = (m) => { const g = opened.find((x) => x.members.some((p) => m.some((q) => q.id === p.id))); return g ? g.label : ''; };
   const teams = closed.map((g) => ({ fixed: g.label, mark: '', members: g.members }))
-    .concat(balance(rest, opt.K, opened.map((g) => g.members)).map((m) => ({ fixed: '', mark: mark(m), members: m })));
+    .concat(opt.K ? balance(rest, opt.K, opened.map((g) => g.members)).map((m) => ({ fixed: '', mark: mark(m), members: m })) : []);
   return shuffle(teams).map((t, i) => ({ name: LETTERS[i] || ('T' + (i + 1)), fixed: t.fixed, mark: t.mark, members: shuffle(t.members) }));
 }
 /* 結果の点検：全員が1回ずつ・目印のまとまり・人数・経験豊富の偏り */
@@ -1131,13 +1189,21 @@ function checkTeams(teams, ps, opens) {
     else res.push([together && t.members.length === g.members.length, '目印「' + g.label + '」の' + g.members.length + '人だけで ' + (t ? t.name : '?') + ' チーム']);
   });
   const normal = teams.filter((t) => !t.fixed), sz = normal.map((t) => t.members.length);
-  if (normal.length) res.push([Math.max(...sz) - Math.min(...sz) <= 1 && Math.min(...sz) >= TEAM_MIN, 'ほかのチームは ' + [...new Set(sz)].sort().join('〜') + '人（人数差1人以内）']);
+  if (normal.length) res.push([Math.max(...sz) - Math.min(...sz) <= 1 && Math.min(...sz) >= TEAM_MIN, 'ほかのチームは ' + Math.min(...sz) + (Math.max(...sz) !== Math.min(...sz) ? '〜' + Math.max(...sz) : '') + '人（人数差1人以内' + (Math.min(...sz) < TEAM_MIN ? '・1チーム' + TEAM_MIN + '人以上' : '') + '）']);
   const ex = normal.map((t) => t.members.filter((m) => m.exp).length), lv = normal.map((t) => t.members.reduce((s, m) => s + m.level, 0));
+  const lv2 = teams.map((t) => { const e = t.members.filter((m) => m.early).length; return { name: t.name, e, stay: t.members.length - e }; }).filter((x) => x.e);
+  if (lv2.length) {
+    const bad = lv2.filter((x) => x.stay === 1), dis = lv2.filter((x) => x.stay === 0);
+    res.push([!bad.length, (bad.length ? '早めに帰る人が抜けると1人になるチームがあります：' + bad.map((x) => x.name).join('・') + '。入れ替えてください'
+      : '早めに帰る人が抜けても、どのチームも2人以上残ります') + (dis.length ? '（' + dis.map((x) => x.name).join('・') + 'は全員が早めに帰るので、帰るときにチームごと解散）' : ''), 'warn']);
+  }
   const bg = normal.map((t) => t.members.filter((m) => m.beg).length);
   if (normal.length && Math.max(...bg)) res.push([Math.max(...bg) - Math.min(...bg) <= 1, '初心者は各チーム ' + Math.min(...bg) + (Math.max(...bg) !== Math.min(...bg) ? '〜' + Math.max(...bg) : '') + '人']);
   if (normal.length) res.push([Math.max(...ex) - Math.min(...ex) <= 1, '経験豊富は各チーム ' + Math.min(...ex) + (Math.max(...ex) !== Math.min(...ex) ? '〜' + Math.max(...ex) : '') + '人・評価の合計 ' + Math.min(...lv) + '〜' + Math.max(...lv)]);
   return res;
 }
+/* 抽選に使った条件（受付の顔ぶれ・経験豊富と評価・初心者・早帰り・目印・ほかの人も可）。表示中の結果は、これが変わったら使わない */
+function drawSig(ps) { return JSON.stringify([ps.map((p) => [p.id, p.exp, p.level, p.beg, p.early, norm(p.pair || '')].join('|')).sort(), Object.keys(openMarks()).sort()]); }
 function teamReady() {
   if (!S.cur || !S.events[S.cur] || S.events[S.cur].status !== 'open') return '開催回がまだありません。受付タブで回を始めてください';
   if (serverState() !== 'ok') return 'サーバーで受付を確認できていません。電波を確かめてください';
@@ -1148,6 +1214,7 @@ function renderTeam() {
   if (!S.mode) return;
   const ev = S.events[S.cur] || {};
   const ps = drawPeople();
+  if (T.preview && drawSig(ps) !== T.sig) { T.preview = null; T.msg = '抽選のあとに受付や印（経験豊富・評価・初心者・早帰り・目印）が変わったので、表示していた結果は取り消しました。もう一度抽選してください'; }
   const { groups, lonely } = pairGroups(ps);
   $('tmEv').textContent = ev.name || '';
   $('tmEv').hidden = !ev.name;
@@ -1167,7 +1234,8 @@ function renderTeam() {
   const { out, why: optWhy } = teamOptions(ps);
   if (!out.some((o) => o.T === T.count)) {
     /* はじめは、2人のチームができない数のうち、1チーム3人にいちばん近い数を選んでおく */
-    const pick = out.slice().sort((a, b) => (a.base < 3) - (b.base < 3) || Math.abs(a.base + a.extra / a.K - 3) - Math.abs(b.base + b.extra / b.K - 3))[0];
+    const two = (o) => (o.K && o.base < 3) || o.fixed.some((n) => n < 3);
+    const pick = out.slice().sort((a, b) => two(a) - two(b) || Math.abs(ps.length / a.T - 3) - Math.abs(ps.length / b.T - 3))[0];
     T.count = pick ? pick.T : 0;
   }
   const cur = out.find((o) => o.T === T.count);
@@ -1188,30 +1256,74 @@ function teamCard(t, i, edit) {
     '<div class="tm-meta">' + t.members.length + '人' + (t.fixed ? '・同じチーム希望「' + esc(t.fixed) + '」' : '') + (t.mark ? '・目印「' + esc(t.mark) + '」の人とほかの人' : '') + '・経験豊富 ' + ex + '人・評価計 ' + lv + '</div>' +
     '<ul class="tm-mem">' + t.members.map((m) => '<li>' + esc(m.name) + (m.exp ? '<span class="lv">経験' + m.level + '</span>' : m.beg ? '<span class="tag beg">初心者</span>' : '') + (m.early ? '<span class="tag early">早帰り</span>' : '') + '</li>').join('') + '</ul></div>';
 }
+function checkLine(c) { return '<li>' + (c[0] ? '✓ ' : c[2] === 'warn' ? '⚠ ' : '✗ ') + esc(c[1]) + '</li>'; }
 function renderTeamResult(ps) {
   const ev = S.events[S.cur] || {};
-  const saved = ev.teams && ev.teams.length ? ev.teams : null;
-  const show = T.preview || saved;
-  $('tmResult').hidden = !show;
-  if (!show) return;
-  /* 保存した結果は、いまの名簿の経験豊富・評価で表示し直す */
-  const byId = {}; ps.forEach((p) => { byId[p.id] = p; });
-  const teams = show.map((t) => ({ ...t, members: t.members.map((m) => ({ ...(byId[m.id] || { exp: false, level: 0 }), id: m.id, name: m.name })) }));
-  const checks = checkTeams(teams, ps);
-  $('tmResH').textContent = T.preview ? '抽選の結果（まだ保存していません）' : '決まったチーム';
-  $('tmResSt').textContent = T.preview ? '' : '保存 ' + hm(ev.drawnAt) + (ev.drawBy ? '・' + ev.drawBy : '');
-  $('tmChecks').innerHTML = checks.map((c) => '<li>' + (c[0] ? '✓ ' : '✗ ') + esc(c[1]) + '</li>').join('') +
-    (!T.preview && !checks[0][0] ? '<li><b>抽選のあとに受付が変わりました。抽選し直すか、チームを直してください。</b></li>' : '');
-  $('tmTeams').innerHTML = teams.map((t, i) => teamCard(t, i, !!T.preview)).join('');
-  $('tmTeams').querySelectorAll('[data-tn]').forEach((inp) => { inp.oninput = () => { T.preview[+inp.dataset.tn].name = inp.value.trim() || LETTERS[+inp.dataset.tn]; }; });
-  $('tmResAct').innerHTML = T.preview
-    ? '<button class="btn primary" id="tmSave" type="button">この結果で決める</button><button class="btn" id="tmAgain" type="button">もう一度抽選</button><button class="btn ghost" id="tmCancel" type="button">やめる</button>'
-    : '';
+  const saved = evTeams(ev);
+  $('tmResult').hidden = !T.preview && !saved.length;
+  if ($('tmResult').hidden) { $('tmResAct').innerHTML = ''; $('tmTeams').innerHTML = ''; $('tmChecks').innerHTML = ''; return; }
   if (T.preview) {
+    const byId = {}; ps.forEach((p) => { byId[p.id] = p; });
+    const teams = T.preview.map((t) => ({ ...t, members: t.members.map((m) => ({ ...(byId[m.id] || { exp: false, level: 0 }), id: m.id, name: m.name })) }));
+    $('tmResH').textContent = '抽選の結果（まだ保存していません）';
+    $('tmResSt').textContent = '';
+    $('tmChecks').innerHTML = checkTeams(teams, ps).map(checkLine).join('');
+    $('tmTeams').innerHTML = teams.map((t, i) => teamCard(t, i, true)).join('');
+    $('tmTeams').querySelectorAll('[data-tn]').forEach((inp) => { inp.oninput = () => { T.preview[+inp.dataset.tn].name = inp.value.trim() || LETTERS[+inp.dataset.tn]; }; });
+    $('tmResAct').innerHTML = '<button class="btn primary" id="tmSave" type="button">この結果で決める</button><button class="btn" id="tmAgain" type="button">もう一度抽選</button><button class="btn ghost" id="tmCancel" type="button">やめる</button>';
     $('tmSave').onclick = saveTeams;
     $('tmAgain').onclick = doDraw;
     $('tmCancel').onclick = () => { T.preview = null; renderTeam(); };
+    return;
   }
+  if (saved.length) renderTeamAdjust(ps, ev, saved);
+}
+/* 決まったチームの調整（11/22版と同じ：チーム名・メンバーの付け替え・解散は2回押し・まだ入っていない人・チームの追加） */
+function renderTeamAdjust(ps, ev, saved) {
+  const legacy = saved[0].legacy;
+  const teams = saved.map((t) => ({ ...t, members: ps.filter((p) => p.team === t.no) }));
+  const none = ps.filter((p) => !p.team);
+  $('tmResH').textContent = '決まったチーム';
+  $('tmResSt').textContent = saved.length + 'チーム・' + ps.length + '人' + (ev.drawnAt ? '・抽選 ' + hm(ev.drawnAt) + (ev.drawBy ? ' ' + ev.drawBy : '') : '');
+  const checks = checkTeams(teams, ps);
+  $('tmChecks').innerHTML = (saved.length % 2 ? '<li><b class="warnline">いま ' + saved.length + 'チーム（奇数）です。1つ追加するか解散して、偶数にしてください。</b></li>' : '') +
+    (none.length ? '<li><b class="warnline">まだチームに入っていない人が ' + none.length + '人います。名前を押してチームを選んでください。</b></li>' : '') +
+    checks.slice(1).map((c) => checkLine([c[0], c[1], 'warn'])).join('') + // 確定後の調整は運営の判断なので、外れても⚠（確かめる）にする
+    (legacy ? '<li><b>前の版の形式で保存されたチームです。直すときは抽選し直してください。</b></li>' : '');
+  const mem = (m) => '<button type="button" class="mem" data-pc="' + esc(m.id) + '">' + esc(m.name) +
+    (m.exp ? '<span class="lv">経験' + m.level + '</span>' : m.beg ? '<span class="tag beg">初心者</span>' : '') + (m.early ? '<span class="tag early">早帰り</span>' : '') + (m.pending ? '<span class="tag">送信待ち</span>' : '') + '</button>';
+  $('tmTeams').innerHTML = teams.map((t) => {
+    const e = t.members.filter((m) => m.early).length, stay = t.members.length - e, lv = t.members.reduce((s, m) => s + (m.level || 0), 0);
+    return '<div class="tcard' + (t.members.length < 2 || (e && stay === 1) ? ' solo' : '') + (t.fixed ? ' fixed' : '') + '"><div class="thd">' +
+      (legacy ? '<span class="tm-name">' + esc(t.name) + '</span>' : '<input class="input tm-name" data-rn="' + t.no + '" value="' + esc(t.name) + '" maxlength="12" aria-label="' + esc(t.name) + 'チームの名前">') +
+      '<span class="tm-meta">' + t.members.length + '人</span></div>' +
+      '<div class="tm-meta">' + (t.fixed ? '同じチーム希望「' + esc(t.fixed) + '」・' : '') + '経験豊富 ' + t.members.filter((m) => m.exp).length + '人・評価計 ' + lv + '</div>' +
+      '<div class="mems">' + (t.members.length ? t.members.map(mem).join('') : '<span class="muted">メンバーがいません</span>') + '</div>' +
+      (e ? '<div class="tm-meta">' + (stay === 1 ? '<span class="warnline">早めに帰る人が抜けると1人になります</span>' : '早めに帰る人が抜けた後は' + stay + '人' + (stay === 0 ? '（チームごと解散）' : '')) + '</div>' : '') +
+      (legacy ? '' : '<div><button type="button" class="btn small ' + (T.rm === t.no ? 'primary' : 'ghost') + '" data-rm="' + t.no + '">' + (T.rm === t.no ? '本当に解散' : 'このチームを解散') + '</button></div>') + '</div>';
+  }).join('') + (none.length ? '<div class="tcard none"><b>まだチームに入っていない人</b><div class="mems">' + none.map(mem).join('') + '</div><span class="muted" style="font-size:.85rem">名前を押してチームを選んでください</span></div>' : '');
+  $('tmTeams').querySelectorAll('[data-pc]').forEach((b) => { b.onclick = () => openCheckin(b.dataset.pc); });
+  $('tmTeams').querySelectorAll('[data-rn]').forEach((inp) => { inp.onchange = () => { const no = +inp.dataset.rn, v = inp.value.trim().slice(0, 12) || teamLabel(no); teamOp('チーム名「' + v + '」', { ['tm.t' + no + '.name']: v }); toast('チーム名を変えました'); }; });
+  $('tmTeams').querySelectorAll('[data-rm]').forEach((b) => { b.onclick = () => {
+    const no = +b.dataset.rm;
+    if (T.rm !== no) { T.rm = no; renderTeam(); return; }
+    T.rm = 0;
+    const d = { ['tm.t' + no + '.gone']: true }; ps.filter((p) => p.team === no).forEach((p) => { d['assign.' + p.id] = null; });
+    teamOp(teamName(no) + 'の解散', d);
+    toast('解散しました。メンバーをほかのチームに入れてください');
+  }; });
+  $('tmResAct').innerHTML = legacy ? '' : '<button class="btn" id="tmAdd" type="button">チームを1つ追加</button>';
+  if (!legacy) $('tmAdd').onclick = () => {
+    const nos = Object.keys(ev.tm || {}).map((k) => +k.slice(1)), no = (nos.length ? Math.max(...nos) : 0) + 1;
+    teamOp('チーム' + teamLabel(no) + 'の追加', { ['tm.t' + no]: { name: teamLabel(no) } });
+    toast('チーム' + teamLabel(no) + 'を追加しました。メンバーを入れてください');
+  };
+}
+/* 開催回のチームの書き換え（1つの操作として送る） */
+function teamOp(label, data) {
+  if (needEvent()) return;
+  const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: 'team', name: label }], tapAt: now() };
+  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data }]);
 }
 function renderTeamPeople(ps) {
   const LV = Array.from({ length: 10 }, (_, i) => i + 1);
@@ -1265,7 +1377,7 @@ function doDraw() {
   const ps = drawPeople();
   const opt = teamOptions(ps).out.find((o) => o.T === T.count);
   if (!opt) { T.msg = 'このチーム数では分けられません'; renderTeam(); return; }
-  T.preview = drawTeams(ps, opt);
+  T.preview = drawTeams(ps, opt); T.sig = drawSig(ps);
   renderTeam();
   $('tmResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1283,13 +1395,32 @@ function saveTeams() {
   if (!T.preview || needEvent()) return;
   const why = teamReady(); if (why) { T.msg = why; renderTeam(); return; }
   const ps = drawPeople();
-  if (!checkTeams(T.preview, ps)[0][0]) { T.msg = '抽選のあとに受付が変わりました。もう一度抽選してください'; T.preview = null; renderTeam(); return; }
-  const teams = T.preview.map((t) => ({ name: t.name, fixed: t.fixed || '', mark: t.mark || '', members: t.members.map((m) => ({ id: m.id, name: m.name })) }));
-  const op = { id: rid('o'), type: 'draw', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: teams.map((t) => ({ id: t.name, name: t.name + '（' + t.members.length + '人）' })), tapAt: now() };
-  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { teams, drawnAt: TS, drawBy: devName, drawCount: teams.length } }]);
-  T.preview = null; T.msg = '';
-  toast(teams.length + 'チームに決めました（送信待ち）');
+  if (drawSig(ps) !== T.sig || !checkTeams(T.preview, ps)[0][0]) { T.msg = '抽選のあとに受付や印が変わりました。もう一度抽選してください'; T.preview = null; renderTeam(); return; }
+  const tm = {}, assign = {}, order = [];
+  T.preview.forEach((t, i) => {
+    tm['t' + (i + 1)] = { name: t.name, fixed: t.fixed || '', mark: t.mark || '' };
+    t.members.forEach((m) => { assign[m.id] = i + 1; order.push({ name: m.name, team: t.name }); });
+  });
+  const op = { id: rid('o'), type: 'draw', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: T.preview.map((t) => ({ id: t.name, name: t.name + '（' + t.members.length + '人）' })), tapAt: now() };
+  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, teams: null, drawnAt: TS, drawBy: devName, drawCount: T.preview.length } }]);
+  const bad = checkTeams(T.preview, ps).filter((c) => c[2] === 'warn' && !c[0]).map((c) => c[1]);
+  T.preview = null; T.msg = ''; T.rm = 0;
   renderTeam();
+  showReveal(shuffle(order), bad);
+}
+/* 発表：順番から経験豊富の人が分からないよう、全員をまぜて1人ずつ出す（11/22版と同じ） */
+let revealTimer = null;
+function showReveal(order, notes) {
+  $('sheet').innerHTML = '<h2 id="sheetTitle">抽選結果</h2>' + (notes.length ? '<p class="warnline">' + esc(notes.join('／')) + '</p>' : '') +
+    '<ul class="reveal" id="rv"></ul><div class="actions"><button class="btn ghost" id="rvAll" type="button">すぐに全部見る</button><button class="btn primary" id="rvClose" type="button">チームを見る</button></div>';
+  $('ov').hidden = false;
+  let i = 0;
+  const step = () => { if (i >= order.length) { clearInterval(revealTimer); return; } const o = order[i++], li = document.createElement('li'); li.innerHTML = '<span>' + esc(o.name) + '</span><b>' + esc(o.team) + '</b>'; $('rv').appendChild(li); $('rv').scrollTop = $('rv').scrollHeight; };
+  const all = () => { clearInterval(revealTimer); while (i < order.length) step(); };
+  clearInterval(revealTimer);
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) all(); else revealTimer = setInterval(step, 280);
+  $('rvAll').onclick = all;
+  $('rvClose').onclick = () => { closeSheet(); window.scrollTo(0, 0); };
 }
 
 /* ===== タブ ===== */

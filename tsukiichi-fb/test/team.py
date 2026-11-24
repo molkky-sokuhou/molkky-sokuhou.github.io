@@ -1,6 +1,6 @@
 import asyncio, json, urllib.request
 from playwright.async_api import async_playwright
-URL='file:///home/claude/tsukiichi-fb/index.html'; SRV='http://localhost:8765'
+URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','index.html')); SRV='http://localhost:8765'
 def get(p): return urllib.request.urlopen(SRV+p).read()
 def server(): return json.loads(get('/state'))
 res=[]; errs=[]
@@ -62,7 +62,7 @@ async def main():
         # 保存してもう1台に出る
         await A.click('#tmSave'); await A.wait_for_timeout(3000)
         ev=[v for k,v in server()['docs'].items() if k.count('/')==3 and '/events/' in k][0]
-        ok(len(ev.get('teams',[]))==6,'開催回に6チームが保存された')
+        ok(len([k for k,v in (ev.get('tm') or {}).items() if not v.get('gone')])==6 and len(ev.get('assign',{}))==22,'開催回に6チームと22人の所属が保存された')
         await B.click('.nb[data-ph=team]'); await B.wait_for_timeout(1500)
         ok('決まったチーム' in await B.inner_text('#tmResH') and await B.locator('#tmTeams .tcard').count()==6,'もう1台にも決まったチームが出る')
         await B.screenshot(path='team_saved_dark.png',full_page=True)

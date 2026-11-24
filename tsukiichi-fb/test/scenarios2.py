@@ -1,6 +1,6 @@
 import asyncio, json, urllib.request
 from playwright.async_api import async_playwright
-URL='file:///home/claude/tsukiichi-fb/index.html'; SRV='http://localhost:8765'
+URL='file://'+__import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__),'..','index.html')); SRV='http://localhost:8765'
 def get(path): return urllib.request.urlopen(SRV+path).read()
 def server(): return json.loads(get('/state'))
 def commit(writes):
@@ -31,7 +31,7 @@ async def pickall(pg):
 async def newp(pg,name):
     await pg.fill('#eq',name); await pg.wait_for_timeout(80); await pg.click('#newAdd'); await pg.wait_for_timeout(100)
 async def cancel(pg,name):
-    await pg.locator('#plist .prow',has_text=name).first.click(); await pg.click('#cxYes'); await pg.wait_for_timeout(100)
+    await pg.locator('#plist .prow',has_text=name).first.click(); await pg.click('#cxYes'); await pg.click('#cxYes'); await pg.wait_for_timeout(100)
 async def startEvent(pg):
     if await pg.is_visible('#evGate [data-newev]'): await pg.click('#evGate [data-newev]')
     else: await pg.click('.nb[data-ph=set]'); await pg.click('#evNew')

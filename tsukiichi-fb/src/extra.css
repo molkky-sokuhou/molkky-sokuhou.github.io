@@ -92,3 +92,19 @@
 /* 印のボタンが4つ並ぶので、名前を上・ボタンを下にする（名前が縦に折れないように） */
 #selList .tmrow, #tmPeople .tmrow { grid-template-columns: minmax(0, 1fr); }
 #selList .ctl, #tmPeople .ctl { justify-content: flex-start; }
+/* 決まったチームの調整（11/22版の形） */
+.mems { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.mem { font: inherit; font-weight: 900; border: 2px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 6px 10px; min-height: 40px; display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; text-align: left; }
+.mem .lv { font-size: .72rem; font-weight: 900; color: var(--yellow-ink); background: var(--yellow); border-radius: 6px; padding: 0 5px; }
+.tcard.solo { border-color: var(--red); }
+.tcard.none { border-style: dashed; }
+.tcard .thd { display: flex; align-items: center; gap: 8px; }
+.tcard .thd .input.tm-name { flex: 1 1 auto; min-width: 0; font-size: 1.1rem; padding: 4px 8px; }
+.warnline { color: var(--red); font-weight: 900; }
+.reveal { list-style: none; margin: 8px 0; padding: 0; max-height: 50vh; overflow-y: auto; display: grid; gap: 4px; }
+.reveal li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; background: var(--panel-2); border-radius: 8px; font-weight: 700; animation: rvin .25s ease-out; }
+.reveal li b { font-family: var(--f-display); font-weight: 400; }
+@keyframes rvin { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .reveal li { animation: none; } }
+#cfErr:empty { display: none; }
+.tcard .thd .tm-meta { white-space: nowrap; }
