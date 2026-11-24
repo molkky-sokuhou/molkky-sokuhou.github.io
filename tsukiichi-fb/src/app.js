@@ -42,17 +42,28 @@ const W = {
   },
   cancel(root, eid, rawIds) { return rawIds.map((r) => ({ op: 'delete', path: root + '/events/' + eid + '/checkins/' + r })); },
   /* まとめる：まとめるごとに番号（mergeId）を付ける（元に戻すときにこの番号を確かめる）。
-     o.carry があれば、その回の早帰り・目印・チームをまとめ先へ引き継ぐ（抽選のあとにまとめても記録から漏れないように） */
+     o.carry があれば、その回の早帰り・目印・チームをまとめ先へ引き継ぐ（抽選のあとにまとめても記録から漏れないように）。
+     o.base（画面を開いたときの開催回の rev）があれば、その間にチームや結果が変わったときは断られる（解散したチームを割り当てないように）。
+     その回に受付していた人をまとめるときは、元に戻せるように、消す方の受付とチームを名簿の mergeCk・mergeTeam に残す */
   merge(root, eid, keep, drop, opId, needKeepCheckin, tapAt, o) {
     o = o || {};
     const extra = o.keepNameBefore != null ? { keepNameBefore: o.keepNameBefore, keepNameAfter: o.keepNameAfter } : {};
-    const w = [{ op: 'update', path: root + '/roster/' + drop.id, data: { mergedInto: keep.id, mergedAt: TS, mergeId: o.mergeId || ('g' + opId), ...extra } }];
-    if (o.dropIn !== false) w.push({ op: 'delete', path: root + '/events/' + eid + '/checkins/' + (drop.rawId || drop.id) });
-    const c = o.carry;
+    const c = o.carry, dropIn = o.dropIn !== false;
+    const undo = dropIn && c && o.dropCk ? { mergeEv: eid, mergeCk: o.dropCk, mergeTeam: o.dropTeam || 0, mergeKeep: { team: o.keepTeam || 0, early: !!o.keepEarly, pair: o.keepPair || '', had: !needKeepCheckin, carried: c.team || 0, cEarly: !!c.early, cPair: c.pair || '' } } : { mergeEv: '', mergeCk: null, mergeTeam: 0, mergeKeep: null };
+    const w = [{ op: 'update', path: root + '/roster/' + drop.id, data: { mergedInto: keep.id, mergedAt: TS, mergeId: o.mergeId || ('g' + opId), ...undo, ...extra } }];
+    if (dropIn) w.push({ op: 'delete', path: root + '/events/' + eid + '/checkins/' + (drop.rawId || drop.id) });
     if (needKeepCheckin) w.push({ op: 'set', path: root + '/events/' + eid + '/checkins/' + keep.id, data: { name: keep.name, isNew: !!keep.isNew, early: !!(c && c.early), pair: (c && c.pair) || '', at: TS, tapAt: keep.tapAt || tapAt, dev: DEV, devName, batch: opId, n: 1, op: opId } });
     else if (c && c.fix) w.push({ op: 'update', path: root + '/events/' + eid + '/checkins/' + (keep.rawId || keep.id), data: c.fix });
-    if (c && c.team !== undefined) w.push({ op: 'update', path: root + '/events/' + eid, data: { ['assign.' + keep.id]: c.team || null, ['assign.' + drop.id]: null } });
+    if (c && c.team !== undefined) w.push({ op: 'update', path: root + '/events/' + eid, data: { ['assign.' + keep.id]: c.team || null, ['assign.' + drop.id]: null, ...(o.base != null ? { chk: { base: o.base, op: opId } } : {}) } });
     return w;
+  },
+  rev(root, eid, writes) {
+    const evPath = root + '/events/' + eid, ckPath = evPath + '/checkins/';
+    if (!writes.some((w) => (w.path === evPath && w.op === 'update') || (w.path.startsWith(ckPath) && w.op !== 'set'))) return writes;
+    const rev = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const ew = writes.find((w) => w.path === evPath && w.op === 'update');
+    if (ew) ew.data.rev = rev; else writes.push({ op: 'update', path: evPath, data: { rev } });
+    return writes;
   },
   distinct(root, a, b) { return [{ op: 'update', path: root + '/roster/' + a.id, data: { ['notSame.' + b.id]: true } }, { op: 'update', path: root + '/roster/' + b.id, data: { ['notSame.' + a.id]: true } }]; },
   newEvent(root, curId, curOpen, newId, name, courts, close) {
@@ -87,6 +98,14 @@ service cloud.firestore {
     function notMerged(box, rid) {
       return getAfter(pathOf(box, 'roster', rid)).data.get('mergedInto', '') == '';
     }
+    // 開催回の更新番号（rev）が、この書き込みで変わるか（参照2回。同じ文書なので数え方は実際には1回のことが多い）
+    function revBumped(box, e) {
+      return getAfter(pathOf(box, 'events', e)).data.get('rev', '') != get(pathOf(box, 'events', e)).data.get('rev', '');
+    }
+    // この書き込みで変わる項目か
+    function changes(k) {
+      return k in request.resource.data.diff(resource.data).affectedKeys();
+    }
     match /public/{path=**} {
       allow read: if true;
       allow write: if isStaff();
@@ -107,19 +126,22 @@ service cloud.firestore {
       allow read: if isStaff();
       allow create: if isStaff() && request.resource.data.get('mergedInto', '') == '';
       // まとめた人は変えない。まとめる先は、自分以外の、まとめられていない人だけ
-      // ただし「まとめを元に戻す」操作（mergedInto を空にして unmergedAt を書く。ほかは変えない）だけは通す
+      // ただし「まとめを元に戻す」操作（mergedInto を空にして unmergedAt を書く。ほかは変えない）だけは通す。
+      // 版12までのまとめ（mergeId なし）は、unmergeOf を空にして戻せる
+      // 名前を戻すときは nameChk.v（押した画面で見えていた名前）が、いまの名前と同じときだけ
       allow update: if isStaff()
         && ((resource.data.get('mergedInto', '') == ''
           && (request.resource.data.get('mergedInto', '') == ''
             || (request.resource.data.mergedInto != rid
-              && notMerged(box, request.resource.data.mergedInto))))
+              && notMerged(box, request.resource.data.mergedInto)))
+          && (!changes('nameChk') || request.resource.data.nameChk.v == resource.data.get('name', '')))
         || (resource.data.get('mergedInto', '') != ''
           && request.resource.data.get('mergedInto', '') == ''
           && request.resource.data.get('unmergedAt', null) == request.time
-          && request.resource.data.get('unmergeOf', '') == resource.data.get('mergeId', 'x')
+          && request.resource.data.get('unmergeOf', '') == resource.data.get('mergeId', '')
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mergedInto', 'unmergedAt', 'unmergeOf'])));
     }
-    // 大会の記録（1人1大会で1件）。消さない。移すときは「いまの持ち主」を確かめ、移す先はまとめられていない名簿の人だけ
+    // 大会の記録（1人1大会で1件）。消さない。移すときは「いまの持ち主」と移した回数（mv）を確かめ、移す先はまとめられていない名簿の人だけ
     match /staff/{box}/hist/{h} {
       allow read: if isStaff();
       // 作るのは締めるときに全員分をまとめて（参照回数の上限に当たらないよう、ここでは名簿を見ない）
@@ -127,7 +149,8 @@ service cloud.firestore {
       allow update: if isStaff()
         && request.resource.data.movedFrom == resource.data.rid
         && request.resource.data.rid != resource.data.rid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rid', 'movedFrom', 'movedAt'])
+        && request.resource.data.get('mv', 0) == resource.data.get('mv', 0) + 1
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rid', 'movedFrom', 'movedAt', 'mv'])
         && notMerged(box, request.resource.data.rid);
     }
     match /staff/{box}/events/{e} {
@@ -135,15 +158,24 @@ service cloud.firestore {
       // 回を作れるのは、同じまとめ書きで「いまの回」をその回にするときだけ（開いている回は1つ）
       allow create: if isStaff() && request.resource.data.status == 'open'
         && getAfter(/databases/$(database)/documents/staff/$(box)).data.currentEvent == e;
-      // 締めた回は開け直さない。締めるときは、順位を計算したときの更新番号（closeRev）がいまの rev と同じときだけ
+      // 締めた回は開け直さない。開いている回を書き換えるときは、毎回 rev を新しくする（旧版の端末の書き込みは断る）。
+      // chk.base があれば、押した画面が見ていた rev がいまと同じときだけ（その間にほかの端末の変更があれば断る）。
+      // 参加者画面にチームを出す（shown を true）のは、押した画面の抽選（shownDraw）がいまの抽選（drawId）と同じときだけ。
+      // 締めるときは、順位を計算したときの rev（closeRev）がいまの rev と同じときだけ
       allow update: if isStaff() && resource.data.status == 'open'
-        && (request.resource.data.status == 'open'
-          || request.resource.data.get('closeRev', '') == resource.data.get('rev', ''));
+        && ((request.resource.data.status == 'open'
+            && request.resource.data.get('rev', '') != resource.data.get('rev', '')
+            && (!changes('chk') || request.resource.data.chk.base == resource.data.get('rev', ''))
+            && (!changes('shown') || request.resource.data.shown != true
+              || request.resource.data.get('shownDraw', '') == resource.data.get('drawId', '')))
+          || (request.resource.data.status == 'closed'
+            && request.resource.data.get('closeRev', '') == resource.data.get('rev', '')));
     }
     match /staff/{box}/events/{e}/checkins/{rid} {
       allow read: if isStaff();
       allow create, update: if isStaff() && isOpen(box, e) && notMerged(box, rid);
-      allow delete: if isStaff() && isOpen(box, e);
+      // 取り消し・まとめで受付を消すときは、同じまとめ書きで開催回の rev も新しくする（締めの計算と食い違わないように）
+      allow delete: if isStaff() && isOpen(box, e) && revBumped(box, e);
     }
     match /staff/{box}/events/{e}/ops/{op} {
       allow read: if isStaff();
@@ -265,16 +297,10 @@ function runOp(op, writes) {
   renderAll(); heartbeat();
   return p;
 }
-/* 順位や記録に関わる変更（開催回のチーム・試合・所属、受付の書き換え・取り消し）では、開催回の rev を新しくする。
+/* 順位や記録に関わる変更（開催回のチーム・試合・所属、受付の書き換え・取り消し）では、開催回の rev を新しくする（W.rev）。
+   ルールで、開いている回の書き換えは毎回 rev が変わること、受付を消すときは同じまとめ書きで rev が変わることを確かめる。
    締めるときは、順位を計算したときの rev を closeRev として送り、ルールで同じときだけ通す（直前に届いた得点の訂正と食い違わないように） */
-function bumpRev(op, writes) {
-  if (!op.eid) return;
-  const evPath = ROOT + '/events/' + op.eid, ckPath = evPath + '/checkins/';
-  if (!writes.some((w) => (w.path === evPath && w.op === 'update') || (w.path.startsWith(ckPath) && w.op !== 'set'))) return;
-  const rev = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const ew = writes.find((w) => w.path === evPath && w.op === 'update');
-  if (ew) ew.data.rev = rev; else writes.push({ op: 'update', path: evPath, data: { rev } });
-}
+function bumpRev(op, writes) { if (op.eid) W.rev(ROOT, op.eid, writes); }
 async function markRejected(op, code) {
   op.state = 'rejected'; op.code = code || 'error'; op.reason = '確かめています…'; saveOps(); refreshConfirmedCount(); renderAll(); heartbeat();
   op.reason = await reasonFor(op); saveOps(); renderAll();
@@ -296,6 +322,8 @@ async function reasonFor(op) {
       if (rd && rd.mergedInto) return '「' + drop.name + '」さんは、すでに別の端末でまとめられていました';
       if (rk && rk.mergedInto) return '残す方の「' + keep.name + '」さんが、別の端末でまとめられていました（逆向きのまとめを防ぐため断られました）';
     }
+    if (op.guard) return '画面を開いたあとに、ほかの端末でチームや結果が変わったため、断られました。いまの表示を確かめて、もう一度操作してください';
+    if (op.hint) return op.hint;
   } catch (e) { return '確かめられませんでした（電波を確かめてください）'; }
   return op.code === 'permission-denied' ? '権限がないため断られました' : 'うまく保存できませんでした（' + op.code + '）';
 }
@@ -349,6 +377,7 @@ async function fireBackend() {
       return b.commit();
     },
     async getServer(path) { const d = await F.getDocFromServer(F.doc(db, path)); return d.exists() ? plain(d.data()) : null; },
+    async getServerCol(path) { const q = await F.getDocsFromServer(F.collection(db, path)); return q.docs.map((d) => ({ id: d.id, ...plain(d.data()) })); },
     async confirmedCount(eid) {
       const result = await F.getCountFromServer(F.collection(db, ROOT + '/events/' + eid + '/checkins'));
       return result.data().count;
@@ -469,6 +498,7 @@ function fakeBackend() {
       return new Promise((res, rej) => { waiters[id] = { res, rej }; });
     },
     async getServer(path) { const st = await T.state(); return st.docs[path] || null; },
+    async getServerCol(path) { const st = await T.state(), depth = path.split('/').length + 1; return Object.keys(st.docs).filter((k) => k.indexOf(path + '/') === 0 && k.split('/').length === depth).map((k) => ({ id: k.split('/').pop(), ...st.docs[k] })); },
     waitPending() { return ready.then(() => new Promise((res) => { const f = () => { if (!queue.length) res(); else setTimeout(f, 200); }; f(); })); },
     uid() { return ''; },
     async clearLocal() { clearInterval(timer); try { kv && kv.close(); } catch (e) {} const n = 'tk_fake_' + (URL0 ? 'test' : 'demo'); await idbDelete(n); return [n]; },
@@ -541,7 +571,7 @@ async function enter(mode) {
   }, onErr('box'));
   B.sub(ROOT + '/events', (list, fc) => { mark('events', fc); S.events = {}; list.forEach((d) => { S.events[d.id] = d.data; }); renderAll(); }, onErr('events'));
   B.sub(ROOT + '/roster', (list, fc) => { mark('roster', fc); S.roster = list.map((d) => ({ id: d.id, ...d.data, pending: d.pending })); renderAll(); }, onErr('roster'));
-  B.subDoc(PUB, (d, fc) => { S.sync.pub = { cache: fc }; S.pub = d; }, () => {});
+  B.subDoc(PUB, (d, fc) => { S.sync.pub = { cache: fc }; S.pub = d; schedulePublish(); }, () => {});
   B.sub(ROOT + '/hist', (list, fc) => { mark('hist', fc); S.hist = list.map((d) => ({ id: d.id, ...d.data })); renderAll(); }, onErr('hist'));
   B.subMetrics((m) => { S.metrics = m; renderMetrics(); });
   clockSync();
@@ -642,19 +672,20 @@ function metric(m) {
 /* ===== 名簿のまとめ（まとめた人は行き先に読み替える） ===== */
 const rosterById = () => { const m = {}; S.roster.forEach((r) => { m[r.id] = r; }); return m; };
 function resolveId(id, rm) { let x = id, n = 0; while (rm[x] && rm[x].mergedInto && n++ < 10) x = rm[x].mergedInto; return x; }
-/* いまの回の受付を、人ごとに1つにまとめた一覧 */
-function people() {
-  const rm = rosterById(), out = {};
-  S.checkins.forEach((c) => {
+/* いまの回の受付を、人ごとに1つにまとめた一覧。名前は名簿の名前（記録タブで名前を直したときも、当日の表示と合うように） */
+function peopleOf(checkins, ev, rm) {
+  const out = {};
+  checkins.forEach((c) => {
     const id = resolveId(c.id, rm);
     const prev = out[id];
-    const entry = { ...c, id, rawId: c.id, merged: id !== c.id };
+    const entry = { ...c, id, rawId: c.id, merged: id !== c.id, name: (rm[id] && rm[id].name) || c.name };
     if (!prev || (prev.merged && !entry.merged)) out[id] = entry;
     if (prev && c.pending) out[id].pending = true;
   });
-  const asg = evAssign(S.events[S.cur]);
+  const asg = evAssign(ev, rm);
   return Object.values(out).map((p) => ({ ...p, team: asg[p.id] || 0 }));
 }
+function people() { return peopleOf(S.checkins, S.events[S.cur], rosterById()); }
 /* ===== チーム（決まったあと）：開催回の tm（t番号→名前）と assign（名簿の番号→チーム番号）。
    付け替えは1人の欄だけを書き換えるので、2台で別々の人を動かしても消し合わない ===== */
 function teamLabel(no) { let s = ''; for (let n = Math.floor(no); n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; }
@@ -664,9 +695,9 @@ function evTeams(ev) {
   if (ev.teams && ev.teams.length) return ev.teams.map((t, i) => ({ no: i + 1, name: t.name, fixed: t.fixed || '', mark: t.mark || '', legacy: true })); // 版8までの保存形式（表示だけ）
   return [];
 }
-function evAssign(ev) {
-  ev = ev || {};
-  const out = {}, rm = rosterById(), live = {};
+function evAssign(ev, rm) {
+  ev = ev || {}; rm = rm || rosterById();
+  const out = {}, live = {};
   evTeams(ev).forEach((t) => { live[t.no] = 1; });
   if (ev.tm) Object.keys(ev.assign || {}).forEach((k) => { const n = ev.assign[k]; if (n && live[n]) out[resolveId(k, rm)] = n; });
   else if (ev.teams) ev.teams.forEach((t, i) => (t.members || []).forEach((m) => { out[resolveId(m.id, rm)] = i + 1; }));
@@ -809,7 +840,14 @@ function renderBar() {
   const short = !S.cur ? (st === 'ok' ? '開催回なし' : 'サーバー確認中') : LS ? 'サーバー ' + LS.count + '人（' + hm(LS.at) + '）' : 'サーバー確認中';
   $('saveBar').innerHTML = '<div class="sb-row ' + (rj ? 'off' : un.length ? (online ? 'wait' : 'off') : st === 'ok' ? 'ok' : 'wait') + '"><span class="big"><span class="dot"></span>' +
     esc(rj ? '届かなかった操作 ' + rj + '件' : '送信待ち ' + un.length + '件・表示 ' + shown + '人') + '</span><span class="sub">' + esc(short) + '</span></div>';
-  $('statusBox').innerHTML = row(mine) + row(srv) + row(all);
+  /* 古い版のままの端末（その端末からの変更はルールで断られる）と、参加者画面への反映 */
+  const old = others.filter((d) => d.ver && d.ver !== VER && d.at && srvNow() - d.at < 6 * 3600000);
+  const oldRow = old.length ? row(['off', '古い版のままの端末があります：' + old.map((d) => d.name + '（版 ' + d.ver + '）').join('・'), 'その端末でページを閉じて開き直してください（運営画面の下に 版 ' + VER + ' と出れば最新です）。古い版からのチームや結果の変更は断られます']) : '';
+  const pe = PUBST.err;
+  const pubRow = pe ? row(['off', pe === 'size' ? '参加者画面の中身が大きすぎて書けません' : pe === 'flip' ? '参加者画面の中身を、2台が交互に書き直しています' : '参加者画面に反映できていません（' + pe + '）',
+    pe === 'size' ? '記録が増えすぎました（' + Math.round(PUBST.size / 1000) + 'KB）。開発担当に連絡してください' : pe === 'flip' ? 'どちらかの端末の表示が古いままです。ほかの端末でページを開き直してください' : '電波が戻れば自動でやり直します']) : '';
+  $('statusBox').innerHTML = row(mine) + row(srv) + row(all) + oldRow + pubRow;
+  if (old.length || pe) $('saveBar').insertAdjacentHTML('beforeend', '<div class="sb-row off"><span class="big"><span class="dot"></span>' + esc(old.length ? '古い版の端末があります' : '参加者画面に反映できていません') + '</span></div>');
 }
 function renderPills() {
   const ps = people(), rm = rosterById();
@@ -894,6 +932,7 @@ function renderDup() {
 function openMerge(pair) {
   /* 名簿にもともといた人・先に受付した人を残す */
   let [keep, drop] = pair;
+  const base = (S.events[S.cur] || {}).rev || '';
   if ((keep.isNew && !drop.isNew) || (keep.isNew === drop.isNew && (drop.tapAt || 0) < (keep.tapAt || 0))) [keep, drop] = [drop, keep];
   const show = () => {
     $('sheet').innerHTML = '<h2 id="sheetTitle">同じ人としてまとめる</h2>' +
@@ -905,7 +944,7 @@ function openMerge(pair) {
     $('ov').hidden = false;
     $('mgNo').onclick = closeSheet;
     $('mgSwap').onclick = () => { [keep, drop] = [drop, keep]; show(); };
-    $('mgYes').onclick = () => { const t = $('mgTeam') ? +$('mgTeam').value : undefined; closeSheet(); doMerge(keep, drop, t); };
+    $('mgYes').onclick = () => { const t = $('mgTeam') ? +$('mgTeam').value : undefined; closeSheet(); doMerge(keep, drop, t, base); };
   };
   show();
 }
@@ -924,12 +963,22 @@ function teamChoiceHtml(ch, keepName, dropName) {
   return ch ? '<div class="field"><label for="mgTeam">残すチーム（2人が別々のチームに入っています）</label><select class="input" id="mgTeam">' +
     '<option value="' + ch[0] + '">' + esc(teamName(ch[0])) + '（' + esc(keepName) + 'さんのチーム）</option><option value="' + ch[1] + '">' + esc(teamName(ch[1])) + '（' + esc(dropName) + 'さんのチーム）</option></select></div>' : '';
 }
-function doMerge(keep, drop, team) {
+/* まとめの書き込みに渡すもの。チームが決まったあとは、画面を開いたときの rev（base）を付けて、その後にチームや結果が変われば断られるようにする */
+function mergeOpts(keepP, dropP, team, base) {
+  if (!dropP) return { carry: null };
+  const carry = mergeCarry(keepP, dropP, team), teamsNow = evTeams(S.events[S.cur]).length > 0;
+  return { carry, base: teamsNow ? base : null, dropCk: { name: dropP.name, early: !!dropP.early, pair: dropP.pair || '', isNew: !!dropP.isNew, tapAt: dropP.tapAt || null },
+    dropTeam: dropP.team || 0, keepTeam: keepP ? keepP.team || 0 : 0, keepEarly: !!(keepP && keepP.early), keepPair: (keepP && keepP.pair) || '' };
+}
+function teamAlive(no) { return !no || evTeams(S.events[S.cur]).some((t) => t.no === no); }
+function doMerge(keep, drop, team, base) {
   if (needEvent()) return;
+  if (!teamAlive(team)) { toast('選んだチームは、ほかの端末で解散されていました。もう一度まとめてください', true); return; }
   const op = { id: rid('o'), type: 'merge', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: drop.id, name: drop.name }, { id: keep.id, name: keep.name }], tapAt: now() };
   const need = keep.rawId !== keep.id || !S.checkins.some((c) => c.id === keep.id);
   const ps = people(), keepP = ps.find((x) => x.id === keep.id) || null, dropP = ps.find((x) => x.id === drop.id) || null;
-  runOp(op, W.merge(ROOT, S.cur, keep, drop, op.id, need, op.tapAt, { carry: mergeCarry(keepP, dropP, team) }));
+  const o = mergeOpts(keepP, dropP, team, base); op.guard = o.base != null;
+  runOp(op, W.merge(ROOT, S.cur, keep, drop, op.id, need, op.tapAt, o));
   toast(keep.name + ' さんにまとめました（送信待ち）');
 }
 function markDistinct(pair) {
@@ -1078,19 +1127,32 @@ function openNewEvent() {
     '<p>締める前に、使ったすべての端末の画面で「この端末の送信待ち 0件」を確かめてください。各端末の最後の報告：' + esc(devReports().join('／') || 'この端末だけ') + '</p>' +
     (worry.length ? '<p class="err">' + esc(worry.map((d) => d.name + 'の最後の報告は' + ago(srvNow() - (d.at || 0)) + '（送信待ち' + (d.pending || 0) + '件）').join('／')) + '。その後に圏外で押した分は、この画面からは分かりません。</p>' : '') +
     (!ok ? '<p class="err">' + (un ? 'この端末に送信待ちがあります。届いてから始めてください。' : 'サーバーで確認できていません。電波を確かめてください。') + '</p>' : '') +
-    (cur ? '<p><b>' + esc(closingSummary()) + '</b></p>' : '') +
+    (cur ? '<p><b id="evSum">' + esc(closingSummary()) + '</b></p><p class="err" id="evErr" aria-live="polite"></p>' : '') +
     '<div class="field"><label for="evNameIn">回の名前</label><input class="input" id="evNameIn" maxlength="30" value="' + esc(defaultEventName()) + '"></div>' +
     '<div class="actions"><button class="btn primary" id="evYes" type="button"' + (ok ? '' : ' disabled') + '>始める</button><button class="btn ghost" id="evNo" type="button">やめる</button></div>';
   $('ov').hidden = false;
   $('evNo').onclick = () => { newEvSheet = null; closeSheet(); };
-  $('evYes').onclick = () => {
+  $('evYes').onclick = async () => {
     const seen = newEvSheet ? newEvSheet.cur : S.cur;
-    newEvSheet = null;
-    if (seen !== S.cur) { closeSheet(); toast('ほかの端末で回が変わりました。いまの回を表示します', true); return; }
-    if (!canStartEvent() || unsent().length) { closeSheet(); toast('開催回と送信状況を確認してから、もう一度開いてください', true); return; }
+    if (seen !== S.cur) { newEvSheet = null; closeSheet(); toast('ほかの端末で回が変わりました。いまの回を表示します', true); return; }
+    if (!canStartEvent() || unsent().length) { newEvSheet = null; closeSheet(); toast('開催回と送信状況を確認してから、もう一度開いてください', true); return; }
     const name = $('evNameIn').value.trim() || defaultEventName();
+    let close = null;
+    if (seen) {
+      const btn = $('evYes'), label = btn.textContent;
+      btn.disabled = true; btn.textContent = 'サーバーで確かめています…';
+      try { close = await serverClosing(seen); } catch (e) { close = undefined; }
+      if (!newEvSheet || $('ov').hidden) return; // 待つ間に閉じられた
+      btn.disabled = false; btn.textContent = label;
+      if (close === undefined) { $('evErr').textContent = 'サーバーで確かめられませんでした。電波の良い場所でもう一度押してください'; return; }
+      if (!close) { newEvSheet = null; closeSheet(); toast('この回は、ほかの端末で締められていました', true); return; }
+      /* 画面に出していた内容と違えば、サーバーの内容に直して、もう一度押してもらう */
+      const fresh = closingSummary(close);
+      if (fresh !== $('evSum').textContent) { $('evSum').textContent = fresh; $('evErr').textContent = 'サーバーの最新の内容で計算し直しました。上の内容を確かめて、もう一度押してください'; return; }
+    }
+    newEvSheet = null;
     const d = new Date(), e = 'e' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + Math.random().toString(36).slice(2, 6);
-    const writes = W.newEvent(ROOT, seen, Boolean(seen), e, name, seen && S.events[seen] ? courtsOf(S.events[seen]) : 0, seen ? closingData(seen) : null);
+    const writes = W.newEvent(ROOT, seen, Boolean(seen), e, name, seen && S.events[seen] ? courtsOf(S.events[seen]) : 0, close);
     closeSheet();
     B.commit(writes).then(() => toast('「' + name + '」を始めました'), async (err) => {
       if ((err && err.code) === 'permission-denied' && seen) {
@@ -1106,7 +1168,9 @@ $('evNew').onclick = openNewEvent;
 /* ===== チーム抽選 =====
    - 対象：いまの回で受付済みの人（サーバーで確認できてから）
    - 同じチーム希望の目印（受付ごとに付ける）が同じ人は、その人たちだけで1チーム
-   - 残りは人数差1人以内（1チーム2〜4人）。経験豊富の人数を各チームでそろえ、評価（1〜10）の合計の差が小さくなるようにする
+   - 残りは人数差1人以内（1チーム2〜4人）。条件がぶつかったときの優先順（2026-11-24 丸岡さん確認）：
+     早帰りの人が抜けると1人だけ残るチームを作らない ＞ 経験豊富の人数をそろえる ＞ 実績上位を別々のチームへ ＞ 初心者を散らす ＞ 早帰りを散らす ＞ 評価（1〜10）の合計をそろえる
+     全員が早帰りのチーム（帰るときにチームごと解散）は避けない
    - 結果は開催回の記録に保存（運営だけが見る場所）。チーム名の初期値は A, B, C…
 */
 const TEAM_MIN = 2, TEAM_MAX = 4, LV_DEFAULT = 5;
@@ -1115,10 +1179,25 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const T = { count: 0, preview: null, msg: '', draft: {} }; // draft：入力中の目印（描き直しても消えないように）
 function rint(n) { const a = new Uint32Array(1); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : (a[0] = Math.floor(Math.random() * 4294967296)); return a[0] % n; }
 function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = rint(i + 1); [r[i], r[j]] = [r[j], r[i]]; } return r; }
-/* 抽選に使う参加者（受付済み＋名簿の経験豊富・評価・初心者＋その回の受付の早帰り・目印） */
+/* 実績上位：前回の覇王戦より後の大会で、優勝を2点・3位以内（優勝以外）を1点として数え、
+   受付済みの人のうち点の多い順にチーム数と同じ人数（同点は含める）。覇王戦がまだなければ、すべての記録で数える。
+   1チームに1人ずつになるように散らす（経験豊富の人数をそろえるのが先） */
+function lastHaohDate() { return S.hist.filter((h) => h.kind === 'haoh').reduce((m, h) => ((h.date || '') > m ? h.date : m), ''); }
+function topPoints() {
+  const st = personStats(false, lastHaohDate()), out = {};
+  Object.keys(st).forEach((id) => { const o = st[id]; out[id] = o.win * 2 + (o.top3 - o.win); });
+  return out;
+}
+function markTop(ps, K) {
+  const pts = ps.map((p) => p.pts).filter((x) => x > 0).sort((a, b) => b - a);
+  const cut = K > 0 && pts.length ? pts[Math.min(K, pts.length) - 1] : Infinity;
+  ps.forEach((p) => { p.top = p.pts > 0 && p.pts >= cut; });
+  return ps;
+}
+/* 抽選に使う参加者（受付済み＋名簿の経験豊富・評価・初心者＋その回の受付の早帰り・目印＋実績） */
 function drawPeople() {
-  const rm = rosterById();
-  return people().map((p) => { const r = rm[p.id] || {}; return { id: p.id, rawId: p.rawId, name: p.name, exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : 0, beg: !r.exp && !!r.beg, early: !!p.early, pair: String(p.pair || '').trim(), pending: p.pending, team: p.team || 0 }; });
+  const rm = rosterById(), pts = topPoints();
+  return people().map((p) => { const r = rm[p.id] || {}; return { id: p.id, rawId: p.rawId, name: p.name, exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : 0, beg: !r.exp && !!r.beg, early: !!p.early, pair: String(p.pair || '').trim(), pending: p.pending, team: p.team || 0, pts: pts[p.id] || 0, top: false }; });
 }
 /* 目印ごとのまとまり（2人以上）と、目印が1人だけの人。
    「ほかの人が入ってもよい」（本人に確認済み）にした2〜3人のまとまりは open：同じチームに入れたうえで、ほかの人で埋める */
@@ -1162,13 +1241,16 @@ function balance(rest, K, seeds) {
   seeds = seeds || [];
   const R = rest.length, base = Math.floor(R / K), extra = R % K;
   const locked = {}; seeds.forEach((g) => g.forEach((p) => { locked[p.id] = 1; }));
+  /* 優先順どおりに、上の条件が1つでも悪くなる組み方は、下の条件がどれだけ良くても選ばない（桁を分けて足す） */
+  const spread = (arr) => Math.max(...arr) - Math.min(...arr);
   const score = (teams) => {
-    const sums = teams.map((t) => t.reduce((s, p) => s + p.level, 0)), exps = teams.map((t) => t.filter((p) => p.exp).length);
+    const stay = teams.reduce((s, t) => { const e = t.filter((p) => p.early).length; return s + (e && t.length - e === 1 ? 1 : 0); }, 0);
+    const exps = spread(teams.map((t) => t.filter((p) => p.exp).length));
+    const tops = spread(teams.map((t) => t.filter((p) => p.top).length));
+    const begs = spread(teams.map((t) => t.filter((p) => p.beg).length));
     const early = teams.reduce((s, t) => s + Math.max(0, t.filter((p) => p.early).length - 1), 0);
-    const begs = teams.map((t) => t.filter((p) => p.beg).length);
-    /* 早めに帰る人が抜けると1人だけ残るチームは、何よりも避ける（11/22版と同じ考え方）。全員が早帰りのチームは少し避ける */
-    const stay = teams.reduce((s, t) => { const e = t.filter((p) => p.early).length, st = t.length - e; return s + (e && st === 1 ? 10000 : 0) + (e && st === 0 ? 500 : 0); }, 0);
-    return stay + (Math.max(...sums) - Math.min(...sums)) * 10 + (Math.max(...exps) - Math.min(...exps)) * 100 + early * 30 + (Math.max(...begs) - Math.min(...begs)) * 40;
+    const lv = spread(teams.map((t) => t.reduce((s, p) => s + p.level, 0)));
+    return stay * 1e10 + exps * 1e8 + tops * 1e6 + begs * 1e4 + Math.min(early, 99) * 100 + Math.min(lv, 99);
   };
   const tries = [];
   for (let n = 0; n < 300; n++) {
@@ -1188,16 +1270,16 @@ function balance(rest, K, seeds) {
       teams[order[k]].push(p);
       k += dir; if (k >= K || k < 0) { dir = -dir; k += dir; }
     });
-    /* 経験豊富でない人：早帰り・初心者の人を先に、同じ印の人が少ない・人数の多いチームへ */
-    const w = (p) => (p.early ? 2 : 0) + (p.beg ? 1 : 0);
+    /* 経験豊富でない人：早帰り・実績上位・初心者の人を先に、同じ印の人が少ない・人数の多いチームへ */
+    const w = (p) => (p.early ? 4 : 0) + (p.top ? 2 : 0) + (p.beg ? 1 : 0);
     const others = shuffle(rest.filter((p) => !p.exp && !locked[p.id])).sort((a, b) => w(b) - w(a));
     others.forEach((p) => {
       const open = teams.map((t, i) => i).filter((i) => teams[i].length < caps[i]);
-      const cnt = (i) => teams[i].filter((x) => (p.early && x.early) || (p.beg && x.beg)).length;
+      const cnt = (i) => teams[i].filter((x) => (p.early && x.early) || (p.top && x.top) || (p.beg && x.beg)).length;
       const pick = w(p) ? open.sort((a, b) => cnt(a) - cnt(b) || caps[b] - caps[a] || rint(3) - 1)[0] : open[rint(open.length)];
       teams[pick].push(p);
     });
-    /* 経験豊富どうしの入れ替えで評価の合計を、それ以外どうしの入れ替えで初心者・早帰りの散らばりをそろえる */
+    /* 経験豊富どうしの入れ替えで実績上位と評価の合計を、それ以外どうしの入れ替えで実績上位・初心者・早帰りの散らばりをそろえる */
     let best = score(teams), improved = true, loops = 0;
     while (improved && loops++ < 20) {
       improved = false;
@@ -1205,7 +1287,7 @@ function balance(rest, K, seeds) {
         for (let i = 0; i < teams[a].length; i++) for (let j = 0; j < teams[b].length; j++) {
           const x = teams[a][i], y = teams[b][j];
           if (x.exp !== y.exp || locked[x.id] || locked[y.id]) continue;
-          if (x.level === y.level && x.beg === y.beg && x.early === y.early) continue;
+          if (x.level === y.level && x.beg === y.beg && x.early === y.early && x.top === y.top) continue;
           teams[a][i] = y; teams[b][j] = x;
           const s = score(teams);
           if (s < best) { best = s; improved = true; } else { teams[a][i] = x; teams[b][j] = y; }
@@ -1229,7 +1311,7 @@ function balance(rest, K, seeds) {
     tries.push({ teams, s: best });
   }
   const min = Math.min(...tries.map((t) => t.s));
-  const near = tries.filter((t) => t.s <= min + 10);
+  const near = tries.filter((t) => t.s <= min + 2); // 評価の合計の差が2点以内の違いだけなら、毎回同じにならないよう選び分ける
   return near[rint(near.length)].teams;
 }
 function drawTeams(ps, opt, opens) {
@@ -1264,13 +1346,15 @@ function checkTeams(teams, ps, opens) {
     res.push([!bad.length, (bad.length ? '早めに帰る人が抜けると1人になるチームがあります：' + bad.map((x) => x.name).join('・') + '。入れ替えてください'
       : '早めに帰る人が抜けても、どのチームも2人以上残ります') + (dis.length ? '（' + dis.map((x) => x.name).join('・') + 'は全員が早めに帰るので、帰るときにチームごと解散）' : ''), 'warn']);
   }
+  const tp = normal.map((t) => t.members.filter((m) => m.top).length);
+  if (normal.length && Math.max(...tp)) res.push([Math.max(...tp) - Math.min(...tp) <= 1, '実績上位は各チーム ' + Math.min(...tp) + (Math.max(...tp) !== Math.min(...tp) ? '〜' + Math.max(...tp) : '') + '人']);
   const bg = normal.map((t) => t.members.filter((m) => m.beg).length);
   if (normal.length && Math.max(...bg)) res.push([Math.max(...bg) - Math.min(...bg) <= 1, '初心者は各チーム ' + Math.min(...bg) + (Math.max(...bg) !== Math.min(...bg) ? '〜' + Math.max(...bg) : '') + '人']);
   if (normal.length) res.push([Math.max(...ex) - Math.min(...ex) <= 1, '経験豊富は各チーム ' + Math.min(...ex) + (Math.max(...ex) !== Math.min(...ex) ? '〜' + Math.max(...ex) : '') + '人・評価の合計 ' + Math.min(...lv) + '〜' + Math.max(...lv)]);
   return res;
 }
 /* 抽選に使った条件（受付の顔ぶれ・経験豊富と評価・初心者・早帰り・目印・ほかの人も可）。表示中の結果は、これが変わったら使わない */
-function drawSig(ps) { return JSON.stringify([ps.map((p) => [p.id, p.exp, p.level, p.beg, p.early, norm(p.pair || '')].join('|')).sort(), Object.keys(openMarks()).sort()]); }
+function drawSig(ps) { return JSON.stringify([ps.map((p) => [p.id, p.exp, p.level, p.beg, p.early, p.pts, norm(p.pair || '')].join('|')).sort(), Object.keys(openMarks()).sort()]); }
 function teamReady() {
   if (!S.cur || !S.events[S.cur] || S.events[S.cur].status !== 'open') return '開催回がまだありません。受付タブで回を始めてください';
   if (serverState() !== 'ok') return 'サーバーで受付を確認できていません。電波を確かめてください';
@@ -1286,7 +1370,6 @@ function renderTeam() {
   $('tmEv').textContent = ev.name || '';
   $('tmEv').hidden = !ev.name;
   const exN = ps.filter((p) => p.exp).length;
-  $('tmTarget').textContent = '対象：受付済み ' + ps.length + '人（経験豊富 ' + exN + '人' + (groups.length ? '・同じチーム希望 ' + groups.map((g) => '「' + g.label + '」' + g.members.length + '人').join('・') : '') + '）';
   const why = teamReady();
   const others = S.devices.filter((d) => d.id !== DEV && ((d.pending || 0) > 0 || !d.at || srvNow() - d.at > STALE_MS));
   $('tmGate').hidden = !why && !others.length && !lonely.length;
@@ -1306,6 +1389,11 @@ function renderTeam() {
     T.count = pick ? pick.T : 0;
   }
   const cur = out.find((o) => o.T === T.count);
+  const savedN = evTeams(ev).length;
+  markTop(ps, T.preview ? T.preview.length : savedN || T.count);
+  const topN = ps.filter((p) => p.top).length, hd = lastHaohDate();
+  $('tmTarget').textContent = '対象：受付済み ' + ps.length + '人（経験豊富 ' + exN + '人' + (topN ? '・実績上位 ' + topN + '人' : '') + (groups.length ? '・同じチーム希望 ' + groups.map((g) => '「' + g.label + '」' + g.members.length + '人').join('・') : '') + '）。' +
+    '実績上位は、' + (hd ? '前回の覇王戦（' + fmtDate(hd) + '）より後' : 'これまで') + 'の大会の成績（優勝2点・3位以内1点）が多い順に、チーム数と同じ人数です';
   $('tmCounts').innerHTML = out.length ? '<b>チーム数</b><div class="tm-count" role="group" aria-label="チーム数">' +
     out.map((o) => '<button type="button" data-tc="' + o.T + '" aria-pressed="' + (o.T === T.count) + '">' + o.T + '<small>チーム</small></button>').join('') + '</div>' +
     (cur ? '<div class="tm-sizes">' + esc(sizesText(cur)) + '</div>' : '') + (EVEN_ONLY ? '<p class="muted" style="margin:4px 0 0">チーム数は偶数だけです（総当たりで休みのチームを出さないため）。</p>' : '')
@@ -1321,7 +1409,7 @@ function teamCard(t, i, edit) {
   return '<div class="tcard' + (t.fixed ? ' fixed' : '') + '"><div class="thd">' +
     (edit ? '<input class="input tm-name" data-tn="' + i + '" value="' + esc(t.name) + '" maxlength="12" aria-label="チーム名">' : '<span class="tm-name">' + esc(t.name) + '</span>') + '</div>' +
     '<div class="tm-meta">' + t.members.length + '人' + (t.fixed ? '・同じチーム希望「' + esc(t.fixed) + '」' : '') + (t.mark ? '・目印「' + esc(t.mark) + '」の人とほかの人' : '') + '・経験豊富 ' + ex + '人・評価計 ' + lv + '</div>' +
-    '<ul class="tm-mem">' + t.members.map((m) => '<li>' + esc(m.name) + (m.exp ? '<span class="lv">経験' + m.level + '</span>' : m.beg ? '<span class="tag beg">初心者</span>' : '') + (m.early ? '<span class="tag early">早帰り</span>' : '') + '</li>').join('') + '</ul></div>';
+    '<ul class="tm-mem">' + t.members.map((m) => '<li>' + esc(m.name) + (m.exp ? '<span class="lv">経験' + m.level + '</span>' : m.beg ? '<span class="tag beg">初心者</span>' : '') + (m.top ? '<span class="tag top">実績</span>' : '') + (m.early ? '<span class="tag early">早帰り</span>' : '') + '</li>').join('') + '</ul></div>';
 }
 function checkLine(c) { return '<li>' + (c[0] ? '✓ ' : c[2] === 'warn' ? '⚠ ' : '✗ ') + esc(c[1]) + '</li>'; }
 function renderTeamResult(ps) {
@@ -1358,7 +1446,7 @@ function renderTeamAdjust(ps, ev, saved) {
     checks.slice(1).map((c) => checkLine([c[0], c[1], 'warn'])).join('') + // 確定後の調整は運営の判断なので、外れても⚠（確かめる）にする
     (legacy ? '<li><b>前の版の形式で保存されたチームです。直すときは抽選し直してください。</b></li>' : '');
   const mem = (m) => '<button type="button" class="mem" data-pc="' + esc(m.id) + '">' + esc(m.name) +
-    (m.exp ? '<span class="lv">経験' + m.level + '</span>' : m.beg ? '<span class="tag beg">初心者</span>' : '') + (m.early ? '<span class="tag early">早帰り</span>' : '') + (m.pending ? '<span class="tag">送信待ち</span>' : '') + '</button>';
+    (m.exp ? '<span class="lv">経験' + m.level + '</span>' : m.beg ? '<span class="tag beg">初心者</span>' : '') + (m.top ? '<span class="tag top">実績</span>' : '') + (m.early ? '<span class="tag early">早帰り</span>' : '') + (m.pending ? '<span class="tag">送信待ち</span>' : '') + '</button>';
   $('tmTeams').innerHTML = teams.map((t) => {
     const e = t.members.filter((m) => m.early).length, stay = t.members.length - e, lv = t.members.reduce((s, m) => s + (m.level || 0), 0);
     return '<div class="tcard' + (t.members.length < 2 || (e && stay === 1) ? ' solo' : '') + (t.fixed ? ' fixed' : '') + '"><div class="thd">' +
@@ -1381,7 +1469,10 @@ function renderTeamAdjust(ps, ev, saved) {
   }; });
   const ms = evMatches(ev), sync = inSync(saved, ms);
   if (!legacy) $('tmChecks').insertAdjacentHTML('afterbegin', ev.shown ? '<li>✓ 参加者画面にチームと対戦表を出しています</li>' : '<li><b class="warnline">参加者画面にはまだチームを出していません（発表の「チームを見る」で出ます）。</b> <button type="button" class="btn small" id="tmShow">いま参加者画面に出す</button></li>');
-  if ($('tmShow')) $('tmShow').onclick = () => setShown(true);
+  if ($('tmShow')) { let armed = false; $('tmShow').onclick = () => {
+    if (!armed) { armed = true; $('tmShow').textContent = '発表が終わっていれば、もう一度押す'; $('tmShow').classList.add('primary'); return; }
+    setShown(true, ev.drawId || '');
+  }; }
   $('tmChecks').insertAdjacentHTML('afterbegin', ms.length ? (sync ? '<li>✓ 対戦表はいまのチームに合っています</li>' : '<li><b class="warnline">対戦表が古いままです。調整が終わったら「対戦表を作り直す」を押してください（入力済みの試合はそのまま残ります）。</b></li>') : '');
   $('tmResAct').innerHTML = legacy ? '' : '<button class="btn" id="tmAdd" type="button">チームを1つ追加</button>' + (ms.length ? '<button class="btn' + (sync ? ' ghost' : ' primary') + '" id="tmRebuild" type="button"' + (saved.length % 2 ? ' disabled' : '') + '>対戦表を作り直す</button>' : '');
   if ($('tmRebuild')) $('tmRebuild').onclick = rebuildNow;
@@ -1392,9 +1483,9 @@ function renderTeamAdjust(ps, ev, saved) {
   };
 }
 /* 開催回のチームの書き換え（1つの操作として送る） */
-function teamOp(label, data) {
+function teamOp(label, data, hint) {
   if (needEvent()) return;
-  const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: 'team', name: label }], tapAt: now() };
+  const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: 'team', name: label }], tapAt: now(), hint: hint || '' };
   runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data }]);
 }
 function renderTeamPeople(ps) {
@@ -1446,10 +1537,11 @@ function doDraw() {
   T.msg = '';
   const why = teamReady();
   if (why) { T.msg = why; renderTeam(); return; }
-  const ps = drawPeople();
+  const ps = markTop(drawPeople(), T.count);
   const opt = teamOptions(ps).out.find((o) => o.T === T.count);
   if (!opt) { T.msg = 'このチーム数では分けられません'; renderTeam(); return; }
-  T.preview = drawTeams(ps, opt); T.sig = drawSig(ps);
+  const ev = S.events[S.cur] || {};
+  T.preview = drawTeams(ps, opt); T.sig = drawSig(ps); T.base = ev.rev || ''; T.eid = S.cur;
   renderTeam();
   $('tmResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1469,25 +1561,28 @@ $('tmDraw').onclick = () => {
 function saveTeams() {
   if (!T.preview || needEvent()) return;
   const why = teamReady(); if (why) { T.msg = why; renderTeam(); return; }
-  const ps = drawPeople();
+  const ps = markTop(drawPeople(), T.preview.length);
   if (drawSig(ps) !== T.sig || !checkTeams(T.preview, ps)[0][0]) { T.msg = '抽選のあとに受付や印が変わりました。もう一度抽選してください'; T.preview = null; renderTeam(); return; }
+  /* 抽選したあとに、ほかの端末で結果・チーム・対戦表などが変わっていたら決めない（入った結果を黙って消さないように） */
+  const ev0 = S.events[S.cur] || {};
+  if (T.eid !== S.cur || (ev0.rev || '') !== T.base) { T.msg = '抽選したあとに、ほかの端末で試合の結果やチームが変わりました。いまの状態を確かめて、もう一度抽選してください'; T.preview = null; renderTeam(); return; }
   const tm = {}, assign = {}, order = [];
   T.preview.forEach((t, i) => {
     tm['t' + (i + 1)] = { name: t.name, fixed: t.fixed || '', mark: t.mark || '' };
     t.members.forEach((m) => { assign[m.id] = i + 1; order.push({ name: m.name, team: t.name }); });
   });
-  const op = { id: rid('o'), type: 'draw', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: T.preview.map((t) => ({ id: t.name, name: t.name + '（' + t.members.length + '人）' })), tapAt: now() };
+  const op = { id: rid('o'), type: 'draw', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: T.preview.map((t) => ({ id: t.name, name: t.name + '（' + t.members.length + '人）' })), tapAt: now(), guard: true };
   /* 抽選と同時に総当たりの対戦表を作る（11/22版と同じ）。やり直しのときは前の対戦表と結果を置き換える */
   const mt = {}; buildMatches(T.preview.map((t, i) => i + 1), 1).forEach((m) => { const { id, ...d } = m; mt[id] = d; });
-  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, mt, teams: null, shown: false, drawnAt: TS, drawBy: devName, drawCount: T.preview.length } }]);
+  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, mt, teams: null, shown: false, drawId: op.id, drawnAt: TS, drawBy: devName, drawCount: T.preview.length, chk: { base: T.base, op: op.id } } }]);
   const bad = checkTeams(T.preview, ps).filter((c) => c[2] === 'warn' && !c[0]).map((c) => c[1]);
   T.preview = null; T.msg = ''; T.rm = 0;
   renderTeam();
-  showReveal(shuffle(order), bad);
+  showReveal(shuffle(order), bad, S.cur, op.id);
 }
 /* 発表：順番から経験豊富の人が分からないよう、全員をまぜて1人ずつ出す（11/22版と同じ） */
 let revealTimer = null;
-function showReveal(order, notes) {
+function showReveal(order, notes, eid, drawId) {
   $('sheet').innerHTML = '<h2 id="sheetTitle">抽選結果</h2>' + (notes.length ? '<p class="warnline">' + esc(notes.join('／')) + '</p>' : '') +
     '<ul class="reveal" id="rv"></ul><div class="actions"><button class="btn ghost" id="rvAll" type="button">すぐに全部見る</button><button class="btn primary" id="rvClose" type="button">チームを見る</button></div>';
   $('ov').hidden = false;
@@ -1498,7 +1593,13 @@ function showReveal(order, notes) {
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) all(); else revealTimer = setInterval(step, 280);
   $('rvAll').onclick = all;
   /* 発表が終わったら（「チームを見る」を押したら）参加者画面にもチームと対戦表を出す */
-  $('rvClose').onclick = () => { closeSheet(); if (!(S.events[S.cur] || {}).shown) setShown(true); window.scrollTo(0, 0); };
+  /* 出すのは、この画面で発表した抽選だけ（ほかの端末で抽選し直した・回が変わったときは出さない。ルールでも drawId を確かめる） */
+  $('rvClose').onclick = () => {
+    closeSheet(); window.scrollTo(0, 0);
+    const ev = S.events[S.cur] || {};
+    if (S.cur !== eid || ev.drawId !== drawId) { toast('この発表のあとに、ほかの端末で抽選し直された（または回が変わった）ので、参加者画面には出しませんでした。チームタブで確かめてください', true); return; }
+    if (!ev.shown) setShown(true, drawId);
+  };
 }
 
 
@@ -1715,32 +1816,43 @@ const SEASON_START = '2025-11-22';
 function jstDate(ms) { const d = new Date(ms + 9 * 3600000); return d.toISOString().slice(0, 10); }
 function evDate(ev) { return (ev && ev.date) || (ev && num(ev.createdAt) ? jstDate(num(ev.createdAt)) : jstDate(Date.now())); }
 const fmtDate = (d) => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d || ''); return m ? m[1] + '/' + (+m[2]) + '/' + (+m[3]) : (d || ''); };
-function closingData(eid) {
-  if (eid !== S.cur) return null;
-  const ev = S.events[eid] || {}, teams = evTeams(ev), ms = evMatches(ev);
-  const closeRev = ev.rev || '';
-  if (!ms.some(hasRes)) return { ev: { final: null, noResult: true, closeRev }, hist: [], n: people().length, missing: [] };
-  const ps = people(), st = standings(teams, ms, ps), date = evDate(ev), by = {};
+/* 締めの中身。ctx（サーバーから読み直した開催回・受付・名簿）を渡せばそれで、なければこの端末の表示で計算する */
+function closingData(eid, ctx) {
+  if (!ctx) { if (eid !== S.cur) return null; ctx = { ev: S.events[eid], checkins: S.checkins, rm: rosterById() }; }
+  const ev = ctx.ev || {}, teams = evTeams(ev), ms = evMatches(ev), ps = peopleOf(ctx.checkins, ev, ctx.rm);
+  const closeRev = ev.rev || '', nres = ms.filter(hasRes).length;
+  if (!nres) return { ev: { final: null, noResult: true, closeRev }, hist: [], n: ps.length, missing: [], nres: 0 };
+  const st = standings(teams, ms, ps), date = evDate(ev), by = {};
   st.forEach((x) => { by[x.no] = x; });
   return {
-    ev: { final: { date, teams: st.length, standings: st.map((x) => ({ rank: x.rank, name: x.name, members: x.members, played: x.played, total: x.total, avg: x.avg })) }, noResult: false, closeRev },
-    n: ps.length, missing: ps.filter((p) => !p.team || !by[p.team]).map((p) => p.name),
-    hist: ps.filter((p) => p.team && by[p.team]).map((p) => { const x = by[p.team]; return { id: eid + '_' + p.id, data: { eid, ename: ev.name || '', date, rid: p.id, name: p.name, team: x.name, members: x.members, rank: x.rank, teams: st.length, played: x.played, total: x.total, at: TS } }; })
+    ev: { final: { date, teams: st.length, standings: st.map((x) => ({ no: x.no, rank: x.rank, name: x.name, members: x.members, played: x.played, total: x.total, avg: x.avg })) }, noResult: false, closeRev },
+    n: ps.length, nres, missing: ps.filter((p) => !p.team || !by[p.team]).map((p) => p.name),
+    hist: ps.filter((p) => p.team && by[p.team]).map((p) => { const x = by[p.team]; return { id: eid + '_' + p.id, data: { eid, ename: ev.name || '', date, rid: p.id, name: p.name, team: x.name, teamNo: x.no, members: x.members, rank: x.rank, teams: st.length, played: x.played, total: x.total, at: TS } }; })
   };
 }
-function closingSummary() {
-  const c = closingData(S.cur); if (!c) return '';
-  if (!c.hist.length) return 'この回は試合の結果が1件もないので、順位や参加の記録は作りません（受付 ' + c.n + '人）。';
+function closingSummary(c) {
+  c = c === undefined ? closingData(S.cur) : c; if (!c) return '';
+  if (!c.nres) return 'この回は試合の結果が1件もないので、順位や参加の記録は作りません（受付 ' + c.n + '人）。';
   const top = c.ev.final.standings.filter((x) => x.rank === 1);
-  return 'この回の順位と、' + c.hist.length + '人の参加の記録を残します（受付 ' + c.n + '人／記録 ' + c.hist.length + '人。1位：' + top.map((x) => x.name + '［' + x.members.join('・') + '］').join('／') + '）。' +
-    (c.missing.length ? 'チームに入っていない ' + esc(c.missing.join('・')) + ' さんは記録に入りません。入れるなら、先にチームに入れてください。' : '');
+  const miss = c.missing.length ? 'チームに入っていない ' + c.missing.join('・') + ' さんは記録に入りません。入れるなら、先にチームに入れてください。' : '';
+  if (!c.hist.length) return '試合の結果は ' + c.nres + '件ありますが、チームに入っている人がいないため、参加の記録は0人になります（受付 ' + c.n + '人）。' + miss;
+  return 'この回の順位と、' + c.hist.length + '人の参加の記録を残します（受付 ' + c.n + '人／記録 ' + c.hist.length + '人。1位：' + top.map((x) => x.name + '［' + x.members.join('・') + '］').join('／') + '）。' + miss;
+}
+/* 締める直前に、サーバーから開催回→受付→名簿の順に読み直して計算する。読んだあとに rev が変わる変更が届けば、ルールが締めを断る */
+async function serverClosing(eid) {
+  const ev = await B.getServer(ROOT + '/events/' + eid);
+  if (!ev || ev.status !== 'open') return null;
+  const checkins = await B.getServerCol(ROOT + '/events/' + eid + '/checkins'), roster = await B.getServerCol(ROOT + '/roster');
+  const rm = {}; roster.forEach((r) => { rm[r.id] = r; });
+  return closingData(eid, { ev, checkins, rm });
 }
 function histRows() { const rm = rosterById(); return S.hist.filter((h) => !h.kind).map((h) => ({ ...h, pid: resolveId(h.rid, rm) })); }
 /* 人ごとの数（参加は大会の日付で数える。同じ日が2件あっても1回） */
-function personStats(season) {
+function personStats(season, after) {
   const out = {};
   histRows().forEach((h) => {
     if (season && (h.date || '') < SEASON_START) return;
+    if (after && (h.date || '') <= after) return;
     const o = out[h.pid] || (out[h.pid] = { n: 0, win: 0, top3: 0, dates: {}, dup: [] });
     const prev = o.dates[h.date];
     if (prev === undefined) { o.dates[h.date] = h.rank; return; }
@@ -1769,10 +1881,10 @@ function renderRec() {
 }
 $('recQ').addEventListener('input', () => { REC.q = $('recQ').value; renderRec(); });
 document.querySelectorAll('#recScope [data-sc]').forEach((b) => { b.onclick = () => { REC.scope = b.dataset.sc; renderRec(); }; });
-function recOp(label, w) {
-  if (needEvent()) return false;
-  const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: 'rec', name: label }], tapAt: now() };
-  runOp(op, w); return true;
+function recOp(label, w, guard) {
+  if (needEvent()) return null;
+  const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: 'rec', name: label }], tapAt: now(), guard: !!guard };
+  return runOp(op, w);
 }
 /* 1人の記録：まとめる・まとめを元に戻す・記録を分ける */
 function openPerson(pid) {
@@ -1797,6 +1909,7 @@ function openPerson(pid) {
       '<div id="mgMore" hidden></div></div>' +
     (merged.length ? '<div class="subbox"><b>まとめた人</b><ul class="hrows">' + merged.map((r) => '<li><span><b>' + esc(r.name) + '</b>' + (num(r.mergedAt) ? ' <small class="muted">' + esc(fmtDate(jstDate(num(r.mergedAt)))) + 'にまとめた</small>' : '') + '</span>' +
       (r.keepNameBefore && r.keepNameBefore !== me.name && (!r.keepNameAfter || r.keepNameAfter === me.name) ? '<label class="switch" style="margin-top:4px"><input type="checkbox" data-rn="' + esc(r.id) + '" checked><span class="tr"></span>' + esc(me.name) + 'さんの名前を「' + esc(r.keepNameBefore) + '」に戻す</label>' : '') +
+      (r.mergeEv && r.mergeEv === S.cur && r.mergeCk ? '<small class="muted" style="display:block">いまの回の受付中にまとめた人です。元に戻すと、' + esc(r.name) + 'さんの受付とチームも元に戻します。</small>' : '') +
       '<button class="btn small ghost" type="button" data-um="' + esc(r.id) + '">元に戻す（別の人にする）</button></li>').join('') + '</ul></div>' : '') +
     '<div class="actions"><button class="btn ghost" id="ppClose" type="button">閉じる</button></div>';
   $('ov').hidden = false;
@@ -1822,17 +1935,20 @@ function openPerson(pid) {
       } else tname = rm[to].name;
       const theirDates = new Set(histRows().filter((h) => h.pid === target).map((h) => h.date)), clash = sel.filter((h) => theirDates.has(h.date));
       if (!armed) { armed = true; $('spErr').textContent = clash.length ? '注意：' + tname + 'さんには同じ日の記録がすでにあります（' + clash.map((h) => fmtDate(h.date)).join('・') + '）。それでもよければ、もう一度押してください' : ''; $('spGo').textContent = 'もう一度押すと ' + sel.length + '件を' + tname + 'さんへ移します'; $('spGo').classList.add('primary'); return; }
-      /* 1件ごとにルールで移す先を確かめるので、15件ずつ別の操作にする */
-      const moves = sel.map((h) => ({ op: 'update', path: ROOT + '/hist/' + h.id, data: { rid: target, movedFrom: h.rid, movedAt: TS } }));
-      let okAll = true;
-      chunks(moves, 15).forEach((part, i) => { okAll = recOp(me.name + 'さんの記録を' + tname + 'さんへ（' + part.length + '件）', (i ? [] : w).concat(part)) && okAll; });
-      if (okAll) { closeSheet(); toast(sel.length + '件の記録を' + tname + 'さんへ移しました'); }
+      /* 1件ごとにルールで移す先・いまの持ち主・移した回数（mv）を確かめるので、15件ずつ別の操作にする。
+         結果は、全部の返事が届いてから出す（一部だけ断られたときは、何件移ったかを出す） */
+      const moves = sel.map((h) => ({ op: 'update', path: ROOT + '/hist/' + h.id, data: { rid: target, movedFrom: h.rid, movedAt: TS, mv: (num(h.mv) || 0) + 1 } }));
+      const parts = chunks(moves, 15), ps = [];
+      for (const [i, part] of parts.entries()) { const pr = recOp(me.name + 'さんの記録を' + tname + 'さんへ（' + part.length + '件）', (i ? [] : w).concat(part)); if (!pr) return; ps.push(pr.then(() => part.length, () => 0)); }
+      closeSheet(); toast(sel.length + '件の記録を' + tname + 'さんへ送っています…');
+      Promise.all(ps).then((ns) => { const ok = ns.reduce((a, n) => a + n, 0); toast(ok === sel.length ? sel.length + '件の記録を' + tname + 'さんへ移しました' : sel.length + '件のうち ' + ok + '件を移しました。' + (sel.length - ok) + '件は断られました（ほかの端末で先に移された、など）。受付タブの「届かなかった操作」で確かめてください', ok !== sel.length); });
     };
   }
   /* まとめる */
   $('mgWith').onchange = () => {
     const other = rm[$('mgWith').value];
     if (!other) { $('mgMore').hidden = true; return; }
+    const base = (S.events[S.cur] || {}).rev || '';
     const myDates = new Set(rows.map((h) => h.date)), clash = histRows().filter((h) => h.pid === other.id && myDates.has(h.date));
     $('mgMore').hidden = false;
     $('mgMore').innerHTML = (clash.length ? '<p class="warnline">' + esc(me.name) + 'さんと' + esc(other.name) + 'さんは、同じ日の大会に両方の記録があります（' + esc([...new Set(clash.map((h) => fmtDate(h.date)))].join('・')) + '）。同じ人なら起きないはずなので、別の人かもしれません。</p>' : '') +
@@ -1853,24 +1969,59 @@ function openPerson(pid) {
       const ps = people(), keepP = ps.find((x) => x.id === pid) || null, dropP = ps.find((x) => x.id === other.id) || null;
       const inNow = !!(S.cur && S.checkins.some((c) => c.id === other.id));
       const t = $('mgTeam') ? +$('mgTeam').value : undefined;
-      const w = W.merge(ROOT, S.cur, { id: pid, name: nn, isNew: false, rawId: keepP ? keepP.rawId : pid }, { id: other.id, name: other.name, rawId: other.id }, rid('o'), inNow && !keepP, now(),
-        { keepNameBefore: me.name, keepNameAfter: nn, dropIn: inNow, carry: inNow ? mergeCarry(keepP, dropP, t) : null });
-      if (nn !== me.name) w.push({ op: 'update', path: ROOT + '/roster/' + pid, data: { name: nn, norm: norm(nn) } });
-      if (recOp(other.name + 'さんを' + nn + 'さんとまとめる', w)) { closeSheet(); toast(other.name + 'さんを' + nn + 'さんとまとめました。記録は合わせて数えます'); }
+      if (!teamAlive(t)) { $('mgErr').textContent = '選んだチームは、ほかの端末で解散されていました。閉じて開き直してください'; return; }
+      const live = rosterById()[pid];
+      if (!live || live.name !== me.name || live.mergedInto) { $('mgErr').textContent = 'ほかの端末で、' + me.name + 'さんの名前やまとめが変わりました。閉じて開き直してください'; return; }
+      const opId = rid('o'), o = inNow ? mergeOpts(keepP, dropP, t, base) : { carry: null };
+      const w = W.merge(ROOT, S.cur, { id: pid, name: nn, isNew: false, rawId: keepP ? keepP.rawId : pid }, { id: other.id, name: other.name, rawId: other.id }, opId, inNow && !keepP, now(),
+        { ...o, keepNameBefore: me.name, keepNameAfter: nn, dropIn: inNow });
+      if (nn !== me.name) w.push({ op: 'update', path: ROOT + '/roster/' + pid, data: { name: nn, norm: norm(nn), nameChk: { v: me.name, op: opId } } });
+      if (recOp(other.name + 'さんを' + nn + 'さんとまとめる', w, o.base != null)) { closeSheet(); toast(other.name + 'さんを' + nn + 'さんとまとめました。記録は合わせて数えます'); }
     };
   };
-  /* まとめを元に戻す */
+  /* まとめを元に戻す。いまの回の受付中にまとめた人なら、消した受付とチームも元に戻す */
   $('sheet').querySelectorAll('[data-um]').forEach((b) => {
     let armed = false;
     b.onclick = () => {
-      const r = rm[b.dataset.um]; if (!r) return;
+      const r = rosterById()[b.dataset.um]; if (!r || r.mergedInto !== pid) { closeSheet(); toast('ほかの端末で、まとめが変わっていました。開き直してください', true); return; }
       if (!armed) { armed = true; b.textContent = 'もう一度押すと、' + r.name + 'さんを別の人に戻します'; b.classList.remove('ghost'); b.classList.add('primary'); return; }
+      const opId = rid('o');
       const w = [{ op: 'update', path: ROOT + '/roster/' + r.id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: r.mergeId || '' } }];
       const back = $('sheet').querySelector('[data-rn="' + r.id + '"]');
-      if (back && back.checked) w.push({ op: 'update', path: ROOT + '/roster/' + pid, data: { name: r.keepNameBefore, norm: norm(r.keepNameBefore) } });
-      if (recOp(r.name + 'さんのまとめを元に戻す', w)) { closeSheet(); toast(r.name + 'さんを別の人に戻しました。記録も分かれて数えます'); }
+      if (back && back.checked) {
+        const cur = (rosterById()[pid] || {}).name;
+        if (r.keepNameAfter && cur !== r.keepNameAfter) { toast('ほかの端末で' + cur + 'さんの名前が直されていたので、名前は戻しませんでした', true); }
+        else w.push({ op: 'update', path: ROOT + '/roster/' + pid, data: { name: r.keepNameBefore, norm: norm(r.keepNameBefore), nameChk: { v: cur, op: opId } } });
+      }
+      const restore = unmergeRestore(r, pid);
+      w.push(...restore.w);
+      if (recOp(r.name + 'さんのまとめを元に戻す', w)) { closeSheet(); toast(r.name + 'さんを別の人に戻しました。' + (restore.note || '記録も分かれて数えます')); }
     };
   });
+}
+/* まとめを元に戻すとき、いまの回の受付中にまとめていれば、消した受付・チームと、引き継いだ印を戻す書き込み */
+function unmergeRestore(r, pid) {
+  const ev = S.events[S.cur];
+  if (!r.mergeEv || r.mergeEv !== S.cur || !ev || ev.status !== 'open' || !r.mergeCk) return { w: [] };
+  const ps = people(), keepP = ps.find((x) => x.id === pid), w = [], asg = {};
+  if (ps.some((x) => x.id === r.id)) return { w: [] };
+  const ck = r.mergeCk;
+  w.push({ op: 'set', path: ROOT + '/events/' + S.cur + '/checkins/' + r.id, data: { name: ck.name || r.name, isNew: !!ck.isNew, early: !!ck.early, pair: ck.pair || '', at: TS, tapAt: ck.tapAt || now(), dev: DEV, devName, batch: 'u' + r.id, n: 1, op: 'unmerge' } });
+  const mk = r.mergeKeep || {};
+  if (teamAlive(r.mergeTeam) && r.mergeTeam) asg['assign.' + r.id] = r.mergeTeam;
+  /* 残した人の受付・チーム：まとめたときに引き継いだままなら、まとめる前に戻す */
+  if (keepP) {
+    if (keepP.team === (mk.carried || 0) && (mk.team || 0) !== keepP.team && teamAlive(mk.team)) asg['assign.' + pid] = mk.team || null;
+    if (!mk.had) w.push({ op: 'delete', path: ROOT + '/events/' + S.cur + '/checkins/' + keepP.rawId });
+    else {
+      const fix = {};
+      if (!!keepP.early === !!mk.cEarly && !!keepP.early !== !!mk.early) fix.early = !!mk.early;
+      if ((keepP.pair || '') === (mk.cPair || '') && (keepP.pair || '') !== (mk.pair || '')) fix.pair = mk.pair || '';
+      if (Object.keys(fix).length) w.push({ op: 'update', path: ROOT + '/events/' + S.cur + '/checkins/' + keepP.rawId, data: fix });
+    }
+  }
+  if (Object.keys(asg).length || w.length) w.push({ op: 'update', path: ROOT + '/events/' + S.cur, data: asg });
+  return { w, note: 'いまの回の受付' + (r.mergeTeam && teamAlive(r.mergeTeam) ? 'とチーム' : '') + 'も元に戻しました' };
 }
 /* テスト用：架空の過去の記録（3大会分）と、名前を間違えて登録した人（ハルト＝はると） */
 function seedHistory() {
@@ -1896,20 +2047,32 @@ function seedHistory() {
 const PUB = 'public/tsukiichi_' + BOX;
 const SETTINGS = { '大会名': '月いちモルック', '時間': '12時〜17時', '場所': '香川県高松市国分寺 B&G海洋センター ゲートボールコート', '住所': '香川県高松市国分寺町新名2069-1', '参加費': '1人200円', 'お知らせ': '指導員6名在籍なので初心者の方も大歓迎！小学生もガンガン投げてますよ。家族で参加大歓迎。', 'インスタ': 'izumi_molkky' };
 function stamp(ms) { const d = new Date(ms + 9 * 3600000); return d.toISOString().slice(0, 16).replace('T', ' ').replace(/-/g, '/'); }
-/* 記録（hist）を大会ごとにまとめる：前回の結果と、これまでの優勝チーム */
+/* 記録（hist）を大会ごとにまとめる：前回の結果と、これまでの優勝チーム。
+   チームは番号（teamNo。版15から記録に入れる）で分け、ない記録はチーム名・順位・合計点で分ける（同じ名前の別チームを1行にまぜない）。
+   同じ日に2回締めたときも、締めた時刻（at）で新しい方を前にする */
 function histEvents() {
   const rm = rosterById(), by = {};
   S.hist.filter((h) => !h.kind).forEach((h) => {
-    const k = h.eid || h.date, e = by[k] || (by[k] = { eid: k, date: h.date, teams: {} });
-    const t = e.teams[h.team] || (e.teams[h.team] = { name: h.team, rank: h.rank, total: h.total, played: h.played, members: [] });
+    const k = h.eid || h.date, e = by[k] || (by[k] = { eid: k, date: h.date, at: 0, teams: {} });
+    e.at = Math.max(e.at, num(h.at) || 0);
+    const tk = h.teamNo != null ? 'n' + h.teamNo : h.team + '|' + h.rank + '|' + h.total;
+    const t = e.teams[tk] || (e.teams[tk] = { name: h.team, rank: h.rank, total: h.total, played: h.played, members: [] });
     t.members.push((rm[resolveId(h.rid, rm)] || {}).name || h.name);
   });
-  return Object.values(by).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  return Object.values(by).sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.at - a.at || (a.eid < b.eid ? 1 : -1));
+}
+/* 前回の結果：締めた回に保存した順位（final）のうち、いちばん新しく締めた回。なければ記録から */
+function lastResult(evs) {
+  const closed = Object.keys(S.events).filter((k) => k !== S.cur && S.events[k].status === 'closed' && S.events[k].final && (S.events[k].final.standings || []).length)
+    .map((k) => S.events[k]).sort((a, b) => (num(b.closedAt) || 0) - (num(a.closedAt) || 0));
+  if (closed.length) { const f = closed[0].final; return { date: f.date, standings: f.standings.map((t) => ({ name: t.name, total: t.total, members: (t.members || []).join('・'), rank: t.rank, played: t.played == null ? '―' : t.played })) }; }
+  const last = evs.find((e) => Object.values(e.teams).some((t) => t.total != null));
+  return last ? { date: last.date, standings: Object.values(last.teams).sort((a, b) => a.rank - b.rank).map((t) => ({ name: t.name, total: t.total, members: t.members.join('・'), rank: t.rank, played: t.played == null ? '―' : t.played })) } : null;
 }
 function publicData() {
   const ev = S.events[S.cur] || {}, shown = !!ev.shown, teams = shown ? evTeams(ev) : [], ms = shown ? evMatches(ev) : [], ps = people();
   const pos = assignCourts(ms, courtsOf(ev)), rm = rosterById();
-  const evs = histEvents(), last = evs.find((e) => Object.values(e.teams).some((t) => t.total != null));
+  const evs = histEvents();
   const state = {
     settings: { ...SETTINGS, '開催日': evDate(ev) }, courts: courtsOf(ev),
     players: shown ? ps.filter((p) => p.team).map((p) => ({ name: p.name, team: p.team })) : [],
@@ -1917,7 +2080,7 @@ function publicData() {
     matches: ms.map((m) => ({ id: m.id, cycle: m.c, round: m.r, a: m.a, b: m.b, totalA: hasRes(m) ? m.ta : '', totalB: hasRes(m) ? m.tb : '', court: (pos[m.id] || {}).court || 1, wave: (pos[m.id] || {}).wave || 1 })),
     standings: shown ? standings(teams, ms, ps).map((x) => ({ no: x.no, name: x.name, rank: x.rank, played: x.played, total: x.total, avg: x.avg, members: x.members.join('・') })) : [],
     champions: evs.map((e) => { const w = Object.values(e.teams).filter((t) => t.rank === 1); return w.length ? { date: e.date, members: w.map((t) => t.members.join('・')).join('／'), total: w[0].total } : null; }).filter(Boolean),
-    previousResult: last ? { date: last.date, standings: Object.values(last.teams).sort((a, b) => a.rank - b.rank).map((t) => ({ name: t.name, total: t.total, members: t.members.join('・'), rank: t.rank, played: t.played == null ? '―' : t.played })) } : null
+    previousResult: lastResult(evs)
   };
   const live = {}; histRows().forEach((h) => { live[h.pid] = 1; });
   const records = {
@@ -1927,19 +2090,36 @@ function publicData() {
   };
   return { state, records };
 }
-let pubTimer = null, pubBusy = false;
-function schedulePublish() {
+/* 参加者画面への書き込み。送っている間に変わったら、届いたあとにもう一度送る。断られた・届かないときは運営画面に出して、少し待ってやり直す。
+   ほかの端末が古い内容を書いたとき（参加者画面の中身が、この端末で作る中身と違うとき）は、この端末が新しい内容で書き直す */
+const PUB_MAX = 900000; // Firestore の1文書の上限（約1MB）より少し小さく
+let pubTimer = null, pubBusy = false, pubAgain = false, pubFlips = [];
+const PUBST = { err: '', size: 0, at: 0 };
+function schedulePublish(delay) {
   if (!S.mode || !B || serverState() !== 'ok' || !S.sync.hist || S.sync.hist.cache || !S.sync.pub) return;
-  clearTimeout(pubTimer); pubTimer = setTimeout(publishNow, 1200);
+  clearTimeout(pubTimer); pubTimer = setTimeout(publishNow, delay == null ? 1200 : delay);
 }
 function publishNow() {
-  if (pubBusy || serverState() !== 'ok') return;
+  if (serverState() !== 'ok') return;
+  if (pubBusy) { pubAgain = true; return; }
   const body = JSON.stringify(publicData());
-  if (S.pub && S.pub.body === body) return;
-  pubBusy = true;
-  B.commit([{ op: 'set', path: PUB, data: { body, updatedAt: stamp(Date.now()), at: TS } }]).then(() => { pubBusy = false; }, () => { pubBusy = false; });
+  PUBST.size = body.length;
+  if (S.pub && S.pub.body === body) { if (PUBST.err !== 'size') PUBST.err = ''; return; }
+  if (body.length > PUB_MAX) { if (PUBST.err !== 'size') { PUBST.err = 'size'; renderBar(); } return; }
+  /* 2台が違う中身を書き合うのが続くとき（片方の表示が古いまま）は、1分に20回までにする */
+  const t = now(); pubFlips = pubFlips.filter((x) => t - x < 60000);
+  if (pubFlips.length >= 20) { PUBST.err = 'flip'; renderBar(); schedulePublish(20000); return; }
+  pubFlips.push(t);
+  pubBusy = true; pubAgain = false;
+  B.commit([{ op: 'set', path: PUB, data: { body, updatedAt: stamp(Date.now()), at: TS, by: devName } }]).then(() => {
+    pubBusy = false; PUBST.at = now(); if (PUBST.err) { PUBST.err = ''; renderBar(); }
+    if (pubAgain) schedulePublish(300);
+  }, (e) => {
+    pubBusy = false; PUBST.err = (e && e.code) || 'error'; renderBar();
+    schedulePublish(pubAgain ? 1000 : 15000);
+  });
 }
-function setShown(on) { teamOp(on ? '参加者画面にチームを出す' : '参加者画面からチームを下げる', { shown: !!on }); }
+function setShown(on, drawId) { teamOp(on ? '参加者画面にチームを出す' : '参加者画面からチームを下げる', on ? { shown: true, shownDraw: drawId || '' } : { shown: false }, on ? 'ほかの端末で抽選し直されていたため、参加者画面には出しませんでした。チームタブで、いまのチームを確かめてください' : ''); }
 /* テスト用：いまの参加者ページに載っている過去の記録（2025/12〜の優勝、11/21の全結果、覇王戦）を取り込む */
 const PAST = /*@@PAST@@*/ { rows: [], haoh: [] }; // 組み立てのとき（build.py）に src/past.json の中身へ置き換える
 function importPast() {
@@ -2041,13 +2221,14 @@ $('selfBtn').onclick = async () => {
     const nw = { id: 'n' + t, name: '新しい人', isNew: true }, opn = { id: 'on' + t, type: 'in', eid: e1, items: [nw], tapAt: now() };
     await tryW('はじめての人の受付（名簿と受付を同時に）', W.checkin(R, e1, [nw], opn.id, now(), null).concat([W.opDoc(R, opn)]), 'ok');
     const opc = { id: 'oc' + t, type: 'out', eid: e1, items: [ppl[0]], tapAt: now() };
-    await tryW('受付の取消（アプリと同じ）', W.cancel(R, e1, [ppl[0].id]).concat([W.opDoc(R, opc)]), 'ok');
+    await tryW('受付を、回の更新番号を変えずに消す（旧版の端末。断られるはず）', W.cancel(R, e1, [ppl[0].id]), 'denied');
+    await tryW('受付の取消（アプリと同じ）', W.rev(R, e1, W.cancel(R, e1, [ppl[0].id])).concat([W.opDoc(R, opc)]), 'ok');
     /* まとめ：AにBをまとめる→逆向き（AをBに）は断られる */
     const A = { ...ppl[1], rawId: ppl[1].id }, Bp = { ...ppl[2], rawId: ppl[2].id };
     const om = { id: 'om' + t, type: 'merge', eid: e1, items: [Bp, A], tapAt: now() };
-    await tryW('BをAにまとめる（アプリと同じ）', W.merge(R, e1, A, Bp, om.id, false, now()).concat([W.opDoc(R, om)]), 'ok');
+    await tryW('BをAにまとめる（アプリと同じ）', W.rev(R, e1, W.merge(R, e1, A, Bp, om.id, false, now())).concat([W.opDoc(R, om)]), 'ok');
     const om2 = { id: 'om2' + t, type: 'merge', eid: e1, items: [A, Bp], tapAt: now() };
-    await tryW('同時に逆向き：AをBにまとめる（断られるはず）', W.merge(R, e1, Bp, A, om2.id, true, now()).concat([W.opDoc(R, om2)]), 'denied');
+    await tryW('同時に逆向き：AをBにまとめる（断られるはず）', W.rev(R, e1, W.merge(R, e1, Bp, A, om2.id, true, now())).concat([W.opDoc(R, om2)]), 'denied');
     await tryW('まとめたBを元に戻す（断られるはず）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '' } }], 'denied');
     await tryW('まとめたBを古い新規登録で上書き（断られるはず）', [{ op: 'set', path: R + '/roster/' + Bp.id, data: { name: Bp.name } }], 'denied');
     await tryW('まとめたBに受付（断られるはず）', W.checkin(R, e1, [Bp], 'ob' + t, now(), null), 'denied');
@@ -2059,15 +2240,28 @@ $('selfBtn').onclick = async () => {
     await tryW('まとめを元に戻す操作（アプリと同じ）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: g1 } }], 'ok');
     await tryW('戻したBを、こんどはCにまとめる', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: ppl[3].id, mergedAt: TS, mergeId: 'g2' + t } }], 'ok');
     await tryW('前のまとめを見て押した古い「元に戻す」が遅れて届く（断られるはず）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: g1 } }], 'denied');
+    /* 版12までのまとめ（mergeId なし）も元に戻せる */
+    await tryW('版12の形でまとめる（mergeId なし）', [{ op: 'update', path: R + '/roster/' + ppl[9].id, data: { mergedInto: ppl[10].id, mergedAt: TS } }], 'ok');
+    await tryW('版12の形のまとめを元に戻す', [{ op: 'update', path: R + '/roster/' + ppl[9].id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: '' } }], 'ok');
+    /* 名前を戻すのは、押した画面で見えていた名前がいまの名前と同じときだけ */
+    await tryW('ほかの端末で直された名前を、古い画面から戻す（断られるはず）', [{ op: 'update', path: R + '/roster/' + ppl[11].id, data: { name: 'X', nameChk: { v: '別の名前', op: 'n1' } } }], 'denied');
+    await tryW('いまの名前を確かめて名前を戻す', [{ op: 'update', path: R + '/roster/' + ppl[11].id, data: { name: 'X', nameChk: { v: ppl[11].name, op: 'n2' } } }], 'ok');
     await tryW('大会の記録を書く', [{ op: 'set', path: R + '/hist/h1' + t, data: { eid: e1, date: '2026-01-01', rid: ppl[4].id, name: ppl[4].name, rank: 1, teams: 4, at: TS } }], 'ok');
-    await tryW('記録を別の人へ移す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[5].id, movedFrom: ppl[4].id, movedAt: TS } }], 'ok');
-    await tryW('同じ記録を、古い持ち主のつもりで別の端末が移す（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[6].id, movedFrom: ppl[4].id, movedAt: TS } }], 'denied');
-    await tryW('まとめ済みの人へ記録を移す（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: Bp.id, movedFrom: ppl[5].id, movedAt: TS } }], 'denied');
+    await tryW('記録を別の人へ移す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[5].id, movedFrom: ppl[4].id, movedAt: TS, mv: 1 } }], 'ok');
+    await tryW('同じ記録を、古い持ち主のつもりで別の端末が移す（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[6].id, movedFrom: ppl[4].id, movedAt: TS, mv: 1 } }], 'denied');
+    await tryW('記録を元の人へ戻す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[4].id, movedFrom: ppl[5].id, movedAt: TS, mv: 2 } }], 'ok');
+    await tryW('戻したあとに、最初の持ち主を見て押した古い移動が届く（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[6].id, movedFrom: ppl[4].id, movedAt: TS, mv: 1 } }], 'denied');
+    await tryW('まとめ済みの人へ記録を移す（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: Bp.id, movedFrom: ppl[4].id, movedAt: TS, mv: 3 } }], 'denied');
     await tryW('大会の記録を消す（断られるはず）', [{ op: 'delete', path: R + '/hist/h1' + t }], 'denied');
     await tryW('名簿にない人だけの受付（断られるはず）', [{ op: 'set', path: R + '/events/' + e1 + '/checkins/zz' + t, data: { name: 'Z' } }], 'denied');
     { const r = await run(W.checkin(R, e1, ppl.slice(4), 'oz' + t, now(), null).concat([W.opDoc(R, { id: 'oz' + t, type: 'in', eid: e1, items: ppl.slice(4), tapAt: now() })]));
       res.push(['（参考）20人を分けずに1回で受付', 'info', r === 'ok' ? '書けた（この環境では上限に届かなかった）' : r === 'denied' ? '断られた（だから' + CHUNK + '人ずつに分けています）' : '判定不能（' + r.slice(6) + '）']); }
     /* 回を締める→旧回への操作は断られる */
+    await tryW('回の更新番号を変えずに結果を書く（旧版の端末。断られるはず）', [{ op: 'update', path: R + '/events/' + e1, data: { 'mt.x1.ta': 50 } }], 'denied');
+    await tryW('抽選を決める（回の更新番号が変わる）', [{ op: 'update', path: R + '/events/' + e1, data: { rev: 'r0' + t, drawId: 'd1' + t } }], 'ok');
+    await tryW('抽選したあとに変わった回へ、古い画面の抽選を決める（断られるはず）', [{ op: 'update', path: R + '/events/' + e1, data: { rev: 'rx' + t, drawId: 'd2' + t, chk: { base: 'r9' + t, op: 'c1' } } }], 'denied');
+    await tryW('前の抽選の発表で参加者画面に出す（断られるはず）', [{ op: 'update', path: R + '/events/' + e1, data: { rev: 'ry' + t, shown: true, shownDraw: 'd0' + t } }], 'denied');
+    await tryW('いまの抽選の発表で参加者画面に出す', [{ op: 'update', path: R + '/events/' + e1, data: { rev: 'rz' + t, shown: true, shownDraw: 'd1' + t, chk: { base: 'r0' + t, op: 'c2' } } }], 'ok');
     await tryW('結果を入れる（回の更新番号が変わる）', [{ op: 'update', path: R + '/events/' + e1, data: { rev: 'r1' + t } }], 'ok');
     await tryW('古い順位で締める（直前の結果が入っていない。断られるはず）', W.newEvent(R, e1, true, 'ec' + t, '試験の回C', 0, { ev: { closeRev: 'r0' } }), 'denied');
     await tryW('新しい回を始める（いまの回を締める）', W.newEvent(R, e1, true, e2, '試験の回2', 0, { ev: { closeRev: 'r1' + t } }), 'ok');
@@ -2224,6 +2418,6 @@ $('rulesCopy').onclick = () => {
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
 };
-window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e) };
+window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance };
 
 boot();

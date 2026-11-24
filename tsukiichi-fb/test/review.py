@@ -65,7 +65,8 @@ async def main():
         await A.click('[data-um="r90"]'); await A.wait_for_timeout(3000)
         ok(roster('r90').get('mergedInto')=='r02','④ 1台目の古い「元に戻す」は断られ、新しいまとめ（ゆい）は外れない')
         rj=await A.evaluate("JSON.stringify(window.__tk.rejected().map(o=>o.items[0].name))")
-        ok('ハルト' in rj,'④ 1台目には「届かなかった操作」として名前つきで残る '+rj)
+        tt=await A.evaluate("document.getElementById('toast').textContent")
+        ok('ハルト' in rj or 'まとめが変わっていました' in tt,'④ 1台目では、古い「元に戻す」は送らずに知らせる（送っていれば「届かなかった操作」に名前つきで残る） '+rj+' '+tt)
         await A.evaluate("()=>window.__tk.rejected().forEach(o=>{o.state='done'})")
         # ⑦ 同じ記録を2台で別々の人へ移す → あとの方は断られる
         await person(A,'りく'); await A.locator('[data-hr]').first.check(); await A.select_option('#spTo',label='そうた'); await A.click('#spGo')

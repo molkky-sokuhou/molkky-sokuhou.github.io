@@ -25,6 +25,9 @@ function fakeServerCommit(db, writes, now) {
   if (!after) return { ok: false, code: 'not-found' };
   let calls = 0;
   const getAfter = (path) => { calls++; return after[path]; };
+  const getBefore = (path) => { calls++; return docs[path]; };
+  const revBumped = (box, e) => { const p2 = 'staff/' + box + '/events/' + e; return ((getAfter(p2) || {}).rev || '') !== ((getBefore(p2) || {}).rev || ''); };
+  const same = (x, y) => JSON.stringify(x === undefined ? null : x) === JSON.stringify(y === undefined ? null : y);
   const isOpen = (box, e) => { const ev = getAfter('staff/' + box + '/events/' + e); return !!ev && ev.status === 'open'; };
   const notMerged = (box, rid) => { const r = getAfter('staff/' + box + '/roster/' + rid); return !!r && !r.mergedInto; };
   for (const w of writes) {
@@ -42,11 +45,12 @@ function fakeServerCommit(db, writes, now) {
       const box = p[1], id = p[3];
       if (del) ok = false;
       else if (!before) ok = !(next && next.mergedInto);
-      else if (!before.mergedInto) ok = !next.mergedInto || (next.mergedInto !== id && notMerged(box, next.mergedInto));
+      else if (!before.mergedInto) ok = (!next.mergedInto || (next.mergedInto !== id && notMerged(box, next.mergedInto)))
+        && (same(before.nameChk, next.nameChk) || (next.nameChk && next.nameChk.v === (before.name || '')));
       else {
         /* まとめを元に戻す：mergedInto を空にして unmergedAt（サーバー時刻）を書く。ほかの項目は変えない */
         const keys = new Set(Object.keys(before).concat(Object.keys(next))), changed = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k]));
-        ok = !next.mergedInto && next.unmergedAt === now && (next.unmergeOf || '') === (before.mergeId || 'x') && changed.every((k) => k === 'mergedInto' || k === 'unmergedAt' || k === 'unmergeOf');
+        ok = !next.mergedInto && next.unmergedAt === now && (next.unmergeOf || '') === (before.mergeId || '') && changed.every((k) => k === 'mergedInto' || k === 'unmergedAt' || k === 'unmergeOf');
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && (p[2] === 'metrics' || p[2] === 'ping')) ok = true;
@@ -55,17 +59,20 @@ function fakeServerCommit(db, writes, now) {
       else if (!before) ok = true;
       else {
         const keys = new Set(Object.keys(before).concat(Object.keys(next))), changed = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k]));
-        ok = next.movedFrom === before.rid && next.rid !== before.rid && changed.every((k) => k === 'rid' || k === 'movedFrom' || k === 'movedAt') && notMerged(p[1], next.rid);
+        ok = next.movedFrom === before.rid && next.rid !== before.rid && (next.mv || 0) === (before.mv || 0) + 1 && changed.every((k) => k === 'rid' || k === 'movedFrom' || k === 'movedAt' || k === 'mv') && notMerged(p[1], next.rid);
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'events') {
       if (del) ok = false;
       else if (!before) { const bx = getAfter('staff/' + p[1]); ok = next.status === 'open' && !!bx && bx.currentEvent === p[3]; }
-      else ok = before.status === 'open' && (next.status === 'open' || (next.closeRev || '') === (before.rev || ''));
+      else ok = before.status === 'open' && ((next.status === 'open' && (next.rev || '') !== (before.rev || '')
+        && (same(before.chk, next.chk) || (next.chk && next.chk.base === (before.rev || '')))
+        && (same(before.shown, next.shown) || next.shown !== true || (next.shownDraw || '') === (before.drawId || '')))
+        || (next.status === 'closed' && (next.closeRev || '') === (before.rev || '')));
     }
     else if (p[0] === 'staff' && p.length === 6 && p[2] === 'events') {
       const box = p[1], e = p[3], kind = p[4], id = p[5];
-      if (kind === 'checkins') ok = del ? isOpen(box, e) : isOpen(box, e) && notMerged(box, id);
+      if (kind === 'checkins') ok = del ? isOpen(box, e) && revBumped(box, e) : isOpen(box, e) && notMerged(box, id);
       else if (kind === 'ops') ok = !del && !before && isOpen(box, e);
       else if (kind === 'devices') ok = !del;
     }
