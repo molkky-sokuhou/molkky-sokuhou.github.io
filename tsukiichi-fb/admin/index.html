@@ -610,7 +610,7 @@ body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
       <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
     </div>
     <p style="text-align:center;margin:8px 0 0"><a class="btn ghost small" href="../">参加者の画面へ戻る</a></p>
-    <p class="ver">版 2026.11.24-15</p>
+    <p class="ver">版 2026.11.25-16</p>
   </div>
 
   <div id="app" hidden>
@@ -811,7 +811,7 @@ body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
         <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
         <a class="btn ghost" href="../" style="margin-left:8px">参加者の画面</a>
       </section>
-      <p class="ver">版 2026.11.24-15</p>
+      <p class="ver">版 2026.11.25-16</p>
     </main>
   </div>
 </div>
@@ -868,7 +868,13 @@ function fakeServerCommit(db, writes, now) {
     const p = w.path.split('/'), del = w.op === 'delete', before = docs[w.path], next = after[w.path];
     const c0 = calls;
     let ok = false;
-    if (p[0] === 'public') ok = true;
+    if (p[0] === 'public' && !del) {
+      const box = 'staff/' + next.box, event = docs[box + '/events/' + next.event];
+      ok = p.length === 2 && p[1] === 'tsukiichi_' + next.box
+        && Object.keys(next).every(k => ['body', 'updatedAt', 'at', 'box', 'event', 'rev', 'seq'].includes(k))
+        && next.at === now && next.seq === ((before && before.seq) || 0) + 1
+        && docs[box]?.currentEvent === next.event && !!event && next.rev === (event.rev || '');
+    }
     else if (p[0] === 'staff' && p.length === 2) {
       const previous = before?.currentEvent || '';
       ok = !del && next.prevEvent === previous && next.currentEvent !== previous &&
@@ -900,13 +906,14 @@ function fakeServerCommit(db, writes, now) {
       if (del) ok = false;
       else if (!before) { const bx = getAfter('staff/' + p[1]); ok = next.status === 'open' && !!bx && bx.currentEvent === p[3]; }
       else ok = before.status === 'open' && ((next.status === 'open' && (next.rev || '') !== (before.rev || '')
+        && (same(before.drawnAt, next.drawnAt) || (!same(before.drawId, next.drawId) && !same(before.chk, next.chk)))
         && (same(before.chk, next.chk) || (next.chk && next.chk.base === (before.rev || '')))
         && (same(before.shown, next.shown) || next.shown !== true || (next.shownDraw || '') === (before.drawId || '')))
         || (next.status === 'closed' && (next.closeRev || '') === (before.rev || '')));
     }
     else if (p[0] === 'staff' && p.length === 6 && p[2] === 'events') {
       const box = p[1], e = p[3], kind = p[4], id = p[5];
-      if (kind === 'checkins') ok = del ? isOpen(box, e) && revBumped(box, e) : isOpen(box, e) && notMerged(box, id);
+      if (kind === 'checkins') ok = del ? isOpen(box, e) && revBumped(box, e) : isOpen(box, e) && notMerged(box, id) && revBumped(box, e);
       else if (kind === 'ops') ok = !del && !before && isOpen(box, e);
       else if (kind === 'devices') ok = !del;
     }
@@ -928,7 +935,7 @@ if (typeof module !== 'undefined') module.exports = { fakeServerCommit, fakeAppl
    - staff/{BOX}/events/{e}/devices/{d}  各端末の「送信待ち」の件数と最後につながった時刻
    ルール側で：締めた回への書き込み、まとめた人への受付は断る
 */
-const VER = '2026.11.24-15';
+const VER = '2026.11.25-16';
 const FB_VER = '13.2.0';
 const STAFF_EMAIL = 'unei@tsukiichi.example';
 const BOX = 'proto';
@@ -944,7 +951,7 @@ const firebaseConfig = {
 const FAKE = ['はると', 'ゆい', 'そうた', 'めい', 'けんた', 'あおい', 'りく', 'ひな', 'だいき', 'さくら', 'ゆうと', 'みお',
   'こうき', 'りな', 'しょう', 'なな', 'たくみ', 'えま', 'れん', 'ここ', 'いつき', 'ゆか', 'そら', 'かい'];
 const TS = { __ts: 1 };
-const CHUNK = 8; // 1回のまとめ書きで受付する人数。ルールの参照（1人2回＋記録1回）が上限20回に収まるように
+const CHUNK = 4; // 1回のまとめ書きで受付する人数。ルールの参照（1人4回＋記録1回）が上限20回に収まるように
 const STALE_MS = 150000;
 
 /* ===== 書き込みの組み立て（アプリと「ルールの確認」の両方で同じものを使う） ===== */
@@ -958,7 +965,7 @@ const W = {
       else if (it.upd) w.push({ op: 'update', path: root + '/roster/' + it.id, data: it.upd });
       w.push({ op: 'set', path: root + '/events/' + eid + '/checkins/' + it.id, data: { name: it.name, isNew: !!it.isNew, early: !!it.early, pair: String(it.pair || '').trim(), at: TS, tapAt, tapSrv: tapSrv == null ? null : tapSrv, dev: DEV, devName, batch: opId, n: items.length, op: opId } });
     });
-    return w;
+    return W.rev(root, eid, w);
   },
   cancel(root, eid, rawIds) { return rawIds.map((r) => ({ op: 'delete', path: root + '/events/' + eid + '/checkins/' + r })); },
   /* まとめる：まとめるごとに番号（mergeId）を付ける（元に戻すときにこの番号を確かめる）。
@@ -979,7 +986,7 @@ const W = {
   },
   rev(root, eid, writes) {
     const evPath = root + '/events/' + eid, ckPath = evPath + '/checkins/';
-    if (!writes.some((w) => (w.path === evPath && w.op === 'update') || (w.path.startsWith(ckPath) && w.op !== 'set'))) return writes;
+    if (!writes.some((w) => (w.path === evPath && w.op === 'update') || w.path.startsWith(ckPath) || w.path.startsWith(root + '/hist/') || w.path.startsWith(root + '/roster/'))) return writes;
     const rev = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const ew = writes.find((w) => w.path === evPath && w.op === 'update');
     if (ew) ew.data.rev = rev; else writes.push({ op: 'update', path: evPath, data: { rev } });
@@ -1028,7 +1035,15 @@ service cloud.firestore {
     }
     match /public/{path=**} {
       allow read: if true;
-      allow write: if isStaff();
+    }
+    match /public/{id} {
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(['body', 'updatedAt', 'at', 'box', 'event', 'rev', 'seq'])
+        && id == 'tsukiichi_' + request.resource.data.box
+        && request.resource.data.at == request.time
+        && request.resource.data.seq == (resource == null ? 1 : resource.data.get('seq', 0) + 1)
+        && get(/databases/$(database)/documents/staff/$(request.resource.data.box)).data.currentEvent == request.resource.data.event
+        && get(pathOf(request.resource.data.box, 'events', request.resource.data.event)).data.get('rev', '') == request.resource.data.rev;
     }
     // いまの回を変えられるのは、押した端末が見ていた回（prevEvent）がサーバーと同じときだけ
     match /staff/{box} {
@@ -1085,6 +1100,7 @@ service cloud.firestore {
       allow update: if isStaff() && resource.data.status == 'open'
         && ((request.resource.data.status == 'open'
             && request.resource.data.get('rev', '') != resource.data.get('rev', '')
+            && (!changes('drawnAt') || (changes('drawId') && changes('chk')))
             && (!changes('chk') || request.resource.data.chk.base == resource.data.get('rev', ''))
             && (!changes('shown') || request.resource.data.shown != true
               || request.resource.data.get('shownDraw', '') == resource.data.get('drawId', '')))
@@ -1093,7 +1109,7 @@ service cloud.firestore {
     }
     match /staff/{box}/events/{e}/checkins/{rid} {
       allow read: if isStaff();
-      allow create, update: if isStaff() && isOpen(box, e) && notMerged(box, rid);
+      allow create, update: if isStaff() && isOpen(box, e) && notMerged(box, rid) && revBumped(box, e);
       // 取り消し・まとめで受付を消すときは、同じまとめ書きで開催回の rev も新しくする（締めの計算と食い違わないように）
       allow delete: if isStaff() && isOpen(box, e) && revBumped(box, e);
     }
@@ -2206,8 +2222,8 @@ function balance(rest, K, seeds) {
       for (let a = 0; a < K; a++) for (let b = a + 1; b < K; b++) {
         for (let i = 0; i < teams[a].length; i++) for (let j = 0; j < teams[b].length; j++) {
           const x = teams[a][i], y = teams[b][j];
-          if (x.exp !== y.exp || locked[x.id] || locked[y.id]) continue;
-          if (x.level === y.level && x.beg === y.beg && x.early === y.early && x.top === y.top) continue;
+          if (locked[x.id] || locked[y.id]) continue;
+          if (x.exp === y.exp && x.level === y.level && x.beg === y.beg && x.early === y.early && x.top === y.top) continue;
           teams[a][i] = y; teams[b][j] = x;
           const s = score(teams);
           if (s < best) { best = s; improved = true; } else { teams[a][i] = x; teams[b][j] = y; }
@@ -2220,7 +2236,7 @@ function balance(rest, K, seeds) {
       for (let a = 0; a < K && !moved; a++) for (let b = 0; b < K && !moved; b++) {
         if (a === b || teams[a].length - teams[b].length !== 1) continue;
         for (let i = 0; i < teams[a].length && !moved; i++) {
-          const x = teams[a][i]; if (x.exp || locked[x.id]) continue;
+          const x = teams[a][i]; if (locked[x.id]) continue;
           teams[a].splice(i, 1); teams[b].push(x);
           const sc = score(teams);
           if (sc < best) { best = sc; moved = true; } else { teams[b].pop(); teams[a].splice(i, 0, x); }
@@ -2388,11 +2404,11 @@ function renderTeamAdjust(ps, ev, saved) {
     toast('解散しました。メンバーをほかのチームに入れてください');
   }; });
   const ms = evMatches(ev), sync = inSync(saved, ms);
-  if (!legacy) $('tmChecks').insertAdjacentHTML('afterbegin', ev.shown ? '<li>✓ 参加者画面にチームと対戦表を出しています</li>' : '<li><b class="warnline">参加者画面にはまだチームを出していません（発表の「チームを見る」で出ます）。</b> <button type="button" class="btn small" id="tmShow">いま参加者画面に出す</button></li>');
-  if ($('tmShow')) { let armed = false; $('tmShow').onclick = () => {
-    if (!armed) { armed = true; $('tmShow').textContent = '発表が終わっていれば、もう一度押す'; $('tmShow').classList.add('primary'); return; }
-    setShown(true, ev.drawId || '');
-  }; }
+  if (!legacy) $('tmChecks').insertAdjacentHTML('afterbegin', ev.shown ? '<li>✓ 参加者画面にチームと対戦表を出しています</li>' : '<li><b class="warnline">参加者画面にはまだチームを出していません（発表の「チームを見る」で出ます）。</b> <button type="button" class="btn small" id="tmShow">発表画面を開く</button></li>');
+  if ($('tmShow')) $('tmShow').onclick = () => {
+    const order = teams.flatMap((t) => t.members.map((m) => ({ name: m.name, team: t.name })));
+    showReveal(shuffle(order), [], S.cur, ev.drawId || '');
+  };
   $('tmChecks').insertAdjacentHTML('afterbegin', ms.length ? (sync ? '<li>✓ 対戦表はいまのチームに合っています</li>' : '<li><b class="warnline">対戦表が古いままです。調整が終わったら「対戦表を作り直す」を押してください（入力済みの試合はそのまま残ります）。</b></li>') : '');
   $('tmResAct').innerHTML = legacy ? '' : '<button class="btn" id="tmAdd" type="button">チームを1つ追加</button>' + (ms.length ? '<button class="btn' + (sync ? ' ghost' : ' primary') + '" id="tmRebuild" type="button"' + (saved.length % 2 ? ' disabled' : '') + '>対戦表を作り直す</button>' : '');
   if ($('tmRebuild')) $('tmRebuild').onclick = rebuildNow;
@@ -2517,7 +2533,7 @@ function showReveal(order, notes, eid, drawId) {
   $('rvClose').onclick = () => {
     closeSheet(); window.scrollTo(0, 0);
     const ev = S.events[S.cur] || {};
-    if (S.cur !== eid || ev.drawId !== drawId) { toast('この発表のあとに、ほかの端末で抽選し直された（または回が変わった）ので、参加者画面には出しませんでした。チームタブで確かめてください', true); return; }
+    if (S.cur !== eid || (ev.drawId || '') !== drawId) { toast('この発表のあとに、ほかの端末で抽選し直された（または回が変わった）ので、参加者画面には出しませんでした。チームタブで確かめてください', true); return; }
     if (!ev.shown) setShown(true, drawId);
   };
 }
@@ -2903,7 +2919,7 @@ function openPerson(pid) {
   $('sheet').querySelectorAll('[data-um]').forEach((b) => {
     let armed = false;
     b.onclick = () => {
-      const r = rosterById()[b.dataset.um]; if (!r || r.mergedInto !== pid) { closeSheet(); toast('ほかの端末で、まとめが変わっていました。開き直してください', true); return; }
+      const r = rm[b.dataset.um], current = rosterById()[b.dataset.um]; if (!r || !current || current.mergedInto !== pid || current.mergeId !== r.mergeId) { closeSheet(); toast('ほかの端末で、まとめが変わっていました。開き直してください', true); return; }
       if (!armed) { armed = true; b.textContent = 'もう一度押すと、' + r.name + 'さんを別の人に戻します'; b.classList.remove('ghost'); b.classList.add('primary'); return; }
       const opId = rid('o');
       const w = [{ op: 'update', path: ROOT + '/roster/' + r.id, data: { mergedInto: '', unmergedAt: TS, unmergeOf: r.mergeId || '' } }];
@@ -2930,7 +2946,7 @@ function unmergeRestore(r, pid) {
   const mk = r.mergeKeep || {};
   if (teamAlive(r.mergeTeam) && r.mergeTeam) asg['assign.' + r.id] = r.mergeTeam;
   /* 残した人の受付・チーム：まとめたときに引き継いだままなら、まとめる前に戻す */
-  if (keepP) {
+  if (keepP && (mk.had || (r.mergeId && r.mergeId === 'g' + keepP.op))) {
     if (keepP.team === (mk.carried || 0) && (mk.team || 0) !== keepP.team && teamAlive(mk.team)) asg['assign.' + pid] = mk.team || null;
     if (!mk.had) w.push({ op: 'delete', path: ROOT + '/events/' + S.cur + '/checkins/' + keepP.rawId });
     else {
@@ -2940,7 +2956,7 @@ function unmergeRestore(r, pid) {
       if (Object.keys(fix).length) w.push({ op: 'update', path: ROOT + '/events/' + S.cur + '/checkins/' + keepP.rawId, data: fix });
     }
   }
-  if (Object.keys(asg).length || w.length) w.push({ op: 'update', path: ROOT + '/events/' + S.cur, data: asg });
+  if (Object.keys(asg).length || w.length) w.push({ op: 'update', path: ROOT + '/events/' + S.cur, data: { ...asg, chk: { base: ev.rev || '', op: rid('u') } } });
   return { w, note: 'いまの回の受付' + (r.mergeTeam && teamAlive(r.mergeTeam) ? 'とチーム' : '') + 'も元に戻しました' };
 }
 /* テスト用：架空の過去の記録（3大会分）と、名前を間違えて登録した人（ハルト＝はると） */
@@ -2956,7 +2972,7 @@ function seedHistory() {
       w.push({ op: 'set', path: ROOT + '/hist/past' + k + '_' + id, data: { eid: 'past' + k, ename: (8 + k) + '月の月いち（架空）', date, rid: id, name: id === 'r90' ? 'ハルト' : r.name, team: 'チーム' + (t + 1), members: [], rank, teams, played: 3, total: 300 - rank * 20, at: TS } });
     });
   });
-  B.commit(w).then(() => toast('架空の過去の記録（3大会）を入れました'), (e) => toast('入れられませんでした（' + ((e && e.code) || '') + '）', true));
+  B.commit(S.cur ? W.rev(ROOT, S.cur, w) : w).then(() => toast('架空の過去の記録（3大会）を入れました'), (e) => toast('入れられませんでした（' + ((e && e.code) || '') + '）', true));
 }
 
 
@@ -3020,18 +3036,19 @@ function schedulePublish(delay) {
   clearTimeout(pubTimer); pubTimer = setTimeout(publishNow, delay == null ? 1200 : delay);
 }
 function publishNow() {
-  if (serverState() !== 'ok') return;
+  if (!S.cur || !S.events[S.cur] || !['events', 'box', 'roster', 'checkins', 'hist', 'pub'].every((k) => S.sync[k] && !S.sync[k].cache) || unsent().length) return;
   if (pubBusy) { pubAgain = true; return; }
   const body = JSON.stringify(publicData());
-  PUBST.size = body.length;
-  if (S.pub && S.pub.body === body) { if (PUBST.err !== 'size') PUBST.err = ''; return; }
-  if (body.length > PUB_MAX) { if (PUBST.err !== 'size') { PUBST.err = 'size'; renderBar(); } return; }
+  const rev = S.events[S.cur].rev || '';
+  PUBST.size = new TextEncoder().encode(body).byteLength;
+  if (S.pub && !('by' in S.pub) && S.pub.event === S.cur && S.pub.rev === rev && S.pub.body === body) { if (PUBST.err !== 'size') PUBST.err = ''; return; }
+  if (PUBST.size > PUB_MAX) { if (PUBST.err !== 'size') { PUBST.err = 'size'; renderBar(); } return; }
   /* 2台が違う中身を書き合うのが続くとき（片方の表示が古いまま）は、1分に20回までにする */
   const t = now(); pubFlips = pubFlips.filter((x) => t - x < 60000);
   if (pubFlips.length >= 20) { PUBST.err = 'flip'; renderBar(); schedulePublish(20000); return; }
   pubFlips.push(t);
   pubBusy = true; pubAgain = false;
-  B.commit([{ op: 'set', path: PUB, data: { body, updatedAt: stamp(Date.now()), at: TS, by: devName } }]).then(() => {
+  B.commit([{ op: 'set', path: PUB, data: { body, updatedAt: stamp(Date.now()), at: TS, box: BOX, event: S.cur, rev, seq: (S.pub?.seq || 0) + 1 } }]).then(() => {
     pubBusy = false; PUBST.at = now(); if (PUBST.err) { PUBST.err = ''; renderBar(); }
     if (pubAgain) schedulePublish(300);
   }, (e) => {
@@ -3054,7 +3071,7 @@ function importPast() {
   });
   PAST.haoh.forEach((h) => { const id = idOf(h.name); hist.push({ op: 'set', path: ROOT + '/hist/haoh_' + h.no, data: { kind: 'haoh', no: h.no, date: h.date, rid: id, name: h.name, src: 'import', at: TS } }); });
   const all = roster.concat(hist);
-  Promise.all(chunks(all, 400).map((part) => B.commit(part))).then(() => toast('過去の記録を取り込みました（' + PAST.rows.length + '件・覇王戦' + PAST.haoh.length + '件）'), (e) => toast('取り込めませんでした（' + ((e && e.code) || '') + '）', true));
+  Promise.all(chunks(all, 400).map((part) => B.commit(S.cur ? W.rev(ROOT, S.cur, part) : part))).then(() => toast('過去の記録を取り込みました（' + PAST.rows.length + '件・覇王戦' + PAST.haoh.length + '件）'), (e) => toast('取り込めませんでした（' + ((e && e.code) || '') + '）', true));
 }
 
 /* ===== タブ ===== */
@@ -3184,6 +3201,15 @@ $('selfBtn').onclick = async () => {
     await tryW('いまの抽選の発表で参加者画面に出す', [{ op: 'update', path: R + '/events/' + e1, data: { rev: 'rz' + t, shown: true, shownDraw: 'd1' + t, chk: { base: 'r0' + t, op: 'c2' } } }], 'ok');
     await tryW('結果を入れる（回の更新番号が変わる）', [{ op: 'update', path: R + '/events/' + e1, data: { rev: 'r1' + t } }], 'ok');
     await tryW('古い順位で締める（直前の結果が入っていない。断られるはず）', W.newEvent(R, e1, true, 'ec' + t, '試験の回C', 0, { ev: { closeRev: 'r0' } }), 'denied');
+    const box = R.split('/')[1], pubPath = 'public/tsukiichi_' + box;
+    const publicWrite = (data) => [{ op: 'set', path: pubPath, data }];
+    const bulletin = { body: '{}', at: TS, updatedAt: '試験', box, event: e1, rev: 'r1' + t, seq: 1 };
+    await tryW('公開文書に端末名を含める（断られるはず）', publicWrite({ ...bulletin, by: '試験端末' }), 'denied');
+    await tryW('現在の回と更新番号で初回の速報を公開', publicWrite(bulletin), 'ok');
+    await tryW('古い順序の速報を再送（断られるはず）', publicWrite(bulletin), 'denied');
+    await tryW('得点訂正前の速報を公開（断られるはず）', publicWrite({ ...bulletin, seq: 2, rev: 'r0' + t }), 'denied');
+    await tryW('次の順序で速報を更新', publicWrite({ ...bulletin, seq: 2 }), 'ok');
+    await tryW('旧版の再抽選で得点を消す（断られるはず）', [{ op: 'update', path: R + '/events/' + e1, data: { rev: 'old' + t, mt: {}, drawnAt: TS } }], 'denied');
     await tryW('新しい回を始める（いまの回を締める）', W.newEvent(R, e1, true, e2, '試験の回2', 0, { ev: { closeRev: 'r1' + t } }), 'ok');
     await tryW('古い画面から新しい回を始める（断られるはず）', W.newEvent(R, e1, false, 'ez' + t, '試験の回Z'), 'denied');
     const old = { id: 'oo' + t, type: 'in', eid: e1, items: [ppl[5]], tapAt: now() };

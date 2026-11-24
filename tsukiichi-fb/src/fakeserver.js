@@ -34,7 +34,13 @@ function fakeServerCommit(db, writes, now) {
     const p = w.path.split('/'), del = w.op === 'delete', before = docs[w.path], next = after[w.path];
     const c0 = calls;
     let ok = false;
-    if (p[0] === 'public') ok = true;
+    if (p[0] === 'public' && !del) {
+      const box = 'staff/' + next.box, event = docs[box + '/events/' + next.event];
+      ok = p.length === 2 && p[1] === 'tsukiichi_' + next.box
+        && Object.keys(next).every(k => ['body', 'updatedAt', 'at', 'box', 'event', 'rev', 'seq'].includes(k))
+        && next.at === now && next.seq === ((before && before.seq) || 0) + 1
+        && docs[box]?.currentEvent === next.event && !!event && next.rev === (event.rev || '');
+    }
     else if (p[0] === 'staff' && p.length === 2) {
       const previous = before?.currentEvent || '';
       ok = !del && next.prevEvent === previous && next.currentEvent !== previous &&
@@ -66,13 +72,14 @@ function fakeServerCommit(db, writes, now) {
       if (del) ok = false;
       else if (!before) { const bx = getAfter('staff/' + p[1]); ok = next.status === 'open' && !!bx && bx.currentEvent === p[3]; }
       else ok = before.status === 'open' && ((next.status === 'open' && (next.rev || '') !== (before.rev || '')
+        && (same(before.drawnAt, next.drawnAt) || (!same(before.drawId, next.drawId) && !same(before.chk, next.chk)))
         && (same(before.chk, next.chk) || (next.chk && next.chk.base === (before.rev || '')))
         && (same(before.shown, next.shown) || next.shown !== true || (next.shownDraw || '') === (before.drawId || '')))
         || (next.status === 'closed' && (next.closeRev || '') === (before.rev || '')));
     }
     else if (p[0] === 'staff' && p.length === 6 && p[2] === 'events') {
       const box = p[1], e = p[3], kind = p[4], id = p[5];
-      if (kind === 'checkins') ok = del ? isOpen(box, e) && revBumped(box, e) : isOpen(box, e) && notMerged(box, id);
+      if (kind === 'checkins') ok = del ? isOpen(box, e) && revBumped(box, e) : isOpen(box, e) && notMerged(box, id) && revBumped(box, e);
       else if (kind === 'ops') ok = !del && !before && isOpen(box, e);
       else if (kind === 'devices') ok = !del;
     }
