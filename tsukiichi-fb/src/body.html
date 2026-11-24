@@ -126,9 +126,11 @@
         <div class="box">
           <h2 class="h">Firestoreのルール</h2>
           <p class="muted" style="margin-top:0">この運営アカウントの番号（UID）を入れたルールの全文です。Firebase の「Firestore Database」→「ルール」に、全部消してから貼り付けて「公開」を押します。</p>
-          <p id="uidLine" style="word-break:break-all"></p>
-          <textarea class="copyta" id="rulesTa" readonly></textarea>
-          <button class="btn cyan wide" id="rulesCopy" type="button">ルールの全文をコピー</button>
+          <p id="rulesNote" style="word-break:break-all"></p>
+          <div id="rulesBody" hidden>
+            <textarea class="copyta" id="rulesTa" readonly></textarea>
+            <button class="btn cyan wide" id="rulesCopy" type="button">ルールの全文をコピー</button>
+          </div>
         </div>
         <div class="box">
           <h2 class="h">テスト用の操作</h2>

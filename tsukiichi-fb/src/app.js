@@ -52,7 +52,8 @@ const W = {
     const w = [];
     if (curId && curOpen) w.push({ op: 'update', path: root + '/events/' + curId, data: { status: 'closed', closedAt: TS } });
     w.push({ op: 'set', path: root + '/events/' + newId, data: { name, status: 'open', createdAt: TS } });
-    w.push({ op: 'merge', path: root, data: { currentEvent: newId, updatedAt: TS } });
+    /* prevEvent：押した端末が見ていた「いまの回」。ルールでサーバーの値と同じときだけ通す（2台が同時に始めても1つだけ） */
+    w.push({ op: 'merge', path: root, data: { currentEvent: newId, prevEvent: curId || '', updatedAt: TS } });
     return w;
   }
 };
@@ -81,8 +82,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isStaff();
     }
+    // いまの回を変えられるのは、押した端末が見ていた回（prevEvent）がサーバーと同じときだけ
     match /staff/{box} {
-      allow read, create, update: if isStaff();
+      allow read: if isStaff();
+      allow create: if isStaff() && request.resource.data.get('prevEvent', '') == '';
+      allow update: if isStaff()
+        && request.resource.data.get('prevEvent', '') == resource.data.get('currentEvent', '');
     }
     match /staff/{box}/roster/{rid} {
       allow read: if isStaff();
@@ -95,7 +100,10 @@ service cloud.firestore {
             && notMerged(box, request.resource.data.mergedInto)));
     }
     match /staff/{box}/events/{e} {
-      allow read, create: if isStaff();
+      allow read: if isStaff();
+      // 回を作れるのは、同じまとめ書きで「いまの回」をその回にするときだけ（開いている回は1つ）
+      allow create: if isStaff() && request.resource.data.status == 'open'
+        && getAfter(/databases/$(database)/documents/staff/$(box)).data.currentEvent == e;
       // 締めた回は開け直さない
       allow update: if isStaff() && resource.data.status == 'open';
     }
@@ -160,14 +168,15 @@ function toast(msg, bad) {
 }
 
 /* ===== 操作の記録（この端末に残す。届くまで「送信待ち」、断られたら名前つきで残す） ===== */
-const OPS_KEY = 'ops_' + BOX;
+/* 操作の記録は、本番（fire）・練習（demo）・自動試験（test）で別々の場所に置く。練習で消しても本番の記録は残る */
+let OPS_KEY = 'ops_' + BOX + '_none', IDB_NAME = 'tk_ops_none';
 /* 操作の記録は IndexedDB（Firestore と同じく閉じても残りやすい保存先）と localStorage の両方に置き、開くときに合わせる */
 const IDB = {
   db: null,
   open() {
     return new Promise((res) => {
       try {
-        const r = indexedDB.open('tk_ops', 1);
+        const r = indexedDB.open(IDB_NAME, 1);
         r.onupgradeneeded = () => { r.result.createObjectStore('ops', { keyPath: 'id' }); };
         r.onsuccess = () => { IDB.db = r.result; res(true); };
         r.onerror = () => res(false);
@@ -186,7 +195,8 @@ const IDB = {
   }
 };
 const RANK = { sending: 0, unverified: 1, rejected: 2, done: 3 };
-async function loadOps() {
+async function loadOps(mode) {
+  OPS_KEY = 'ops_' + BOX + '_' + mode; IDB_NAME = 'tk_ops_' + mode;
   let a = [];
   try { a = JSON.parse(ls.get(OPS_KEY, '[]')) || []; } catch (e) { a = []; }
   await IDB.open();
@@ -297,6 +307,7 @@ async function fireBackend() {
     async getServer(path) { const d = await F.getDocFromServer(F.doc(db, path)); return d.exists() ? plain(d.data()) : null; },
     waitPending() { return F.waitForPendingWrites(db); },
     uid() { return auth.currentUser ? auth.currentUser.uid : ''; },
+    email() { return auth.currentUser ? auth.currentUser.email : ''; },
     /* 端末の写しを消す。消せたかは呼んだ側で IndexedDB の一覧を見て確かめる */
     async clearLocal() { await U.signOut(auth); await F.terminate(db); await F.clearIndexedDbPersistence(db); return ['firestore/']; },
     async ping() {
@@ -334,7 +345,7 @@ function fakeBackend() {
   const save = (k, v) => { try { kv.transaction('kv', 'readwrite').objectStore('kv').put(JSON.parse(JSON.stringify(v)), k); } catch (e) {} };
   const ready = new Promise((res) => {
     try {
-      const r = indexedDB.open('tk_fake', 1);
+      const r = indexedDB.open('tk_fake_' + (URL0 ? 'test' : 'demo'), 1);
       r.onupgradeneeded = () => r.result.createObjectStore('kv');
       r.onsuccess = async () => { kv = r.result; cache = (await kvGet('cache')) || cache; queue = (await kvGet('queue')) || []; res(); };
       r.onerror = () => res();
@@ -411,8 +422,8 @@ function fakeBackend() {
     },
     async getServer(path) { const st = await T.state(); return st.docs[path] || null; },
     waitPending() { return ready.then(() => new Promise((res) => { const f = () => { if (!queue.length) res(); else setTimeout(f, 200); }; f(); })); },
-    uid() { return 'TEST-UID'; },
-    async clearLocal() { clearInterval(timer); try { kv && kv.close(); } catch (e) {} await idbDelete('tk_fake'); return ['tk_fake']; },
+    uid() { return ''; },
+    async clearLocal() { clearInterval(timer); try { kv && kv.close(); } catch (e) {} const n = 'tk_fake_' + (URL0 ? 'test' : 'demo'); await idbDelete(n); return [n]; },
     ping() { return Promise.resolve({ offset: 0, rtt: 0 }); },
     anonRead() { return Promise.resolve(null); }
   };
@@ -423,7 +434,6 @@ let bootToken = 0;
 async function boot() {
   let wiped = '';
   try { wiped = sessionStorage.getItem('tk_wiped') || ''; if (wiped) sessionStorage.removeItem('tk_wiped'); } catch (e) {}
-  await loadOps();
   $('lockForm').onsubmit = async (e) => {
     e.preventDefault();
     const my = ++bootToken;
@@ -460,9 +470,10 @@ function setLockBusy(on, msg) {
   if (msg != null) $('lockErr').textContent = msg;
 }
 
-function enter(mode) {
+async function enter(mode) {
   if (S.mode) return;
   S.mode = mode; if (mode === 'fire') ls.set('mode', mode);
+  await loadOps(mode);
   $('lock').hidden = true; $('app').hidden = false; $('bnav').hidden = false;
   $('demoNet').hidden = mode !== 'demo';
   $('anonRow').hidden = mode !== 'fire';
@@ -471,7 +482,15 @@ function enter(mode) {
   $('devName').value = devName;
   const onErr = (key) => (err) => { S.sync[key] = { cache: true, err: (err && err.code) || 'error', at: S.sync[key] && S.sync[key].at }; renderAll(); };
   const mark = (key, fromCache) => { S.sync[key] = { cache: fromCache, at: fromCache ? (S.sync[key] && S.sync[key].at) : now() }; };
-  B.subDoc(ROOT, (d, fc) => { mark('box', fc); const cur = (d && d.currentEvent) || ''; if (cur !== S.cur) switchEvent(cur); renderAll(); }, onErr('box'));
+  B.subDoc(ROOT, (d, fc) => {
+    mark('box', fc); const cur = (d && d.currentEvent) || '';
+    if (cur !== S.cur) {
+      switchEvent(cur);
+      /* 回を始める画面を開いている間に、ほかの端末が回を変えたら止める */
+      if (newEvSheet && !$('ov').hidden && newEvSheet.cur !== cur) { closeSheet(); newEvSheet = null; toast('ほかの端末で回が変わりました。いまの回を表示します', true); }
+    }
+    renderAll();
+  }, onErr('box'));
   B.sub(ROOT + '/events', (list, fc) => { mark('events', fc); S.events = {}; list.forEach((d) => { S.events[d.id] = d.data; }); renderAll(); }, onErr('events'));
   B.sub(ROOT + '/roster', (list, fc) => { mark('roster', fc); S.roster = list.map((d) => ({ id: d.id, ...d.data, pending: d.pending })); renderAll(); }, onErr('roster'));
   B.subMetrics((m) => { S.metrics = m; renderMetrics(); });
@@ -835,7 +854,9 @@ function renderEventBox() {
   $('evNow').innerHTML = ev ? 'いまの回：<b>' + esc(ev.name) + '</b>（' + (ev.status === 'open' ? '受付中' : '締め済み') + '）' : 'いまの回：まだありません';
   $('evList').innerHTML = list.map((e) => '<li>' + esc(e.name) + '・' + (e.status === 'open' ? '受付中' : '締め済み ' + hm(e.closedAt)) + '</li>').join('');
 }
+let newEvSheet = null;
 function openNewEvent() {
+  newEvSheet = { cur: S.cur };
   const un = unsent().length, synced = serverState() === 'ok';
   const others = S.devices.filter((d) => d.id !== DEV);
   const worry = others.filter((d) => (d.pending || 0) > 0 || (d.rejected || 0) > 0 || !d.at || srvNow() - d.at > STALE_MS);
@@ -849,13 +870,18 @@ function openNewEvent() {
     '<div class="field"><label for="evNameIn">回の名前</label><input class="input" id="evNameIn" maxlength="30" value="' + esc(defaultEventName()) + '"></div>' +
     '<div class="actions"><button class="btn primary" id="evYes" type="button"' + (ok ? '' : ' disabled') + '>始める</button><button class="btn ghost" id="evNo" type="button">やめる</button></div>';
   $('ov').hidden = false;
-  $('evNo').onclick = closeSheet;
+  $('evNo').onclick = () => { newEvSheet = null; closeSheet(); };
   $('evYes').onclick = () => {
+    const seen = newEvSheet ? newEvSheet.cur : S.cur;
+    newEvSheet = null;
+    if (seen !== S.cur) { closeSheet(); toast('ほかの端末で回が変わりました。いまの回を表示します', true); return; }
     const name = $('evNameIn').value.trim() || defaultEventName();
     const d = new Date(), e = 'e' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + Math.random().toString(36).slice(2, 6);
     const writes = W.newEvent(ROOT, S.cur, cur && cur.status === 'open', e, name);
     closeSheet();
-    B.commit(writes).then(() => toast('「' + name + '」を始めました'), (err) => toast('始められませんでした（' + ((err && err.code) || '') + '）', true));
+    B.commit(writes).then(() => toast('「' + name + '」を始めました'), (err) => {
+      toast((err && err.code) === 'permission-denied' ? 'ほかの端末で先に回が始まったため、始めませんでした。いまの回を表示します' : '始められませんでした（' + ((err && err.code) || '') + '）', true);
+    });
   };
 }
 function defaultEventName() { const d = new Date(); return (d.getMonth() + 1) + '/' + d.getDate() + ' 第' + (Object.keys(S.events).length + 1) + '回（テスト）'; }
@@ -914,7 +940,7 @@ $('selfBtn').onclick = async () => {
   if (serverState() !== 'ok' || unsent().length) { out.innerHTML = '<li>' + (unsent().length ? 'この端末に送信待ちがあります。届いてから試してください。' : 'サーバーにつながっていません。電波を確かめてから試してください。') + '</li>'; return; }
   $('selfBtn').disabled = true;
   out.innerHTML = '<li>確かめています…（1分ほどかかります）</li>';
-  const R = 'staff/selftest', t = rid('t'), res = [];
+  const t = rid('t'), R = 'staff/st' + t, res = [];
   /* 断られた（permission-denied）だけを「断られた」とする。通信の失敗や時間切れは「判定不能」 */
   const run = (writes) => Promise.race([B.commit(writes).then(() => 'ok', (e) => (e && e.code) === 'permission-denied' ? 'denied' : 'error:' + ((e && e.code) || 'unknown')),
     new Promise((r) => setTimeout(() => r('error:timeout'), 15000))]);
@@ -928,6 +954,8 @@ $('selfBtn').onclick = async () => {
   try {
     const e1 = 'e1' + t, e2 = 'e2' + t;
     await tryW('回を始める（アプリと同じ書き込み）', W.newEvent(R, null, false, e1, '試験の回1'), 'ok');
+    await tryW('同時に別の端末も「最初の回」（断られるはず）', W.newEvent(R, null, false, 'ex' + t, '試験の回X'), 'denied');
+    await tryW('回だけを作る（断られるはず）', [{ op: 'set', path: R + '/events/ey' + t, data: { name: 'Y', status: 'open' } }], 'denied');
     const ppl = mk(24);
     await tryW('名簿24人を入れる', ppl.map((p) => ({ op: 'set', path: R + '/roster/' + p.id, data: { name: p.name, norm: norm(p.name) } })), 'ok');
     for (const [k, part] of chunks(ppl, CHUNK).entries()) {
@@ -954,6 +982,7 @@ $('selfBtn').onclick = async () => {
       res.push(['（参考）20人を分けずに1回で受付', 'info', r === 'ok' ? '書けた（この環境では上限に届かなかった）' : r === 'denied' ? '断られた（だから' + CHUNK + '人ずつに分けています）' : '判定不能（' + r.slice(6) + '）']); }
     /* 回を締める→旧回への操作は断られる */
     await tryW('新しい回を始める（いまの回を締める）', W.newEvent(R, e1, true, e2, '試験の回2'), 'ok');
+    await tryW('古い画面から新しい回を始める（断られるはず）', W.newEvent(R, e1, false, 'ez' + t, '試験の回Z'), 'denied');
     const old = { id: 'oo' + t, type: 'in', eid: e1, items: [ppl[5]], tapAt: now() };
     await tryW('締めた回への受付（断られるはず）', W.checkin(R, e1, [ppl[5]], old.id, now(), null).concat([W.opDoc(R, old)]), 'denied');
     await tryW('締めた回での取消（断られるはず）', W.cancel(R, e1, [ppl[6].id]), 'denied');
@@ -1010,11 +1039,11 @@ $('wipeBtn').onclick = async () => {
     msg.textContent = '消しています…';
     let prefixes = [], err = '';
     try { prefixes = await B.clearLocal(); } catch (e) { err = (e && (e.code || e.message)) || 'error'; }
-    try { IDB.db && IDB.db.close(); await idbDelete('tk_ops'); } catch (e) { err = err || 'tk_ops:' + ((e && e.message) || 'error'); }
+    try { IDB.db && IDB.db.close(); await idbDelete(IDB_NAME); } catch (e) { err = err || IDB_NAME + ':' + ((e && e.message) || 'error'); }
     [OPS_KEY, OPS_KEY + '_gone', 'mode', 'phase'].forEach((k) => ls.del(k));
     /* 消えたかを確かめる（IndexedDB の一覧と、この端末の記録） */
     const names = await idbNames();
-    const left = names == null ? null : names.filter((n) => n === 'tk_ops' || (prefixes || []).some((p) => n.indexOf(p) === 0));
+    const left = names == null ? null : names.filter((n) => n === IDB_NAME || (prefixes || []).some((p) => n.indexOf(p) === 0));
     const lsLeft = ls.get(OPS_KEY, null) != null || ls.get('mode', null) != null;
     if (err || lsLeft || (left && left.length)) {
       msg.textContent = '消しきれませんでした（' + (err || (left || []).join('・') || '端末の記録') + '）。ほかのタブを閉じて、もう一度押してください。';
@@ -1027,13 +1056,21 @@ $('wipeBtn').onclick = async () => {
 window.addEventListener('online', () => { renderBar(); verifyOps(); });
 window.addEventListener('offline', renderBar);
 window.addEventListener('beforeunload', (e) => { if (unsent().length && (!B || !B.persistent)) { e.preventDefault(); e.returnValue = ''; } });
+/* ルールの表示・コピーは、本番の運営アカウントでログインしているときだけ（練習の仮のUIDを公開すると運営が入れなくなるため） */
+function realUid() {
+  if (S.mode !== 'fire' || !B || B.kind !== 'fire' || !B.uid) return '';
+  const u = B.uid();
+  return u && B.email && B.email() === STAFF_EMAIL ? u : '';
+}
 function renderRules() {
-  const uid = B && B.uid ? B.uid() : '';
-  $('uidLine').textContent = uid ? 'この運営アカウントのUID：' + uid : 'UIDは運営モードに入ると出ます';
-  $('rulesTa').value = RULES.replace('__UID__', uid || 'ここにUID');
+  const uid = realUid();
+  $('rulesBody').hidden = !uid;
+  $('rulesNote').textContent = uid ? 'この運営アカウントのUID：' + uid : '本番の運営モード（運営パスコードでログイン）のときだけ表示します。練習モードでは表示しません。';
+  $('rulesTa').value = uid ? RULES.replace('__UID__', uid) : '';
 }
 $('rulesCopy').onclick = () => {
   renderRules();
+  if (!realUid()) { toast('本番の運営モードでだけコピーできます', true); return; }
   const ta = $('rulesTa'), done = () => toast('ルールの全文をコピーしました');
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
