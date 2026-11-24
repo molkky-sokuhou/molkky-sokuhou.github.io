@@ -4,4 +4,8 @@
 - `src/app.js` 本体／`src/fakeserver.js` 練習モードと自動試験用の模擬サーバー（Firestoreのルールと同じ判定）／`src/base.css` 既存の運営画面の見た目／`src/extra.css` 追加分
 - 自動試験：`node test/server.js` を起動してから `python3 test/scenarios.py`（2台・圏外・閉じて開き直す・同名のまとめ・旧回の操作）、`python3 test/scenarios2.py`（人数と確認時刻、8人ずつの分割と途中切断・途中拒否、逆向きの同時まとめ、ルールの確認の判定不能、消去の確認）、`python3 test/scenarios3.py`（同時に回を始める、確認画面の間の回の変化、取消直後の表示順、本番と練習の記録の分離、練習ではルールを出さない）
 - Firestoreのルール：アプリの設定タブ「Firestoreのルール」に、運営アカウントのUID入りの全文が出る（src/app.js の RULES）
-- Firestoreのルールは、このプロジェクトの資料（claude/tsukiichi-firebase.md）にある最新版を使う
+- 2026.11.24-5 引き継ぎ（Claude・運営担当者向け）
+  - 設定タブでこの版のルールをコピーし、対象の試験用Firebaseプロジェクトに公開する。回を切り替えた後の旧回の締め・新回の受付中をルールで検証する。既存の回は自動で書き換えない。
+  - 旧版の操作記録は本番運営モードの設定で照合する。旧版では練習と本番を区別できないため、自動再送しない。
+  - サーバーの人数は受付ドキュメントの件数を直接集計する。端末の表示は名寄せした人数。通信待ちの間は最後の確認時刻を残す。
+  - 回帰試験は tsukiichi-fb 内で node test/reception-regression.cjs。実Firestoreで設定タブのルール確認、iPhone 2台で旧回への遅延送信・オンライン取消・旧記録の確認と消去を試す。

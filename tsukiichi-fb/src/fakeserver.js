@@ -32,7 +32,12 @@ function fakeServerCommit(db, writes, now) {
     const c0 = calls;
     let ok = false;
     if (p[0] === 'public') ok = true;
-    else if (p[0] === 'staff' && p.length === 2) ok = !del && (!before ? !(next.prevEvent || '') : (next.prevEvent || '') === (before.currentEvent || ''));
+    else if (p[0] === 'staff' && p.length === 2) {
+      const previous = before?.currentEvent || '';
+      ok = !del && next.prevEvent === previous && next.currentEvent !== previous &&
+        isOpen(p[1], next.currentEvent) &&
+        (!previous || getAfter(w.path + '/events/' + previous)?.status === 'closed');
+    }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'roster') {
       const box = p[1], id = p[3];
       if (del) ok = false;

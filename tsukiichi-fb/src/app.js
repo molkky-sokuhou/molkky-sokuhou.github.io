@@ -85,9 +85,14 @@ service cloud.firestore {
     // いまの回を変えられるのは、押した端末が見ていた回（prevEvent）がサーバーと同じときだけ
     match /staff/{box} {
       allow read: if isStaff();
-      allow create: if isStaff() && request.resource.data.get('prevEvent', '') == '';
+      allow create: if isStaff() && request.resource.data.get('prevEvent', '') == ''
+        && isOpen(box, request.resource.data.currentEvent);
       allow update: if isStaff()
-        && request.resource.data.get('prevEvent', '') == resource.data.get('currentEvent', '');
+        && request.resource.data.get('prevEvent', '') == resource.data.get('currentEvent', '')
+        && request.resource.data.currentEvent != resource.data.get('currentEvent', '')
+        && isOpen(box, request.resource.data.currentEvent)
+        && (resource.data.get('currentEvent', '') == ''
+          || getAfter(pathOf(box, 'events', resource.data.currentEvent)).data.status == 'closed');
     }
     match /staff/{box}/roster/{rid} {
       allow read: if isStaff();
@@ -224,15 +229,15 @@ const rejected = () => S.ops.filter((o) => o.state === 'rejected');
 function runOp(op, writes) {
   op.session = SESSION; op.state = 'sending'; op.dev = DEV; op.devName = devName;
   writes.push(W.opDoc(ROOT, op));
-  S.ops.push(op); saveOps();
+  S.ops.push(op); saveOps(); refreshConfirmedCount();
   const p = B.commit(writes);
-  p.then(() => { op.state = 'done'; op.doneAt = now(); saveOps(); renderAll(); heartbeat(); },
+  p.then(() => { op.state = 'done'; op.doneAt = now(); saveOps(); refreshConfirmedCount(); renderAll(); heartbeat(); },
     (err) => { markRejected(op, err && err.code); });
   renderAll(); heartbeat();
   return p;
 }
 async function markRejected(op, code) {
-  op.state = 'rejected'; op.code = code || 'error'; op.reason = '確かめています…'; saveOps(); renderAll(); heartbeat();
+  op.state = 'rejected'; op.code = code || 'error'; op.reason = '確かめています…'; saveOps(); refreshConfirmedCount(); renderAll(); heartbeat();
   op.reason = await reasonFor(op); saveOps(); renderAll();
   toast('届かなかった操作があります：' + op.items.map((i) => i.name).join('・'), true);
 }
@@ -268,7 +273,7 @@ async function verifyOps() {
       saveOps();
     }
   } catch (e) { /* 電波がない。あとでもう一度 */ }
-  S.verifying = false; renderAll(); heartbeat();
+  S.verifying = false; refreshConfirmedCount(); renderAll(); heartbeat();
 }
 
 /* ===== 保存先：Firebase ===== */
@@ -305,6 +310,10 @@ async function fireBackend() {
       return b.commit();
     },
     async getServer(path) { const d = await F.getDocFromServer(F.doc(db, path)); return d.exists() ? plain(d.data()) : null; },
+    async confirmedCount(eid) {
+      const result = await F.getCountFromServer(F.collection(db, ROOT + '/events/' + eid + '/checkins'));
+      return result.data().count;
+    },
     waitPending() { return F.waitForPendingWrites(db); },
     uid() { return auth.currentUser ? auth.currentUser.uid : ''; },
     email() { return auth.currentUser ? auth.currentUser.email : ''; },
@@ -496,10 +505,28 @@ async function enter(mode) {
   B.subMetrics((m) => { S.metrics = m; renderMetrics(); });
   clockSync();
   renderRules();
+  if (realUid()) refreshLegacy().catch(() => {});
   showPhase(ls.get('phase', 'entry'));
   renderAll();
   setInterval(() => { verifyOps(); heartbeat(); renderBar(); }, 15000);
   setTimeout(verifyOps, 500);
+}
+let countVersion = 0, countTimer;
+function refreshConfirmedCount() {
+  if (!B?.confirmedCount) return;
+  const version = ++countVersion, eid = S.cur;
+  clearTimeout(countTimer);
+  S.liveServer = false;
+  if (!eid || !S.sync.checkins || S.sync.checkins.cache || unsent().some(op => op.eid === eid)) return;
+  countTimer = setTimeout(async () => {
+    try {
+      const count = await B.confirmedCount(eid);
+      if (version !== countVersion || eid !== S.cur) return;
+      S.lastServer = { count, at: now() };
+      S.liveServer = count === people().length;
+      renderBar();
+    } catch { /* 最後に成功した確認時刻・人数を残す。次の受付または再接続で再確認する。 */ }
+  }, 150);
 }
 function switchEvent(cur) {
   unsubCur.forEach((f) => f()); unsubCur = [];
@@ -510,8 +537,11 @@ function switchEvent(cur) {
     S.sync.checkins = { cache: fc, at: fc ? (S.sync.checkins && S.sync.checkins.at) : now() };
     onCheckins(list.map((d) => ({ id: d.id, ...d.data, pending: d.pending })), changed);
     /* サーバーの人数は、サーバーから届いた最新の姿で、この端末の送信待ちが混ざっていないときだけ更新し、時刻と組で持つ */
-    S.liveServer = !fc && !hasPend;
-    if (S.liveServer) S.lastServer = { count: people().length, at: now() };
+    if (B.confirmedCount) refreshConfirmedCount();
+    else {
+      S.liveServer = !fc && !hasPend;
+      if (S.liveServer) S.lastServer = { count: people().length, at: now() };
+    }
     renderAll();
   }, onErr));
   unsubCur.push(B.sub(ROOT + '/events/' + cur + '/devices', (list) => { S.devices = list.map((d) => ({ id: d.id, ...d.data })); renderBar(); }, () => {}));
@@ -540,7 +570,7 @@ function heartbeat() {
   hbLast = sig; hbAt = now();
   B.commit([{ op: 'merge', path: ROOT + '/events/' + S.cur + '/devices/' + DEV, data: { name: devName, pending: unsent().length, rejected: rejected().length, at: TS, clientAt: now(), ver: VER } }]).catch(() => {});
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { heartbeat(); verifyOps(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { heartbeat(); verifyOps(); refreshConfirmedCount(); } });
 
 /* ===== データが届いたとき ===== */
 function onCheckins(list, changed) {
@@ -661,7 +691,7 @@ function renderBar() {
   const srv = !S.cur ? ['info', st === 'ok' ? 'サーバーにつながっています' : 'サーバーを確認中…', '開催回がまだありません']
     : st === 'err' ? ['off', 'サーバーの受付を読めません', '（' + S.sync.checkins.err + '）' + (LS ? '最後に確認できた受付 ' + LS.count + '人（' + hms(LS.at) + '）' : '')]
     : !LS ? ['wait', 'サーバーの受付人数を確認中…', '']
-    : ['' + (S.liveServer ? 'ok' : 'wait'), '最後にサーバーで確認できた受付 ' + LS.count + '人', hms(LS.at) + ' 時点' + (S.liveServer ? '（いまの表示と同じ）' : un.length ? '。この端末の送信待ちが届くと変わります' : st === 'cache' ? '。電波なしのため、その後の変化は分かりません' : '')];
+    : ['' + (S.liveServer ? 'ok' : 'wait'), '最後にサーバーで確認できた受付 ' + LS.count + '人', hms(LS.at) + ' 時点' + (S.liveServer && LS.count === shown ? '（いまの表示と同じ）' : un.length ? '。この端末の送信待ちが届くと変わります' : st === 'cache' ? '。電波なしのため、その後の変化は分かりません' : '')];
   /* 3行目：各端末の最後の報告（全員分の確定とは言わない） */
   const reps = devReports();
   const others = S.devices.filter((d) => d.id !== DEV);
@@ -742,7 +772,7 @@ function renderDup() {
   const ds = dupGroups();
   $('dupBox').hidden = !ds.length;
   if (!ds.length) return;
-  const synced = serverState() === 'ok';
+  const synced = canStartEvent();
   $('dupList').innerHTML = ds.map((d, i) => {
     const can = synced && !d[0].pending && !d[1].pending;
     const who = (p) => esc(p.name) + '<small>（' + (p.isNew ? 'はじめて' : '名簿') + '・' + esc(p.devName || '') + ' ' + hm(p.tapAt) + '）</small>';
@@ -855,9 +885,13 @@ function renderEventBox() {
   $('evList').innerHTML = list.map((e) => '<li>' + esc(e.name) + '・' + (e.status === 'open' ? '受付中' : '締め済み ' + hm(e.closedAt)) + '</li>').join('');
 }
 let newEvSheet = null;
+function canStartEvent() {
+  return serverState() === 'ok' && S.sync.box && !S.sync.box.cache &&
+    S.sync.events && !S.sync.events.cache && (!S.cur || S.events[S.cur]?.status === 'open');
+}
 function openNewEvent() {
   newEvSheet = { cur: S.cur };
-  const un = unsent().length, synced = serverState() === 'ok';
+  const un = unsent().length, synced = canStartEvent();
   const others = S.devices.filter((d) => d.id !== DEV);
   const worry = others.filter((d) => (d.pending || 0) > 0 || (d.rejected || 0) > 0 || !d.at || srvNow() - d.at > STALE_MS);
   const cur = S.events[S.cur];
@@ -875,9 +909,10 @@ function openNewEvent() {
     const seen = newEvSheet ? newEvSheet.cur : S.cur;
     newEvSheet = null;
     if (seen !== S.cur) { closeSheet(); toast('ほかの端末で回が変わりました。いまの回を表示します', true); return; }
+    if (!canStartEvent() || unsent().length) { closeSheet(); toast('開催回と送信状況を確認してから、もう一度開いてください', true); return; }
     const name = $('evNameIn').value.trim() || defaultEventName();
     const d = new Date(), e = 'e' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + Math.random().toString(36).slice(2, 6);
-    const writes = W.newEvent(ROOT, S.cur, cur && cur.status === 'open', e, name);
+    const writes = W.newEvent(ROOT, seen, Boolean(seen), e, name);
     closeSheet();
     B.commit(writes).then(() => toast('「' + name + '」を始めました'), (err) => {
       toast((err && err.code) === 'permission-denied' ? 'ほかの端末で先に回が始まったため、始めませんでした。いまの回を表示します' : '始められませんでした（' + ((err && err.code) || '') + '）', true);
@@ -956,6 +991,7 @@ $('selfBtn').onclick = async () => {
     await tryW('回を始める（アプリと同じ書き込み）', W.newEvent(R, null, false, e1, '試験の回1'), 'ok');
     await tryW('同時に別の端末も「最初の回」（断られるはず）', W.newEvent(R, null, false, 'ex' + t, '試験の回X'), 'denied');
     await tryW('回だけを作る（断られるはず）', [{ op: 'set', path: R + '/events/ey' + t, data: { name: 'Y', status: 'open' } }], 'denied');
+    await tryW('前の回を締め忘れた切り替え（断られるはず）', W.newEvent(R, e1, false, 'skip' + t, '試験'), 'denied');
     const ppl = mk(24);
     await tryW('名簿24人を入れる', ppl.map((p) => ({ op: 'set', path: R + '/roster/' + p.id, data: { name: p.name, norm: norm(p.name) } })), 'ok');
     for (const [k, part] of chunks(ppl, CHUNK).entries()) {
@@ -1023,6 +1059,49 @@ function idbDelete(name) {
   });
 }
 async function idbNames() { try { return indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name || '') : null; } catch (e) { return null; } }
+// 旧版の共有記録は本番・練習の区別が付かないため、端末内で確認だけできるようにする。
+const legacyKey = 'ops_' + BOX;
+async function readLegacy() {
+  const saved = JSON.parse(localStorage.getItem('tk_' + legacyKey) || '[]');
+  const gone = new Set(JSON.parse(localStorage.getItem('tk_' + legacyKey + '_gone') || '[]'));
+  const rows = await new Promise((resolve, reject) => {
+    const req = indexedDB.open('tk_ops');
+    let missing = false;
+    req.onupgradeneeded = () => { missing = true; req.transaction.abort(); };
+    req.onerror = () => missing ? resolve([]) : reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const tx = db.transaction('ops');
+        const q = tx.objectStore('ops').getAll();
+        tx.oncomplete = () => { db.close(); resolve(q.result); };
+        tx.onabort = () => { db.close(); reject(tx.error); };
+      } catch (error) { db.close(); reject(error); }
+    };
+  });
+  const records = new Map();
+  for (const op of saved.concat(rows)) {
+    const previous = records.get(op.id);
+    if (!gone.has(op.id) && (!previous || RANK[op.state] > RANK[previous.state])) records.set(op.id, op);
+  }
+  return [...records.values()];
+}
+async function refreshLegacy() {
+  const panel = $('legacyBox');
+  try {
+    const rows = await readLegacy();
+    panel.hidden = !rows.length;
+    $('legacyRows').textContent = rows.map(op => {
+      const state = {done:'保存済み', rejected:'届かなかった', sending:'送信確認が必要', unverified:'送信確認が必要'};
+      return [op.ename, (op.items || []).map(i => i.name).join('・'), state[op.state] || '要確認'].filter(Boolean).join(' ／ ');
+    }).join('\n');
+    return rows;
+  } catch (error) {
+    panel.hidden = false;
+    $('legacyRows').textContent = '旧版の記録を読み取れません。消去する前に別のタブを閉じ、開き直してください。';
+    throw error;
+  }
+}
 $('wipeBtn').onclick = async () => {
   const msg = $('wipeMsg');
   if (unsent().length) { msg.textContent = 'この端末に送信待ちが ' + unsent().length + ' 件あります。電波の良い場所で届くのを待ってから消してください。'; return; }
@@ -1030,20 +1109,35 @@ $('wipeBtn').onclick = async () => {
   msg.textContent = 'サーバーに全部届いているか確かめています…';
   const ok = await Promise.race([B.waitPending().then(() => true), new Promise((r) => setTimeout(() => r(false), 6000))]);
   if (!ok || serverState() !== 'ok') { msg.textContent = 'サーバーで確認できませんでした。電波の良い場所でもう一度押してください。'; return; }
+  let legacyRows = [];
+  if (realUid()) {
+    try { legacyRows = await refreshLegacy(); } catch { msg.textContent = '旧版の記録を確認できないため消去を中止しました。'; return; }
+  }
   $('sheet').innerHTML = '<h2 id="sheetTitle">この端末からデータを消す</h2><p>送信待ちは0件で、サーバーに全部届いています。この端末に残っている名簿・受付の写しと、運営モードのログインを消します。サーバーのデータは消えません。ほかのタブでこのページを開いているときは、先に閉じてください。</p>' +
+    (legacyRows.length ? '<label><input type="checkbox" id="wpLegacy">旧版の記録 ' + legacyRows.length + ' 件を確認し、未確定分を含めて端末から消去します</label>' : '') +
     '<div class="actions"><button class="btn primary" id="wpYes" type="button">消す</button><button class="btn ghost" id="wpNo" type="button">やめる</button></div>';
   $('ov').hidden = false; $('wpNo').onclick = closeSheet;
   $('wpYes').onclick = async () => {
     closeSheet();
     if (unsent().length) { msg.textContent = '送信待ちができたので、消すのをやめました。'; return; }
+    if (legacyRows.length && !$('wpLegacy').checked) { msg.textContent = '設定の旧版記録を確認してください。'; return; }
+    if (rejected().length) { msg.textContent = '届かなかった操作を先に確認してください。'; return; }
+    const clearLegacy = Boolean(realUid());
     msg.textContent = '消しています…';
     let prefixes = [], err = '';
+    if (clearLegacy) {
+      try {
+        await idbDelete('tk_ops');
+        localStorage.removeItem('tk_' + legacyKey);
+        localStorage.removeItem('tk_' + legacyKey + '_gone');
+      } catch { msg.textContent = '旧版の記録を消せませんでした。旧版を開いているタブを閉じてください。'; return; }
+    }
     try { prefixes = await B.clearLocal(); } catch (e) { err = (e && (e.code || e.message)) || 'error'; }
     try { IDB.db && IDB.db.close(); await idbDelete(IDB_NAME); } catch (e) { err = err || IDB_NAME + ':' + ((e && e.message) || 'error'); }
     [OPS_KEY, OPS_KEY + '_gone', 'mode', 'phase'].forEach((k) => ls.del(k));
     /* 消えたかを確かめる（IndexedDB の一覧と、この端末の記録） */
     const names = await idbNames();
-    const left = names == null ? null : names.filter((n) => n === IDB_NAME || (prefixes || []).some((p) => n.indexOf(p) === 0));
+    const left = names == null ? null : names.filter((n) => n === IDB_NAME || (clearLegacy && n === 'tk_ops') || (prefixes || []).some((p) => n.indexOf(p) === 0));
     const lsLeft = ls.get(OPS_KEY, null) != null || ls.get('mode', null) != null;
     if (err || lsLeft || (left && left.length)) {
       msg.textContent = '消しきれませんでした（' + (err || (left || []).join('・') || '端末の記録') + '）。ほかのタブを閉じて、もう一度押してください。';
@@ -1053,7 +1147,7 @@ $('wipeBtn').onclick = async () => {
     location.reload();
   };
 };
-window.addEventListener('online', () => { renderBar(); verifyOps(); });
+window.addEventListener('online', () => { renderBar(); verifyOps(); refreshConfirmedCount(); });
 window.addEventListener('offline', renderBar);
 window.addEventListener('beforeunload', (e) => { if (unsent().length && (!B || !B.persistent)) { e.preventDefault(); e.returnValue = ''; } });
 /* ルールの表示・コピーは、本番の運営アカウントでログインしているときだけ（練習の仮のUIDを公開すると運営が入れなくなるため） */
