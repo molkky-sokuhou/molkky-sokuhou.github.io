@@ -55,3 +55,28 @@
 .prow { min-width: 0; }
 .prow .st { white-space: normal; word-break: keep-all; text-align: right; }
 .sb-row .big { word-break: normal; line-break: strict; }
+
+/* チーム抽選 */
+.tm-count { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.tm-count button { min-height: 52px; min-width: 64px; border: 2px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 12px; font-weight: 900; padding: 4px 10px; line-height: 1.25; font-family: inherit; }
+.tm-count button small { display: block; font-size: .72rem; color: var(--muted); font-weight: 700; }
+.tm-count button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.tm-count button[aria-pressed="true"] small { color: var(--panel); }
+.tm-sizes { font-size: .9rem; font-weight: 700; margin-top: 6px; }
+.tcard .tm-name { font-family: var(--f-display); font-weight: 400; font-size: 1.3rem; }
+.tcard .tm-meta { font-size: .8rem; color: var(--muted); font-weight: 700; }
+.tcard.fixed { border-color: var(--cyan); }
+.tm-mem { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.tm-mem li { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; font-weight: 700; }
+.tm-mem .lv { font-size: .78rem; font-weight: 900; color: var(--yellow-ink); background: var(--yellow); border-radius: 6px; padding: 0 6px; }
+.tm-checks li { list-style: none; }
+.tmrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; background: var(--panel-2); border-radius: 10px; padding: 8px 12px; }
+.tmrow .nm { font-weight: 900; word-break: keep-all; overflow-wrap: anywhere; }
+.tmrow .ctl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.tmrow select, .tmrow input { font: inherit; font-size: 16px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); padding: 4px 6px; }
+.tmrow input { width: 4.5em; }
+.tmrow .tg { font-size: .8rem; font-weight: 900; border: 2px solid var(--line); border-radius: 8px; padding: 4px 8px; background: var(--panel); color: var(--muted); min-height: 36px; }
+.tmrow .tg[aria-pressed="true"] { background: var(--yellow); color: var(--yellow-ink); border-color: var(--yellow); }
+/* 小さな直し：取消の送信待ちが枠からはみ出さない／消去の知らせは成功の色 */
+.prow .st.wait, .prow .st.err { white-space: normal; max-width: 9em; line-height: 1.35; padding: 2px 6px; }
+#lockErr.okmsg { color: var(--good); }

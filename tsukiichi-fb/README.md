@@ -2,7 +2,7 @@
 
 - 公開ページ：`index.html`（`python3 build.py 版番号` で `src/` から組み立てる。直すのは `src/`）
 - `src/app.js` 本体／`src/fakeserver.js` 練習モードと自動試験用の模擬サーバー（Firestoreのルールと同じ判定）／`src/base.css` 既存の運営画面の見た目／`src/extra.css` 追加分
-- 自動試験：`node test/server.js` を起動してから `python3 test/scenarios.py`（2台・圏外・閉じて開き直す・同名のまとめ・旧回の操作）、`python3 test/scenarios2.py`（人数と確認時刻、8人ずつの分割と途中切断・途中拒否、逆向きの同時まとめ、ルールの確認の判定不能、消去の確認）、`python3 test/scenarios3.py`（同時に回を始める、確認画面の間の回の変化、取消直後の表示順、本番と練習の記録の分離、練習ではルールを出さない）
+- 自動試験：`node test/server.js` を起動してから `python3 test/scenarios.py`（2台・圏外・閉じて開き直す・同名のまとめ・旧回の操作）、`python3 test/scenarios2.py`（人数と確認時刻、8人ずつの分割と途中切断・途中拒否、逆向きの同時まとめ、ルールの確認の判定不能、消去の確認）、`python3 test/team.py`（チーム抽選：22人・同じチーム希望4人・7チーム、200回の抽選の点検、保存と2台目への反映）、`python3 test/scenarios3.py`（同時に回を始める、確認画面の間の回の変化、取消直後の表示順、本番と練習の記録の分離、練習ではルールを出さない）
 - Firestoreのルール：アプリの設定タブ「Firestoreのルール」に、運営アカウントのUID入りの全文が出る（src/app.js の RULES）
 - 2026.11.24-5 引き継ぎ（Claude・運営担当者向け）
   - 設定タブでこの版のルールをコピーし、対象の試験用Firebaseプロジェクトに公開する。回を切り替えた後の旧回の締め・新回の受付中をルールで検証する。既存の回は自動で書き換えない。

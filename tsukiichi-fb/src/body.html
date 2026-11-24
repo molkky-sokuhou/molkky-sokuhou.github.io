@@ -75,11 +75,34 @@
         </div>
       </section>
 
+      <!-- ===== チーム（抽選） ===== -->
+      <section class="panel" id="ph-team" hidden>
+        <div class="box">
+          <div class="sec-h"><h2 class="h">チーム抽選</h2><span class="stat" id="tmEv"></span></div>
+          <p class="muted" style="margin-top:0" id="tmTarget"></p>
+          <div class="subbox" id="tmGate" hidden></div>
+          <div id="tmCounts"></div>
+          <div class="actions" style="margin-top:10px"><button class="btn primary" id="tmDraw" type="button">抽選する</button></div>
+          <p class="err" id="tmMsg" aria-live="polite"></p>
+        </div>
+        <div class="box" id="tmResult" hidden>
+          <div class="sec-h"><h2 class="h" id="tmResH">抽選の結果</h2><span class="stat" id="tmResSt"></span></div>
+          <ul class="mini-list tm-checks" id="tmChecks"></ul>
+          <div class="tgrid" id="tmTeams"></div>
+          <div class="actions" style="margin-top:12px" id="tmResAct"></div>
+        </div>
+        <div class="box">
+          <h2 class="h">参加者の設定</h2>
+          <p class="muted" style="margin-top:0">経験豊富の人には1〜10の評価を付けます（10がいちばん強い）。評価は抽選で強さをそろえるためだけに使い、運営画面にだけ出します。同じチーム希望の人には、同じ目印（例：A）を入れます。同じ目印の人だけで1チームになります。</p>
+          <ul class="plist2" id="tmPeople"></ul>
+        </div>
+      </section>
+
       <!-- ===== まだ作っていないタブ ===== -->
       <section class="panel" id="ph-other" hidden>
         <div class="box">
           <h2 class="h" id="otherH">チーム</h2>
-          <p>この試作は受付だけです。チーム・試合・記録は、受付の計測が済んでから作ります。</p>
+          <p>この試作は受付とチーム抽選までです。試合・記録はこのあと作ります。</p>
           <p class="muted" style="margin:0">記録タブには、リセットの前に「バックアップを保存」（NASへ入れる用のファイル）を入れる予定です。</p>
         </div>
       </section>
