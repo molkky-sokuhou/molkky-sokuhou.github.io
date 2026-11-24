@@ -50,10 +50,12 @@ const W = {
     return w;
   },
   distinct(root, a, b) { return [{ op: 'update', path: root + '/roster/' + a.id, data: { ['notSame.' + b.id]: true } }, { op: 'update', path: root + '/roster/' + b.id, data: { ['notSame.' + a.id]: true } }]; },
-  newEvent(root, curId, curOpen, newId, name, courts) {
+  newEvent(root, curId, curOpen, newId, name, courts, close) {
     const w = [];
-    if (curId && curOpen) w.push({ op: 'update', path: root + '/events/' + curId, data: { status: 'closed', closedAt: TS } });
-    w.push({ op: 'set', path: root + '/events/' + newId, data: { name, status: 'open', createdAt: TS, ...(courts ? { courts } : {}) } });
+    /* 締めるときは、その回の順位（final）と、1人1件の大会の記録（hist）を同じまとめ書きで残す（11/22版のリセットと同じ中身） */
+    if (curId && curOpen) w.push({ op: 'update', path: root + '/events/' + curId, data: { status: 'closed', closedAt: TS, ...((close && close.ev) || {}) } });
+    ((close && close.hist) || []).forEach((h) => w.push({ op: 'set', path: root + '/hist/' + h.id, data: h.data }));
+    w.push({ op: 'set', path: root + '/events/' + newId, data: { name, status: 'open', createdAt: TS, date: jstDate(Date.now()), ...(courts ? { courts } : {}) } });
     /* prevEvent：押した端末が見ていた「いまの回」。ルールでサーバーの値と同じときだけ通す（2台が同時に始めても1つだけ） */
     w.push({ op: 'merge', path: root, data: { currentEvent: newId, prevEvent: curId || '', updatedAt: TS } });
     return w;
@@ -99,12 +101,22 @@ service cloud.firestore {
     match /staff/{box}/roster/{rid} {
       allow read: if isStaff();
       allow create: if isStaff() && request.resource.data.get('mergedInto', '') == '';
-      // まとめた人は二度と変えない。まとめる先は、自分以外の、まとめられていない人だけ
+      // まとめた人は変えない。まとめる先は、自分以外の、まとめられていない人だけ
+      // ただし「まとめを元に戻す」操作（mergedInto を空にして unmergedAt を書く。ほかは変えない）だけは通す
       allow update: if isStaff()
-        && resource.data.get('mergedInto', '') == ''
-        && (request.resource.data.get('mergedInto', '') == ''
-          || (request.resource.data.mergedInto != rid
-            && notMerged(box, request.resource.data.mergedInto)));
+        && ((resource.data.get('mergedInto', '') == ''
+          && (request.resource.data.get('mergedInto', '') == ''
+            || (request.resource.data.mergedInto != rid
+              && notMerged(box, request.resource.data.mergedInto))))
+        || (resource.data.get('mergedInto', '') != ''
+          && request.resource.data.get('mergedInto', '') == ''
+          && request.resource.data.get('unmergedAt', null) == request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mergedInto', 'unmergedAt'])));
+    }
+    // 大会の記録（1人1大会で1件）。分けるときは持ち主を書き換える。消さない
+    match /staff/{box}/hist/{h} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
     }
     match /staff/{box}/events/{e} {
       allow read: if isStaff();
@@ -161,7 +173,7 @@ const SESSION = rid('s');
 
 /* ---------- 画面の状態 ---------- */
 const S = {
-  mode: '', cur: '', events: {}, roster: [], checkins: [], devices: [], metrics: [],
+  mode: '', cur: '', events: {}, roster: [], checkins: [], devices: [], metrics: [], hist: [],
   sync: { box: null, events: null, roster: null, checkins: null }, // null=まだ / {cache:true|false, at, err}
   sel: {}, selFlags: {}, phase: 'entry', offset: null, rtt: null, firstSnap: true, seen: {}, ops: [], verifying: false,
   lastServer: null, liveServer: false // サーバーで確認できた人数と、その時刻（いつも組で持つ）
@@ -504,6 +516,7 @@ async function enter(mode) {
   }, onErr('box'));
   B.sub(ROOT + '/events', (list, fc) => { mark('events', fc); S.events = {}; list.forEach((d) => { S.events[d.id] = d.data; }); renderAll(); }, onErr('events'));
   B.sub(ROOT + '/roster', (list, fc) => { mark('roster', fc); S.roster = list.map((d) => ({ id: d.id, ...d.data, pending: d.pending })); renderAll(); }, onErr('roster'));
+  B.sub(ROOT + '/hist', (list, fc) => { mark('hist', fc); S.hist = list.map((d) => ({ id: d.id, ...d.data })); renderAll(); }, onErr('hist'));
   B.subMetrics((m) => { S.metrics = m; renderMetrics(); });
   clockSync();
   renderRules();
@@ -724,7 +737,7 @@ function renderSel() {
 $('eq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (!$('newBox').hidden && $('newAdd').classList.contains('primary')) $('newAdd').click(); } });
 
 /* ===== 表示 ===== */
-function renderAll() { renderBar(); renderEventGate(); renderRoster(); renderDup(); renderList(); renderRejected(); renderPills(); renderEventBox(); if (S.phase === 'team' && !teamEditing()) renderTeam(); if (S.phase === 'game') renderGame(); }
+function renderAll() { renderBar(); renderEventGate(); renderRoster(); renderDup(); renderList(); renderRejected(); renderPills(); renderEventBox(); if (S.phase === 'team' && !teamEditing()) renderTeam(); if (S.phase === 'game') renderGame(); if (S.phase === 'rec') renderRec(); }
 /* 入力中（目印・チーム名）は書き換えない */
 function teamEditing() { const a = document.activeElement; return !!(a && a.closest && a.closest('#ph-team') && (a.tagName === 'SELECT' || (a.tagName === 'INPUT' && a.type !== 'checkbox'))); }
 
@@ -797,7 +810,8 @@ function renderRoster() {
   const q = $('eq').value.trim();
   const rm = rosterById(), done = {};
   people().forEach((c) => { done[c.id] = 1; });
-  const list = S.roster.filter((r) => !r.mergedInto && !done[r.id]).sort((a, b) => (a.id < b.id ? -1 : 1));
+  const cnt = personStats(false);
+  const list = S.roster.filter((r) => !r.mergedInto && !done[r.id]).sort((a, b) => ((cnt[b.id] || {}).n || 0) - ((cnt[a.id] || {}).n || 0) || (a.id < b.id ? -1 : 1));
   Object.keys(S.sel).forEach((id) => { if (!list.some((r) => r.id === id)) delete S.sel[id]; });
   const nq = norm(q);
   const shown = q ? list.filter((r) => norm(r.name).indexOf(nq) >= 0) : list;
@@ -812,7 +826,7 @@ function renderRoster() {
   $('newAdd').classList.toggle('primary', !shown.length && !sameIn && !sameRoster && nq.length >= 2);
   const evOk = !!(S.cur && S.events[S.cur] && S.events[S.cur].status === 'open');
   $('rList').innerHTML = !evOk ? '' : shown.map((r) => '<label class="rc"><input type="checkbox" data-q="' + esc(r.id) + '"' + (S.sel[r.id] ? ' checked' : '') + '><span>' + esc(r.name) +
-      '<small>' + (r.exp ? '経験豊富' : r.beg ? '初心者' : '名簿') + '</small></span></label>').join('')
+      '<small>' + (r.exp ? '経験豊富' : r.beg ? '初心者' : '名簿') + ((cnt[r.id] || {}).n ? '・参加' + cnt[r.id].n + '回' : '') + '</small></span></label>').join('')
     || '<span class="muted">' + (q ? (sameIn ? '「' + esc(sameIn.name) + '」さんは受付済みです' : '名簿に「' + esc(q) + '」に当てはまる人はいません')
       : S.roster.length ? '名簿の人は全員受付済みです' : S.sync.roster && !S.sync.roster.cache ? 'まだ名簿がありません。設定タブの「架空の名簿24人を入れる」で入れられます' : '名簿を読み込んでいます…') + '</span>';
   $('rList').querySelectorAll('[data-q]').forEach((c) => { c.onchange = () => { if (c.checked) S.sel[c.dataset.q] = 1; else delete S.sel[c.dataset.q]; updateQ(); }; });
@@ -1021,6 +1035,7 @@ function openNewEvent() {
     '<p>締める前に、使ったすべての端末の画面で「この端末の送信待ち 0件」を確かめてください。各端末の最後の報告：' + esc(devReports().join('／') || 'この端末だけ') + '</p>' +
     (worry.length ? '<p class="err">' + esc(worry.map((d) => d.name + 'の最後の報告は' + ago(srvNow() - (d.at || 0)) + '（送信待ち' + (d.pending || 0) + '件）').join('／')) + '。その後に圏外で押した分は、この画面からは分かりません。</p>' : '') +
     (!ok ? '<p class="err">' + (un ? 'この端末に送信待ちがあります。届いてから始めてください。' : 'サーバーで確認できていません。電波を確かめてください。') + '</p>' : '') +
+    (cur ? '<p><b>' + esc(closingSummary()) + '</b></p>' : '') +
     '<div class="field"><label for="evNameIn">回の名前</label><input class="input" id="evNameIn" maxlength="30" value="' + esc(defaultEventName()) + '"></div>' +
     '<div class="actions"><button class="btn primary" id="evYes" type="button"' + (ok ? '' : ' disabled') + '>始める</button><button class="btn ghost" id="evNo" type="button">やめる</button></div>';
   $('ov').hidden = false;
@@ -1032,7 +1047,7 @@ function openNewEvent() {
     if (!canStartEvent() || unsent().length) { closeSheet(); toast('開催回と送信状況を確認してから、もう一度開いてください', true); return; }
     const name = $('evNameIn').value.trim() || defaultEventName();
     const d = new Date(), e = 'e' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + Math.random().toString(36).slice(2, 6);
-    const writes = W.newEvent(ROOT, seen, Boolean(seen), e, name, seen && S.events[seen] ? courtsOf(S.events[seen]) : 0);
+    const writes = W.newEvent(ROOT, seen, Boolean(seen), e, name, seen && S.events[seen] ? courtsOf(S.events[seen]) : 0, seen ? closingData(seen) : null);
     closeSheet();
     B.commit(writes).then(() => toast('「' + name + '」を始めました'), (err) => {
       toast((err && err.code) === 'permission-denied' ? 'ほかの端末で先に回が始まったため、始めませんでした。いまの回を表示します' : '始められませんでした（' + ((err && err.code) || '') + '）', true);
@@ -1643,6 +1658,170 @@ function rebuildNow() {
   toast('対戦表を作り直しました（入力済みの試合はそのまま）');
 }
 
+
+/* ===== 締めと記録（11/22版のリセットと記録から移植）=====
+   締めるとき：結果が1件でもあれば、その回の順位（events.final）と、チームに入っていた人の1人1件の記録（hist）を残す。結果がない回は記録を作らない。
+   記録は名簿の番号（rid）に結び付く。まとめた人（mergedInto）の記録は、まとめ先の人の記録として数える（記録そのものは書き換えない）。 */
+const SEASON_START = '2025-11-22';
+function jstDate(ms) { const d = new Date(ms + 9 * 3600000); return d.toISOString().slice(0, 10); }
+function evDate(ev) { return (ev && ev.date) || (ev && num(ev.createdAt) ? jstDate(num(ev.createdAt)) : jstDate(Date.now())); }
+const fmtDate = (d) => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d || ''); return m ? m[1] + '/' + (+m[2]) + '/' + (+m[3]) : (d || ''); };
+function closingData(eid) {
+  if (eid !== S.cur) return null;
+  const ev = S.events[eid] || {}, teams = evTeams(ev), ms = evMatches(ev);
+  if (!ms.some(hasRes)) return { ev: { final: null, noResult: true }, hist: [] };
+  const ps = people(), st = standings(teams, ms, ps), date = evDate(ev), by = {};
+  st.forEach((x) => { by[x.no] = x; });
+  return {
+    ev: { final: { date, teams: st.length, standings: st.map((x) => ({ rank: x.rank, name: x.name, members: x.members, played: x.played, total: x.total, avg: x.avg })) }, noResult: false },
+    hist: ps.filter((p) => p.team && by[p.team]).map((p) => { const x = by[p.team]; return { id: eid + '_' + p.id, data: { eid, ename: ev.name || '', date, rid: p.id, name: p.name, team: x.name, members: x.members, rank: x.rank, teams: st.length, played: x.played, total: x.total, at: TS } }; })
+  };
+}
+function closingSummary() {
+  const c = closingData(S.cur); if (!c) return '';
+  if (!c.hist.length) return 'この回は試合の結果が1件もないので、順位や参加の記録は作りません。';
+  const top = c.ev.final.standings.filter((x) => x.rank === 1);
+  return 'この回の順位と、' + c.hist.length + '人の参加の記録を残します（1位：' + top.map((x) => x.name + '［' + x.members.join('・') + '］').join('／') + '）。';
+}
+function histRows() { const rm = rosterById(); return S.hist.map((h) => ({ ...h, pid: resolveId(h.rid, rm) })); }
+/* 人ごとの数（参加は大会の日付で数える。同じ日が2件あっても1回） */
+function personStats(season) {
+  const out = {};
+  histRows().forEach((h) => {
+    if (season && (h.date || '') < SEASON_START) return;
+    const o = out[h.pid] || (out[h.pid] = { n: 0, win: 0, top3: 0, dates: {} });
+    if (o.dates[h.date]) return;
+    o.dates[h.date] = 1; o.n++; if (h.rank === 1) o.win++; if (h.rank <= 3) o.top3++;
+  });
+  return out;
+}
+const REC = { scope: 'all', q: '' };
+function liveRoster() { return S.roster.filter((r) => !r.mergedInto); }
+function renderRec() {
+  if (!S.mode) return;
+  const st = personStats(REC.scope === 'season'), rm = rosterById(), q = norm(REC.q);
+  const mergedBy = {}; S.roster.forEach((r) => { if (r.mergedInto) (mergedBy[resolveId(r.id, rm)] = mergedBy[resolveId(r.id, rm)] || []).push(r.name); });
+  const list = liveRoster().filter((r) => !q || norm(r.name).includes(q) || (mergedBy[r.id] || []).some((n) => norm(n).includes(q)))
+    .map((r) => ({ r, s: st[r.id] || { n: 0, win: 0, top3: 0 } })).sort((a, b) => b.s.n - a.s.n || b.s.win - a.s.win || (a.r.name < b.r.name ? -1 : 1));
+  document.querySelectorAll('#recScope [data-sc]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.sc === REC.scope ? 'true' : 'false'));
+  $('recCount').textContent = '記録 ' + new Set(S.hist.map((h) => h.date)).size + '大会・' + liveRoster().length + '人';
+  $('recList').innerHTML = list.length ? list.map((x) => '<li><button type="button" class="prow" data-pp="' + esc(x.r.id) + '"><span class="pname">' + esc(x.r.name) + '</span>' +
+    (mergedBy[x.r.id] ? '<span class="tag cy">' + esc('まとめた人：' + mergedBy[x.r.id].join('・')) + '</span>' : '') +
+    '<span class="rstat"><span>参加 ' + x.s.n + '回</span>' + (x.s.win ? '<span>優勝 ' + x.s.win + '</span>' : '') + (x.s.top3 ? '<span>3位以内 ' + x.s.top3 + '</span>' : '') + '</span></button></li>').join('')
+    : '<li class="muted">' + (q ? '「' + esc(REC.q) + '」に当てはまる人はいません' : 'まだ名簿がありません') + '</li>';
+  $('recList').querySelectorAll('[data-pp]').forEach((b) => { b.onclick = () => openPerson(b.dataset.pp); });
+}
+$('recQ').addEventListener('input', () => { REC.q = $('recQ').value; renderRec(); });
+document.querySelectorAll('#recScope [data-sc]').forEach((b) => { b.onclick = () => { REC.scope = b.dataset.sc; renderRec(); }; });
+function recOp(label, w) {
+  if (needEvent()) return false;
+  const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: 'rec', name: label }], tapAt: now() };
+  runOp(op, w); return true;
+}
+/* 1人の記録：まとめる・まとめを元に戻す・記録を分ける */
+function openPerson(pid) {
+  const rm = rosterById(), me = rm[pid]; if (!me || me.mergedInto) return;
+  const rows = histRows().filter((h) => h.pid === pid).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const s = personStats(false)[pid] || { n: 0, win: 0, top3: 0 };
+  const merged = S.roster.filter((r) => r.mergedInto === pid);
+  const others = liveRoster().filter((r) => r.id !== pid).sort((a, b) => (a.name < b.name ? -1 : 1));
+  const opt = (r) => '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>';
+  $('sheet').innerHTML = '<h2 id="sheetTitle">' + esc(me.name) + 'さんの記録</h2>' +
+    '<p>参加 ' + s.n + '回・優勝 ' + s.win + '回・3位以内 ' + s.top3 + '回（通算）</p>' +
+    (rows.length ? '<ul class="hrows">' + rows.map((h) => '<li><label><input type="checkbox" data-hr="' + esc(h.id) + '"><span><b>' + esc(fmtDate(h.date)) + '</b> ' + esc(h.ename || '') +
+      '<br><small>' + esc(h.team || '') + '・' + h.rank + '位／' + h.teams + 'チーム・' + h.total + '点' + (h.rid !== pid ? '・記録の名前「' + esc((rm[h.rid] || {}).name || h.name) + '」' : '') + '</small></span></label></li>').join('') + '</ul>'
+      : '<p class="muted">まだ大会の記録がありません。</p>') +
+    (rows.length ? '<div class="subbox"><b>チェックした記録を、別の人の記録にする</b><p class="muted" style="margin:2px 0 6px">同じ名前の別の人の記録が混ざっていたときに使います。</p>' +
+      '<div class="field"><label for="spTo">移す先</label><select class="input" id="spTo"><option value="">（選んでください）</option><option value="_new">新しい人として名簿に入れる</option>' + others.map(opt).join('') + '</select></div>' +
+      '<div class="field" id="spNewBox" hidden><label for="spNew">新しい人の名前</label><input class="input" id="spNew" maxlength="30" autocomplete="off"></div>' +
+      '<p class="err" id="spErr"></p><button class="btn small" id="spGo" type="button">記録を移す</button></div>' : '') +
+    '<div class="subbox"><b>ほかの人とまとめる（同じ人だったとき）</b><p class="muted" style="margin:2px 0 6px">名前を間違えて登録したなどで、同じ人の記録が2人に分かれているときに使います。あとで元に戻せます。</p>' +
+      '<div class="field"><label for="mgWith">まとめる相手</label><select class="input" id="mgWith"><option value="">（選んでください）</option>' + others.map(opt).join('') + '</select></div>' +
+      '<div id="mgMore" hidden></div></div>' +
+    (merged.length ? '<div class="subbox"><b>まとめた人</b><ul class="hrows">' + merged.map((r) => '<li><span><b>' + esc(r.name) + '</b>' + (num(r.mergedAt) ? ' <small class="muted">' + esc(fmtDate(jstDate(num(r.mergedAt)))) + 'にまとめた</small>' : '') + '</span>' +
+      (r.keepNameBefore && r.keepNameBefore !== me.name ? '<label class="switch" style="margin-top:4px"><input type="checkbox" data-rn="' + esc(r.id) + '" checked><span class="tr"></span>' + esc(me.name) + 'さんの名前を「' + esc(r.keepNameBefore) + '」に戻す</label>' : '') +
+      '<button class="btn small ghost" type="button" data-um="' + esc(r.id) + '">元に戻す（別の人にする）</button></li>').join('') + '</ul></div>' : '') +
+    '<div class="actions"><button class="btn ghost" id="ppClose" type="button">閉じる</button></div>';
+  $('ov').hidden = false;
+  $('ppClose').onclick = closeSheet;
+  const checked = () => [...$('sheet').querySelectorAll('[data-hr]:checked')].map((c) => rows.find((h) => h.id === c.dataset.hr));
+  /* 記録を分ける */
+  if ($('spGo')) {
+    $('spTo').onchange = () => { $('spNewBox').hidden = $('spTo').value !== '_new'; };
+    let armed = false;
+    $('spGo').onclick = () => {
+      const sel = checked(), to = $('spTo').value, err = (m) => { $('spErr').textContent = m; armed = false; $('spGo').textContent = '記録を移す'; };
+      if (!sel.length) return err('移す記録にチェックを入れてください');
+      if (!to) return err('移す先を選んでください');
+      let target = to, w = [], tname;
+      if (to === '_new') {
+        tname = $('spNew').value.trim().replace(/\s+/g, ' ').slice(0, 30);
+        if (!tname) return err('新しい人の名前を入れてください');
+        if (liveRoster().some((r) => norm(r.name) === norm(tname))) return err('名簿に「' + tname + '」さんがいます。移す先の一覧から選んでください');
+        target = rid('n'); w.push({ op: 'set', path: ROOT + '/roster/' + target, data: { name: tname, norm: norm(tname), exp: false, beg: false, createdAt: TS, createdIn: 'split' } });
+      } else tname = rm[to].name;
+      const theirDates = new Set(histRows().filter((h) => h.pid === target).map((h) => h.date)), clash = sel.filter((h) => theirDates.has(h.date));
+      if (!armed) { armed = true; $('spErr').textContent = clash.length ? '注意：' + tname + 'さんには同じ日の記録がすでにあります（' + clash.map((h) => fmtDate(h.date)).join('・') + '）。それでもよければ、もう一度押してください' : ''; $('spGo').textContent = 'もう一度押すと ' + sel.length + '件を' + tname + 'さんへ移します'; $('spGo').classList.add('primary'); return; }
+      sel.forEach((h) => w.push({ op: 'update', path: ROOT + '/hist/' + h.id, data: { rid: target, movedFrom: h.rid, movedAt: TS } }));
+      if (recOp(me.name + 'さんの記録' + sel.length + '件を' + tname + 'さんへ', w)) { closeSheet(); toast(sel.length + '件の記録を' + tname + 'さんへ移しました'); }
+    };
+  }
+  /* まとめる */
+  $('mgWith').onchange = () => {
+    const other = rm[$('mgWith').value];
+    if (!other) { $('mgMore').hidden = true; return; }
+    const myDates = new Set(rows.map((h) => h.date)), clash = histRows().filter((h) => h.pid === other.id && myDates.has(h.date));
+    $('mgMore').hidden = false;
+    $('mgMore').innerHTML = (clash.length ? '<p class="warnline">' + esc(me.name) + 'さんと' + esc(other.name) + 'さんは、同じ日の大会に両方の記録があります（' + esc([...new Set(clash.map((h) => fmtDate(h.date)))].join('・')) + '）。同じ人なら起きないはずなので、別の人かもしれません。</p>' : '') +
+      '<p style="margin:6px 0 4px"><b>残す名前</b></p><div class="mg-names">' +
+      '<label><input type="radio" name="mgName" value="me" checked> ' + esc(me.name) + '</label><label><input type="radio" name="mgName" value="other"> ' + esc(other.name) + '</label>' +
+      '<label><input type="radio" name="mgName" value="new"> ほかの名前：<input class="input" id="mgNew" maxlength="30" autocomplete="off"></label></div>' +
+      '<p class="err" id="mgErr"></p><button class="btn small" id="mgGo" type="button">' + esc(other.name) + 'さんを' + esc(me.name) + 'さんとまとめる</button>';
+    let armed = false;
+    $('mgGo').onclick = () => {
+      const pick = (($('sheet').querySelector('[name=mgName]:checked') || {}).value) || 'me';
+      const nn = pick === 'me' ? me.name : pick === 'other' ? other.name : $('mgNew').value.trim().replace(/\s+/g, ' ').slice(0, 30);
+      if (!nn) { $('mgErr').textContent = '残す名前を入れてください'; return; }
+      if (nn !== me.name && nn !== other.name && liveRoster().some((r) => r.id !== pid && r.id !== other.id && norm(r.name) === norm(nn))) { $('mgErr').textContent = '名簿に「' + nn + '」さんがほかにもいます。別の名前にしてください'; return; }
+      if (!armed) { armed = true; $('mgGo').textContent = 'もう一度押すとまとめます（残す名前「' + nn + '」）'; $('mgGo').classList.add('primary'); return; }
+      /* いまの回に、まとめられる側（other）が受付済みなら、受付のまとめと同じ書き込みにする */
+      const inNow = S.cur && S.checkins.some((c) => c.id === other.id), keepIn = people().some((x) => x.id === pid);
+      let w;
+      if (inNow) { w = W.merge(ROOT, S.cur, { id: pid, name: nn, isNew: false }, { id: other.id, name: other.name, rawId: other.id }, rid('o'), !keepIn, now()); w[0].data.keepNameBefore = me.name; }
+      else w = [{ op: 'update', path: ROOT + '/roster/' + other.id, data: { mergedInto: pid, mergedAt: TS, keepNameBefore: me.name } }];
+      if (nn !== me.name) w.push({ op: 'update', path: ROOT + '/roster/' + pid, data: { name: nn, norm: norm(nn) } });
+      if (recOp(other.name + 'さんを' + nn + 'さんとまとめる', w)) { closeSheet(); toast(other.name + 'さんを' + nn + 'さんとまとめました。記録は合わせて数えます'); }
+    };
+  };
+  /* まとめを元に戻す */
+  $('sheet').querySelectorAll('[data-um]').forEach((b) => {
+    let armed = false;
+    b.onclick = () => {
+      const r = rm[b.dataset.um]; if (!r) return;
+      if (!armed) { armed = true; b.textContent = 'もう一度押すと、' + r.name + 'さんを別の人に戻します'; b.classList.remove('ghost'); b.classList.add('primary'); return; }
+      const w = [{ op: 'update', path: ROOT + '/roster/' + r.id, data: { mergedInto: '', unmergedAt: TS } }];
+      const back = $('sheet').querySelector('[data-rn="' + r.id + '"]');
+      if (back && back.checked) w.push({ op: 'update', path: ROOT + '/roster/' + pid, data: { name: r.keepNameBefore, norm: norm(r.keepNameBefore) } });
+      if (recOp(r.name + 'さんのまとめを元に戻す', w)) { closeSheet(); toast(r.name + 'さんを別の人に戻しました。記録も分かれて数えます'); }
+    };
+  });
+}
+/* テスト用：架空の過去の記録（3大会分）と、名前を間違えて登録した人（ハルト＝はると） */
+function seedHistory() {
+  const live = liveRoster().filter((r) => /^r\d\d$/.test(r.id)).sort((a, b) => (a.id < b.id ? -1 : 1));
+  if (live.length < 16) { toast('先に架空の名簿24人を入れてください', true); return; }
+  if (S.hist.some((h) => /^past/.test(h.eid))) { toast('架空の記録はもう入っています'); return; }
+  const w = [{ op: 'set', path: ROOT + '/roster/r90', data: { name: 'ハルト', norm: norm('ハルト'), exp: false, beg: false, createdAt: TS } }];
+  [['2026-08-02', 0], ['2026-09-06', 1], ['2026-10-04', 2]].forEach(([date, k]) => {
+    const ps = [live[0]].concat(live.slice(1 + k * 2, 16 + k * 2)), teams = 4; // はると（r01）は毎回出る
+    ps.forEach((r, i) => {
+      const t = i % teams, rank = ((t + k) % teams) + 1, id = (k === 1 && r.id === 'r01') ? 'r90' : r.id; // 9月は「はると」を「ハルト」と間違えて登録した
+      w.push({ op: 'set', path: ROOT + '/hist/past' + k + '_' + id, data: { eid: 'past' + k, ename: (8 + k) + '月の月いち（架空）', date, rid: id, name: id === 'r90' ? 'ハルト' : r.name, team: 'チーム' + (t + 1), members: [], rank, teams, played: 3, total: 300 - rank * 20, at: TS } });
+    });
+  });
+  B.commit(w).then(() => toast('架空の過去の記録（3大会）を入れました'), (e) => toast('入れられませんでした（' + ((e && e.code) || '') + '）', true));
+}
+
 /* ===== タブ ===== */
 function showPhase(ph) {
   S.phase = ph; ls.set('phase', ph);
@@ -1651,7 +1830,8 @@ function showPhase(ph) {
   $('ph-team').hidden = ph !== 'team';
   $('ph-game').hidden = ph !== 'game';
   $('ph-other').hidden = ph !== 'rec';
-  $('otherH').textContent = { rec: '記録' }[ph] || '';
+  $('otherH').textContent = '記録';
+  if (ph === 'rec') renderRec();
   if (ph === 'team') renderTeam();
   if (ph === 'game') renderGame();
   document.querySelectorAll('.nb').forEach((b) => b.setAttribute('aria-current', b.dataset.ph === ph ? 'page' : 'false'));
@@ -1738,6 +1918,12 @@ $('selfBtn').onclick = async () => {
     await tryW('まとめたBに受付（断られるはず）', W.checkin(R, e1, [Bp], 'ob' + t, now(), null), 'denied');
     await tryW('自分自身にまとめる（断られるはず）', [{ op: 'update', path: R + '/roster/' + ppl[3].id, data: { mergedInto: ppl[3].id } }], 'denied');
     await tryW('まとめ済みのBへまとめる（断られるはず）', [{ op: 'update', path: R + '/roster/' + ppl[3].id, data: { mergedInto: Bp.id } }], 'denied');
+    await tryW('まとめを元に戻すついでに名前も変える（断られるはず）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS, name: 'X' } }], 'denied');
+    await tryW('まとめを元に戻す操作（アプリと同じ）', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: '', unmergedAt: TS } }], 'ok');
+    await tryW('戻したBを、もう一度Aにまとめる', [{ op: 'update', path: R + '/roster/' + Bp.id, data: { mergedInto: A.id, mergedAt: TS, keepNameBefore: A.name } }], 'ok');
+    await tryW('大会の記録を書く', [{ op: 'set', path: R + '/hist/h1' + t, data: { eid: e1, date: '2026-01-01', rid: ppl[3].id, name: ppl[3].name, rank: 1, teams: 4, at: TS } }], 'ok');
+    await tryW('記録を別の人へ移す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[4].id, movedFrom: ppl[3].id, movedAt: TS } }], 'ok');
+    await tryW('大会の記録を消す（断られるはず）', [{ op: 'delete', path: R + '/hist/h1' + t }], 'denied');
     await tryW('名簿にない人だけの受付（断られるはず）', [{ op: 'set', path: R + '/events/' + e1 + '/checkins/zz' + t, data: { name: 'Z' } }], 'denied');
     { const r = await run(W.checkin(R, e1, ppl.slice(4), 'oz' + t, now(), null).concat([W.opDoc(R, { id: 'oz' + t, type: 'in', eid: e1, items: ppl.slice(4), tapAt: now() })]));
       res.push(['（参考）20人を分けずに1回で受付', 'info', r === 'ok' ? '書けた（この環境では上限に届かなかった）' : r === 'denied' ? '断られた（だから' + CHUNK + '人ずつに分けています）' : '判定不能（' + r.slice(6) + '）']); }
@@ -1774,6 +1960,7 @@ $('seedBtn').onclick = () => {
   B.commit(FAKE.map((n, i) => ({ op: 'set', path: ROOT + '/roster/r' + pad(i + 1), data: { name: n, norm: norm(n), exp: i % 4 === 0, level: i % 4 === 0 ? [9, 7, 6, 5, 4, 2][i / 4] : null, beg: i % 4 !== 0 && i % 7 === 3, createdAt: TS } })))
     .then(() => toast('架空の名簿24人を入れました'), (e) => toast('入れられませんでした（' + ((e && e.code) || '') + '）', true));
 };
+$('seedHist').onclick = seedHistory;
 $('demoOffline').onchange = () => { if (B && B.setOffline) B.setOffline($('demoOffline').checked); renderBar(); };
 $('logout').onclick = async () => { try { await B.logout(); } catch (e) {} ls.set('mode', ''); location.reload(); };
 /* この端末からデータを消す：送信待ち・届かなかった操作があるあいだは消さない */
@@ -1894,6 +2081,6 @@ $('rulesCopy').onclick = () => {
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
 };
-window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes };
+window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows };
 
 boot();

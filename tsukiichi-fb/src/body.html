@@ -126,12 +126,20 @@
         </div>
       </section>
 
-      <!-- ===== まだ作っていないタブ ===== -->
+      <!-- ===== 記録 ===== -->
       <section class="panel" id="ph-other" hidden>
         <div class="box">
-          <h2 class="h" id="otherH">チーム</h2>
-          <p>記録（参加回数・優勝・覇王戦・過去の結果）と、今月の締めはこのあと作ります。</p>
-          <p class="muted" style="margin:0">記録タブには、リセットの前に「バックアップを保存」（NASへ入れる用のファイル）を入れる予定です。</p>
+          <div class="sec-h"><h2 class="h" id="otherH">記録</h2><span class="stat" id="recCount"></span></div>
+          <p class="muted" style="margin-top:0">回を締めると、その回の順位と、参加した人の記録が残ります。名前を押すと、その人の大会ごとの記録が出ます。名前を間違えて2人に分かれた人はまとめ、別の人の記録が混ざっていたら分けられます。</p>
+          <div class="field"><label for="recQ">名前で探す</label><input class="input" id="recQ" type="search" autocomplete="off" placeholder="名前の一部"></div>
+          <div class="chiprow" id="recScope" style="margin:8px 0">
+            <button class="chip" type="button" data-sc="all" aria-pressed="true">通算</button>
+            <button class="chip" type="button" data-sc="season" aria-pressed="false">今季（2025/11/22〜）</button>
+          </div>
+          <ul class="plist2" id="recList"></ul>
+        </div>
+        <div class="box plain">
+          <p class="muted" style="margin:0">覇王戦・過去の優勝の追加・スプレッドシートからの記録の取り込み・「バックアップを保存」はこのあと作ります。</p>
         </div>
       </section>
 
@@ -163,7 +171,7 @@
         <div class="box">
           <h2 class="h">開催回</h2>
           <p id="evNow" style="margin-top:0"></p>
-          <p class="muted">受付は開催回ごとに分けて保存します。新しい回を始めると、いまの回は締められ、あとから圏外の端末の受付・取消が届いても受け付けません。</p>
+          <p class="muted">受付は開催回ごとに分けて保存します。新しい回を始めると、いまの回は締められ（試合の結果があれば、順位と参加した人の記録を残します）、あとから圏外の端末の受付・取消が届いても受け付けません。</p>
           <button class="btn" id="evNew" type="button">新しい回を始める</button>
           <div class="field" style="margin-top:12px"><label for="courtIn">コート数（この回）</label>
             <div class="actions" style="margin-top:0"><input class="input" id="courtIn" inputmode="numeric" maxlength="2" style="flex:0 1 6em"><button class="btn" id="courtSave" type="button">決める</button></div>
@@ -190,6 +198,7 @@
           <h2 class="h">テスト用の操作</h2>
           <div class="actions">
             <button class="btn" id="seedBtn" type="button">架空の名簿24人を入れる</button>
+            <button class="btn" id="seedHist" type="button">架空の過去の記録を入れる</button>
           </div>
           <div class="subbox" id="demoNet" hidden>
             <label class="switch"><input type="checkbox" id="demoOffline"><span class="tr"></span>電波なしにする（練習用）</label>

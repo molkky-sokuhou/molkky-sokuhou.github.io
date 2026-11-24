@@ -42,9 +42,15 @@ function fakeServerCommit(db, writes, now) {
       const box = p[1], id = p[3];
       if (del) ok = false;
       else if (!before) ok = !(next && next.mergedInto);
-      else ok = !before.mergedInto && (!next.mergedInto || (next.mergedInto !== id && notMerged(box, next.mergedInto)));
+      else if (!before.mergedInto) ok = !next.mergedInto || (next.mergedInto !== id && notMerged(box, next.mergedInto));
+      else {
+        /* まとめを元に戻す：mergedInto を空にして unmergedAt（サーバー時刻）を書く。ほかの項目は変えない */
+        const keys = new Set(Object.keys(before).concat(Object.keys(next))), changed = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k]));
+        ok = !next.mergedInto && next.unmergedAt === now && changed.every((k) => k === 'mergedInto' || k === 'unmergedAt');
+      }
     }
     else if (p[0] === 'staff' && p.length === 4 && (p[2] === 'metrics' || p[2] === 'ping')) ok = true;
+    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'hist') ok = !del;
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'events') {
       if (del) ok = false;
       else if (!before) { const bx = getAfter('staff/' + p[1]); ok = next.status === 'open' && !!bx && bx.currentEvent === p[3]; }

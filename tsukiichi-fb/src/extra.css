@@ -109,3 +109,16 @@
 #cfErr:empty { display: none; }
 .tcard .thd .tm-meta { white-space: nowrap; }
 .nm1 { white-space: nowrap; }
+/* 記録 */
+.hrows { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.hrows li { background: var(--panel-2); border-radius: 10px; padding: 8px 10px; display: grid; gap: 4px; }
+.hrows label { display: flex; gap: 8px; align-items: flex-start; }
+.hrows input[type=checkbox] { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; }
+.hrows small { color: var(--muted); font-weight: 700; }
+.mg-names { display: grid; gap: 6px; }
+.mg-names label { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-weight: 700; }
+.mg-names .input { flex: 1 1 8em; min-width: 0; }
+.sheet .subbox { margin-top: 12px; }
+#recList .prow { flex-wrap: wrap; }
+.rstat { margin-left: auto; display: flex; flex-wrap: wrap; gap: 2px 8px; justify-content: flex-end; font-size: .82rem; font-weight: 900; color: var(--muted); }
+.rstat span { white-space: nowrap; }
