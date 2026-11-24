@@ -1,0 +1,26 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>月いちモルック｜運営テスト</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#211e1b;color:#fff8e8;font:16px/1.6 system-ui,sans-serif}header,main,nav{max-width:680px;margin:auto;padding:20px}header{border-bottom:1px solid #665d50;display:flex;align-items:center;justify-content:space-between}header strong{letter-spacing:.05em}header span{color:#ffc29c;font-size:14px}h1{font-size:clamp(32px,8vw,52px);margin:12px 0 4px;letter-spacing:-.04em}h2{font-size:22px;margin:0}p{margin:0 0 18px;color:#d3c9b9}nav{display:flex;gap:8px;padding-bottom:0}button{font:inherit;cursor:pointer;border:0;border-radius:10px;font-weight:700}nav button{padding:10px 20px;background:#35302b;color:#fff8e8}nav [aria-pressed=true],.save{background:#ff665c;color:#211814}article{padding:16px;border-radius:14px;background:#302b26;border:1px solid #584e42;margin:12px 0}article label,.row{display:flex;align-items:center;justify-content:space-between;gap:12px}input[type=checkbox]{height:24px;width:24px;accent-color:#ffc086}small{display:block;color:#d3c9b9;font-size:14px}input[type=number]{font:700 22px system-ui;width:90px;padding:8px;color:#fff;background:#211e1b;border:1px solid #938777;border-radius:8px}.row{padding:10px 0}.save{width:100%;padding:12px;margin-top:12px}select{font:inherit;padding:8px;border-radius:8px}.saved{color:#a9e5cf}#notice{color:#ffe39c}main{padding-top:8px}
+</style><header><strong>月いちモルック</strong><span>運営テスト版</span></header><nav aria-label="運営メニュー"><button id="reg">受付</button><button id="play">試合結果</button></nav><main><h1 id="title"></h1><p id="summary"></p><div id="content"></div><p id="notice" role="status"></p><small>架空の大会データをこのブラウザに保存します。</small></main>
+<script>
+const teams='ABCDEFGH';
+const names=['あお・そら','うみ・なぎ','はる・ひな','けい・りく','れん・ゆい','つき・ほし','あき・ふゆ','りん・さく'];
+const rounds=['AH BG CF DE','AG FH BE CD','AF EG DH BC','AE DF CG BH','AD CE BF GH','AC BD EH FG','AB CH DG EF'];
+const key='tsukiichi-operator-demo-v1';
+const el=id=>document.getElementById(id);
+let state={checked:{},scores:{}}, round=0;
+try{const data=JSON.parse(localStorage.getItem(key));if(data?.checked&&data?.scores)state=data}catch{}
+function persist(){try{localStorage.setItem(key,JSON.stringify(state));return true}catch{el('notice').textContent='端末に保存できないため、この画面内でのみ保持します。';return false}}
+function count(){el('summary').textContent=Object.values(state.checked).filter(Boolean).length+' / 8 チーム受付済み'}
+function render(matches){
+el('reg').setAttribute('aria-pressed',String(!matches));el('play').setAttribute('aria-pressed',String(matches));
+el('notice').textContent='';el('title').textContent=matches?'試合結果':'チーム受付';
+const area=el('content');area.replaceChildren();
+if(!matches){count();[...teams].forEach((t,i)=>{const card=document.createElement('article');card.innerHTML='<label><span><b>チーム '+t+'</b><small>'+names[i]+'</small></span><input type="checkbox" aria-label="チーム '+t+' 受付済み"></label>';const box=card.querySelector('input');box.checked=!!state.checked[t];box.onchange=()=>{state.checked[t]=box.checked;persist();count()};area.append(card)});return}
+el('summary').textContent='対戦ごとに両チームの合計点を入力してください。';
+const select=document.createElement('select');select.setAttribute('aria-label','試合回');rounds.forEach((_,i)=>select.add(new Option('第 '+(i+1)+' 試合',i)));select.value=round;select.onchange=()=>{round=Number(select.value);render(true)};area.append(select);
+rounds[round].split(' ').forEach((pair,i)=>{const form=document.createElement('form');const card=document.createElement('article');card.innerHTML='<h2>第 '+(i+1)+' コート</h2>';const saved=state.scores[pair];
+[...pair].forEach((t,n)=>{const label=document.createElement('label');label.className='row';label.innerHTML='<span><b>チーム '+t+'</b><small>'+names[teams.indexOf(t)]+'</small></span><input aria-label="チーム '+t+' 合計点" type="number" inputmode="numeric" min="0" step="1" required>';label.querySelector('input').value=saved?.[n]??'';card.append(label)});
+const button=document.createElement('button');button.className='save';button.textContent=saved?'合計点を更新':'合計点を保存';const msg=document.createElement('small');msg.className='saved';msg.setAttribute('role','status');if(saved)msg.textContent='登録済み';card.append(button,msg);form.append(card);form.oninput=()=>{msg.textContent='未保存'};form.onsubmit=e=>{e.preventDefault();state.scores[pair]=Array.from(form.querySelectorAll('input'),input=>input.valueAsNumber);msg.textContent=persist()?'保存しました':'画面内で登録しました';button.textContent='合計点を更新'};area.append(form)})}
+el('reg').onclick=()=>render(false);el('play').onclick=()=>render(true);render(false);
+</script></html>
