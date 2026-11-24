@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>月いちモルック 受付</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+
+/* Layout: ポスターの砂利コートを地に、赤い極太見出し・水色の白フチ文字・黄色の雲バッジを引き継ぐ1カラムのスマホ向けアプリ */
+:root {
+  --bg: #ece2cd;
+  --grit-a: rgba(110, 92, 62, .22);
+  --grit-b: rgba(255, 255, 255, .55);
+  --panel: #fffdf6;
+  --panel-2: #f6efe0;
+  --ink: #1d2230;
+  --muted: #5d6170;
+  --line: #cfc3a8;
+  --frame: #6b6440;
+  --red: #e2141c;
+  --red-deep: #a90e14;
+  --title-shadow: #1c2a4e;
+  --cyan: #1687c4;
+  --cyan-soft: #def1fa;
+  --halo: #ffffff;
+  --yellow: #f7c614;
+  --yellow-ink: #3b2f00;
+  --good: #1d7f48;
+  --good-soft: #dff3e6;
+  --warn-soft: #fff1c9;
+  --danger-soft: #fde3e3;
+  --f-display: "Dela Gothic One", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --f-body: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #221f1a; --grit-a: rgba(255, 240, 210, .07); --grit-b: rgba(0, 0, 0, .35);
+    --panel: #2d2923; --panel-2: #36312a; --ink: #f4efe4; --muted: #bdb4a4; --line: #4b4439; --frame: #8f8758;
+    --red: #ff4a50; --red-deep: #ff7b7f; --title-shadow: #000000; --cyan: #5cc4f2; --cyan-soft: #1c3542; --halo: #10202a;
+    --yellow: #f7c614; --yellow-ink: #3b2f00; --good: #5fd18f; --good-soft: #1d3527; --warn-soft: #3c3317; --danger-soft: #45201f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #221f1a; --grit-a: rgba(255, 240, 210, .07); --grit-b: rgba(0, 0, 0, .35);
+  --panel: #2d2923; --panel-2: #36312a; --ink: #f4efe4; --muted: #bdb4a4; --line: #4b4439; --frame: #8f8758;
+  --red: #ff4a50; --red-deep: #ff7b7f; --title-shadow: #000000; --cyan: #5cc4f2; --cyan-soft: #1c3542; --halo: #10202a;
+  --yellow: #f7c614; --yellow-ink: #3b2f00; --good: #5fd18f; --good-soft: #1d3527; --warn-soft: #3c3317; --danger-soft: #45201f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: var(--f-body);
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 20% 30%, var(--grit-a) 0 1.2px, transparent 1.6px),
+    radial-gradient(circle at 70% 80%, var(--grit-a) 0 1.6px, transparent 2px),
+    radial-gradient(circle at 45% 60%, var(--grit-b) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 85% 15%, var(--grit-a) 0 1px, transparent 1.4px);
+  background-size: 11px 13px, 17px 19px, 9px 7px, 23px 21px;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 16px; }
+
+/* ---------- hero ---------- */
+.hero { padding-block: 18px 8px; display: grid; gap: 6px; }
+.org { font-weight: 900; font-size: .85rem; letter-spacing: .08em; color: var(--muted); }
+.title {
+  margin: 0; font-family: var(--f-display); font-weight: 400;
+  font-size: clamp(2.6rem, 13vw, 4.4rem); line-height: 1.02; letter-spacing: .01em;
+  color: var(--red); text-shadow: 3px 4px 0 var(--title-shadow);
+  text-wrap: balance;
+}
+.title .kaisai { font-size: .42em; color: var(--ink); text-shadow: 2px 2px 0 var(--halo); margin-left: .3em; vertical-align: .15em; }
+.hero-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 6px; }
+.facts { display: grid; gap: 4px; min-width: 0; }
+.when { font-family: var(--f-display); color: var(--red); font-size: clamp(1.3rem, 6vw, 1.75rem); line-height: 1.25; text-shadow: 2px 2px 0 var(--title-shadow); }
+.where { font-weight: 900; color: var(--cyan); font-size: 1.02rem; line-height: 1.45;
+  text-shadow: -1.5px -1.5px 0 var(--halo), 1.5px -1.5px 0 var(--halo), -1.5px 1.5px 0 var(--halo), 1.5px 1.5px 0 var(--halo); }
+.where small { display: block; font-size: .85rem; }
+.photo { position: relative; justify-self: center; width: min(100%, 290px); }
+@media (min-width: 620px) { .photo { width: min(100%, 360px); } }
+.photo img { display: block; width: 100%; height: auto; border-radius: 50% 50% 18px 18px / 30% 30% 18px 18px; }
+.cloud {
+  position: absolute; right: -6px; bottom: -10px; background: var(--yellow); color: var(--yellow-ink);
+  padding: 10px 18px 10px; border-radius: 48% 52% 46% 54% / 60% 55% 45% 40%;
+  box-shadow: 0 0 0 3px #fff8d6, 4px 5px 0 rgba(0,0,0,.18); text-align: center; line-height: 1.15;
+  font-weight: 900; transform: rotate(-4deg);
+}
+.cloud b { display: block; font-family: var(--f-display); font-weight: 400; font-size: 1.35rem; }
+@media (min-width: 620px) {
+  .hero-grid { grid-template-columns: 1.2fr 1fr; align-items: center; }
+}
+.org-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.to-admin { flex: 0 0 auto; border: 2px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 4px 12px; font-weight: 900; font-size: .8rem; text-decoration: none; white-space: nowrap; }
+.to-admin:hover { border-color: var(--ink); color: var(--ink); }
+.demo-bar { margin-top: 10px; background: var(--warn-soft); border: 2px dashed var(--frame); border-radius: 10px; padding: 8px 12px; font-size: .88rem; }
+
+/* ---------- tabs ---------- */
+.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); padding-block: 8px; margin-top: 10px; }
+.tabs-in { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.tabs-in::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 0 0 auto; border: 2.5px solid var(--ink); background: var(--panel); color: var(--ink);
+  border-radius: 999px; padding: 6px 16px; font-weight: 900; font-size: .98rem; white-space: nowrap;
+}
+.tab[aria-selected="true"] { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 2px 3px 0 var(--title-shadow); }
+.loadbar { height: 3px; margin-top: 6px; background: linear-gradient(90deg, var(--cyan) 0 40%, transparent 40%); background-size: 200% 100%; opacity: 0; transition: opacity .2s; }
+.loadbar.on { opacity: 1; animation: slide 1s linear infinite; }
+@keyframes slide { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* ---------- panels ---------- */
+main { padding-block: 6px 60px; }
+.panel { display: grid; gap: 16px; }
+.box {
+  background: var(--panel); border: 3px solid var(--frame); border-radius: var(--r);
+  padding: 16px; min-width: 0;
+}
+.box.plain { border-width: 2px; border-color: var(--line); }
+h2.h { margin: 0 0 10px; font-family: var(--f-display); font-weight: 400; font-size: 1.35rem; line-height: 1.3; color: var(--cyan);
+  text-shadow: -1.5px -1.5px 0 var(--halo), 1.5px -1.5px 0 var(--halo), -1.5px 1.5px 0 var(--halo), 1.5px 1.5px 0 var(--halo), 2px 3px 0 rgba(0,0,0,.12); text-wrap: balance; }
+h3.s { margin: 14px 0 6px; font-size: 1.05rem; font-weight: 900; }
+p { margin: 0 0 8px; }
+.muted { color: var(--muted); font-size: .9rem; }
+.big { font-family: var(--f-display); font-weight: 400; }
+.num { font-variant-numeric: tabular-nums; }
+.chiprow { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 2px solid var(--line); background: var(--panel); border-radius: 999px; padding: 3px 12px; font-weight: 700; font-size: .9rem; }
+.chip[aria-pressed="true"] { border-color: var(--cyan); background: var(--cyan); color: #fff; }
+.tag { display: inline-block; white-space: nowrap; font-size: .72rem; font-weight: 900; padding: 1px 7px; border-radius: 6px; background: var(--yellow); color: var(--yellow-ink); vertical-align: .1em; }
+.tag.cy { background: var(--cyan-soft); color: var(--cyan); }
+.tag.early { background: var(--danger-soft); color: var(--red); }
+.tag.pod { background: var(--ink); color: var(--panel); }
+.warnline { color: var(--red); font-weight: 900; }
+/* ---------- records / roster ---------- */
+.haoh { display: grid; gap: 10px; }
+.kings { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.kings li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; background: var(--panel-2); border-radius: 10px; padding: 8px 12px; }
+.kings .no { font-family: var(--f-display); color: var(--red); }
+.kings .kn { font-weight: 900; font-size: 1.05rem; }
+.crown { display: inline-block; font-size: .72rem; font-weight: 900; background: var(--title-shadow); color: var(--yellow); border-radius: 6px; padding: 1px 8px; white-space: nowrap; }
+.elig { display: flex; flex-wrap: wrap; gap: 6px; }
+.elig span { border: 2px solid var(--yellow); background: var(--warn-soft); border-radius: 999px; padding: 3px 12px; font-weight: 700; white-space: nowrap; }
+.elig small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.subbox { background: var(--panel-2); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.recsum { display: flex; flex-wrap: wrap; gap: 6px 16px; font-weight: 700; }
+.recsum b { font-family: var(--f-display); font-weight: 400; font-size: 1.3rem; color: var(--red); }
+.reclist { display: grid; gap: 8px; }
+details.rec { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; }
+details.rec[open] { border-color: var(--cyan); }
+details.rec summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; }
+details.rec summary::-webkit-details-marker { display: none; }
+details.rec .nm { font-weight: 900; min-width: 0; overflow-wrap: anywhere; }
+details.rec .stats { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.stat { font-size: .78rem; font-weight: 900; background: var(--panel-2); border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
+.stat.win { background: var(--red); color: #fff; }
+.stat.pod { background: var(--yellow); color: var(--yellow-ink); }
+.rechist { padding: 0 12px 12px; overflow-x: auto; }
+.rechist table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.rechist th, .rechist td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.rechist td.r1 { color: var(--red); font-weight: 900; }
+.quick { display: grid; gap: 8px; background: var(--panel-2); border-radius: 12px; padding: 12px; }
+.qlist { display: flex; flex-wrap: wrap; gap: 6px; max-height: 260px; overflow-y: auto; padding: 2px; }
+.qitem { position: relative; }
+.qitem input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.qitem span { display: inline-flex; align-items: center; gap: 4px; border: 2px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.qitem input:checked + span { background: var(--good); border-color: var(--good); color: #fff; }
+.qitem input:focus-visible + span { outline: 3px solid var(--cyan); outline-offset: 2px; }
+.qitem small { font-weight: 500; opacity: .8; font-size: .75rem; }
+.callout { background: var(--yellow); color: var(--yellow-ink); border-radius: var(--r); padding: 12px 16px; font-weight: 900; box-shadow: 3px 4px 0 rgba(0,0,0,.15); }
+
+.btn { border: 2.5px solid var(--ink); background: var(--panel); color: var(--ink); border-radius: 12px; padding: 9px 16px; font-weight: 900; line-height: 1.3; }
+.btn.primary { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 2px 3px 0 var(--title-shadow); }
+.btn.cyan { background: var(--cyan); border-color: var(--cyan); color: #fff; }
+.btn.small { padding: 4px 10px; font-size: .88rem; border-width: 2px; border-radius: 9px; }
+.btn.ghost { border-color: var(--line); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.wide { width: 100%; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.field { display: grid; gap: 4px; }
+.field label { font-weight: 700; font-size: .9rem; }
+.input { width: 100%; border: 2px solid var(--line); background: var(--panel); border-radius: 10px; padding: 9px 12px; min-width: 0; }
+.input:focus { border-color: var(--cyan); outline: none; }
+.switch { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; cursor: pointer; user-select: none; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch .tr { width: 48px; height: 28px; border-radius: 99px; background: var(--line); position: relative; transition: background .15s; flex: 0 0 auto; }
+.switch .tr::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.switch input:checked + .tr { background: var(--good); }
+.switch input:checked + .tr::after { transform: translateX(20px); }
+.switch input:focus-visible + .tr { outline: 3px solid var(--cyan); outline-offset: 2px; }
+
+/* ---------- rules ---------- */
+.toc { display: flex; flex-wrap: wrap; gap: 6px; }
+.toc a { text-decoration: none; color: var(--ink); border-bottom: 2px solid var(--yellow); font-weight: 700; font-size: .92rem; }
+.flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: f; }
+.flow li { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: start; counter-increment: f; }
+.flow li::before { content: counter(f); width: 40px; height: 40px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; font-family: var(--f-display); font-size: 1.2rem; box-shadow: 2px 2px 0 var(--title-shadow); }
+.flow b { display: block; font-weight: 900; }
+.calc { display: grid; gap: 10px; background: var(--panel-2); border-radius: 12px; padding: 12px; }
+.calc input[type=range] { width: 100%; accent-color: var(--red); }
+.calc-out { font-weight: 900; font-size: 1.05rem; }
+.ex { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; text-align: center; background: var(--panel-2); border-radius: 12px; padding: 12px; }
+.ex .vs { font-family: var(--f-display); color: var(--red); }
+.ex .tm { font-weight: 900; }
+.ex .calcline { font-family: var(--f-display); font-size: 1.15rem; }
+.rules { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.rules li { background: var(--panel-2); border-radius: 10px; padding: 8px 12px; }
+.sim { display: grid; gap: 10px; justify-items: center; background: var(--panel-2); border-radius: 12px; padding: 14px 10px; }
+.pins { display: grid; gap: 6px; justify-items: center; }
+.pins .row { display: flex; gap: 6px; }
+.pin { width: 46px; height: 46px; border-radius: 50%; border: 2px solid #b8925a; background: radial-gradient(circle at 40% 35%, #f6e2bd, #ddb77c); color: #5a2e0e; font-family: var(--f-display); font-size: 1.05rem; display: grid; place-items: center; transition: transform .12s, opacity .12s; }
+.pin[aria-pressed="true"] { transform: rotate(-70deg) scale(.86); opacity: .55; border-color: var(--red); }
+.sim-score { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; justify-content: center; }
+.sim-score .big { font-size: 2rem; color: var(--red); }
+.sim-msg { min-height: 1.6em; font-weight: 700; text-align: center; }
+details.faq { border-bottom: 2px dashed var(--line); padding-block: 8px; }
+details.faq summary { font-weight: 900; cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
+details.faq summary::after { content: "＋"; color: var(--red); }
+details.faq[open] summary::after { content: "－"; }
+details.faq p { margin-top: 6px; }
+
+/* ---------- standings ---------- */
+.prog { display: grid; gap: 6px; }
+.prog .bar { height: 12px; border-radius: 99px; background: var(--panel-2); border: 2px solid var(--line); overflow: hidden; }
+.prog .bar i { display: block; height: 100%; background: var(--good); width: 0; transition: width .4s; }
+.stand { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.st { display: grid; grid-template-columns: 46px 1fr auto; gap: 10px; align-items: center; background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.st.mine { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan) inset; }
+.st .rk { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-size: 1.15rem; background: var(--panel-2); color: var(--ink); }
+.st.r1 .rk { background: var(--red); color: #fff; box-shadow: 2px 2px 0 var(--title-shadow); }
+.st.r2 .rk { background: var(--cyan); color: #fff; }
+.st.r3 .rk { background: var(--yellow); color: var(--yellow-ink); }
+.st .nm { font-weight: 900; min-width: 0; }
+.st .mem { font-size: .82rem; color: var(--muted); font-weight: 500; overflow-wrap: anywhere; }
+.st .pts { text-align: right; line-height: 1.15; }
+.st .pts .big { font-size: 1.6rem; color: var(--red); }
+.st .pts small { display: block; font-size: .75rem; color: var(--muted); }
+.empty { text-align: center; padding: 22px 12px; color: var(--muted); }
+.empty b { display: block; color: var(--ink); font-size: 1.05rem; margin-bottom: 4px; }
+
+/* ---------- matches ---------- */
+.round { display: grid; gap: 8px; }
+.round-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.round-h h3 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 1.1rem; }
+.bye { font-size: .85rem; color: var(--muted); }
+.mt { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; width: 100%; }
+.mt.done { border-color: var(--good); }
+.mt.mine { box-shadow: 0 0 0 2px var(--cyan) inset; border-color: var(--cyan); }
+.mt .t { font-weight: 900; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+.mt .t small { display: block; font-weight: 700; color: var(--muted); font-size: .78rem; }
+.mt .t .tot { font-family: var(--f-display); font-size: 1.5rem; color: var(--ink); display: block; }
+.mt .t.win .tot { color: var(--red); }
+.mt .mid { display: grid; gap: 4px; justify-items: center; }
+.mt .mid .vs { font-family: var(--f-display); color: var(--red); }
+.court { font-family: var(--f-display); font-size: .82rem; line-height: 1.2; background: var(--ink); color: var(--panel); border-radius: 8px; padding: 3px 8px; white-space: nowrap; }
+.court small { display: block; font-family: var(--f-body); font-weight: 900; font-size: .66rem; }
+.state { font-size: .72rem; font-weight: 900; padding: 1px 8px; border-radius: 99px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
+.done .state { background: var(--good-soft); color: var(--good); }
+
+/* ---------- teams ---------- */
+.teamgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px; }
+.tc { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+.tc.mine { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan) inset; }
+.tc h3 { margin: 0 0 6px; font-family: var(--f-display); font-weight: 400; font-size: 1.15rem; color: var(--red); }
+.tc ul { margin: 0; padding-left: 1.1em; }
+.tc .foot { margin-top: 8px; font-size: .82rem; color: var(--muted); }
+
+/* ---------- admin ---------- */
+.plist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pl { display: grid; gap: 6px; background: var(--panel-2); border-radius: 10px; padding: 8px 10px; }
+.pl .who { min-width: 0; font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.pl .who .pname { font-size: 1.02rem; word-break: keep-all; overflow-wrap: anywhere; }
+.pl .who .muted { white-space: nowrap; }
+.pl .ops { display: flex; gap: 6px; flex-wrap: wrap; }
+.rowform { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 560px) { .rowform { grid-template-columns: 1fr 1fr; } }
+.stepper { display: inline-flex; align-items: center; gap: 8px; }
+.stepper .big { font-size: 1.8rem; min-width: 2ch; text-align: center; }
+.sizes { font-weight: 700; }
+.danger { background: var(--danger-soft); border-color: var(--red); }
+.adjust { display: grid; gap: 10px; }
+.adj-team { background: var(--panel-2); border-radius: 10px; padding: 10px; display: grid; gap: 6px; }
+.adj-mem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.adj-mem > span { word-break: keep-all; overflow-wrap: anywhere; }
+
+/* ---------- modal / toast ---------- */
+.ov { position: fixed; inset: 0; background: rgba(10, 14, 24, .55); z-index: 50; display: grid; align-items: end; justify-items: center; }
+.sheet { width: min(100%, 560px); max-height: 92vh; overflow-y: auto; background: var(--panel); border-radius: 20px 20px 0 0; border: 3px solid var(--frame); border-bottom: 0;
+  padding: 16px 16px calc(18px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 12px; }
+@media (min-width: 600px) { .ov { align-items: center; } .sheet { border-radius: 20px; border-bottom: 3px solid var(--frame); } }
+.sheet h2 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 1.25rem; }
+.sgrid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; align-items: center; }
+.sgrid .hd { font-weight: 900; text-align: center; overflow-wrap: anywhere; line-height: 1.3; }
+.sgrid .lb { font-weight: 700; font-size: .9rem; white-space: nowrap; }
+.sc { display: flex; gap: 4px; min-width: 0; }
+.sc input { width: 100%; min-width: 0; text-align: center; font-family: var(--f-display); font-size: 1.4rem; border: 2px solid var(--line); border-radius: 10px; padding: 6px 2px; background: var(--panel); }
+.sc input:focus { border-color: var(--cyan); outline: none; }
+.sc input.bad { border-color: var(--red); background: var(--danger-soft); }
+.sc button { flex: 0 0 auto; border: 2px solid var(--line); background: var(--panel-2); border-radius: 8px; font-weight: 900; font-size: .78rem; padding: 0 6px; }
+.sgrid .tot { text-align: center; font-family: var(--f-display); font-size: 1.7rem; color: var(--red); }
+.err { color: var(--red); font-weight: 700; min-height: 1.4em; font-size: .92rem; }
+.reveal { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 50vh; overflow-y: auto; }
+.reveal li { display: flex; justify-content: space-between; gap: 8px; background: var(--panel-2); border-radius: 8px; padding: 4px 10px; animation: pop .25s ease-out; }
+.reveal li.ph { background: transparent; font-weight: 900; color: var(--cyan); padding-inline: 0; }
+@keyframes pop { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 60; background: var(--ink); color: var(--panel); padding: 10px 18px; border-radius: 99px; font-weight: 700; max-width: calc(100% - 32px); text-align: center; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.toast.bad { background: var(--red); color: #fff; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Layout: 当日スマホ片手で回す運営コンソール。上に「いまの状況」、下に5つの仕事（受付・チーム・試合・記録・設定）を親指で切り替える */
+body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+.abar { background: var(--bg); padding-block: 10px 8px; border-bottom: 2px solid var(--line); }
+.abar-in { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.abrand { font-family: var(--f-display); font-weight: 400; color: var(--red); font-size: 1.3rem; line-height: 1.1; text-shadow: 1.5px 2px 0 var(--title-shadow); margin: 0; }
+.abrand small { display: block; font-family: var(--f-body); font-weight: 900; font-size: .72rem; letter-spacing: .06em; color: var(--muted); text-shadow: none; margin-bottom: 2px; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { display: grid; text-align: center; line-height: 1.1; background: var(--panel); border: 2px solid var(--line); border-radius: 10px; padding: 4px 10px; min-width: 62px; }
+.pill b { font-family: var(--f-display); font-weight: 400; font-size: 1.15rem; }
+.pill small { font-size: .68rem; font-weight: 900; color: var(--muted); }
+.pill.warn { border-color: var(--red); background: var(--danger-soft); }
+.alert { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; background: var(--danger-soft); border: 2px solid var(--red); border-radius: 10px; padding: 6px 10px; font-weight: 900; font-size: .9rem; }
+.when-line { font-weight: 700; font-size: .85rem; color: var(--muted); margin-top: 4px; }
+.when-line a { color: var(--cyan); font-weight: 900; }
+
+.bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--panel); border-top: 3px solid var(--frame); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.bnav-in { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
+.nb { position: relative; border: 0; background: none; padding: 8px 2px 9px; min-height: 60px; display: grid; justify-items: center; align-content: center; gap: 3px; font-weight: 900; font-size: .8rem; color: var(--muted); }
+.nb svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.nb[aria-current="page"] { color: var(--red); }
+.nb[aria-current="page"]::before { content: ""; position: absolute; top: 0; left: 22%; right: 22%; height: 4px; border-radius: 0 0 4px 4px; background: var(--red); }
+.nb .badge { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 18px; padding: 0 5px; border-radius: 99px; background: var(--red); color: #fff; font-size: .66rem; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.nb .badge.ok { background: var(--good); }
+
+.lockwrap { min-height: 70vh; display: grid; align-content: center; gap: 14px; }
+.big-in { font-size: 1.1rem; padding: 12px 14px; }
+.sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.sec-h h2 { margin: 0; }
+
+.rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 136px), 1fr)); gap: 8px; margin-top: 10px; }
+.rc { position: relative; display: block; }
+.rc input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rc span { display: grid; align-content: center; min-height: 56px; border: 2px solid var(--line); background: var(--panel); border-radius: 12px; padding: 8px 12px; font-weight: 900; line-height: 1.3; cursor: pointer; word-break: keep-all; overflow-wrap: anywhere; }
+.rc small { font-weight: 700; font-size: .74rem; color: var(--muted); }
+.rc input:checked + span { background: var(--good); border-color: var(--good); color: #fff; }
+.rc input:checked + span small { color: #fff; }
+.rc input:focus-visible + span { outline: 3px solid var(--cyan); outline-offset: 2px; }
+.qbar { position: sticky; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); z-index: 15; }
+.qbar .btn { width: 100%; padding-block: 14px; font-size: 1.05rem; }
+
+.plist2 { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.prow { width: 100%; display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; text-align: left; border: 2px solid transparent; background: var(--panel-2); border-radius: 10px; padding: 9px 12px; font-weight: 700; }
+.prow:hover { border-color: var(--line); }
+.prow .pname { font-weight: 900; font-size: 1.02rem; word-break: keep-all; overflow-wrap: anywhere; }
+.prow .tm { margin-left: auto; color: var(--muted); font-size: .85rem; white-space: nowrap; }
+
+.drawbox { display: grid; gap: 12px; }
+.tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 10px; }
+.tcard { background: var(--panel-2); border: 2px solid transparent; border-radius: 12px; padding: 10px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.tcard.solo { border-color: var(--red); }
+.tcard.none { border: 2px dashed var(--red); background: var(--danger-soft); }
+.tcard .thd { display: flex; gap: 6px; align-items: center; }
+.tcard .thd .input { flex: 1 1 auto; font-weight: 900; padding: 6px 10px; }
+.mems { display: flex; flex-wrap: wrap; gap: 6px; }
+.mem { border: 2px solid var(--line); background: var(--panel); border-radius: 999px; padding: 3px 10px; font-weight: 700; font-size: .92rem; display: inline-flex; gap: 4px; align-items: center; }
+.mem:hover { border-color: var(--cyan); }
+.rgrid > .muted { grid-column: 1 / -1; }
+.toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+#ph-team { display: flex; flex-direction: column; gap: 16px; }
+#ph-team[hidden] { display: none !important; }
+#ph-team.has-teams #drawCard { order: 2; }
+
+.mini { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.mini li { display: grid; grid-template-columns: 2.2em 1fr auto; gap: 8px; align-items: baseline; padding: 4px 8px; border-radius: 8px; background: var(--panel-2); }
+.mini .r { font-family: var(--f-display); color: var(--red); }
+.mini .p { font-family: var(--f-display); }
+
+.share { display: grid; gap: 8px; }
+.srow { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; background: var(--panel-2); border-radius: 10px; padding: 10px 12px; }
+.srow b { display: block; }
+.srow .u { font-size: .75rem; color: var(--muted); overflow-wrap: anywhere; }
+.qrbig { justify-self: center; width: min(78vw, 300px); background: #fff; padding: 14px; border-radius: 14px; }
+.qrbig svg { display: block; width: 100%; height: auto; }
+
+/* ===== 表示の切り替え（明るい・暗い／文字の大きさ）。選んだ表示はこの端末で覚える ===== */
+:root[data-fs="l"] { font-size: 112.5%; }
+:root[data-fs="xl"] { font-size: 125%; }
+.viewctl { position: relative; display: flex; gap: 6px; align-items: center; flex: 0 0 auto; }
+.vc-btn { display: inline-grid; place-items: center; min-width: 44px; height: 44px; padding: 0 8px; border: 2px solid var(--line, var(--box, #c9c9c9)); background: var(--panel, var(--paper, #fff)); color: var(--ink, #222); border-radius: 12px; cursor: pointer; font: inherit; font-weight: 900; line-height: 1; }
+.vc-btn:hover { border-color: var(--ink, #222); }
+.vc-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.vc-a { display: inline-flex; align-items: baseline; gap: 1px; }
+.vc-a .s { font-size: 13px; } .vc-a .b { font-size: 19px; }
+.vc-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 70; width: min(250px, calc(100vw - 32px)); background: var(--panel, var(--paper, #fff)); color: var(--ink, #222); border: 2px solid var(--line, var(--box, #c9c9c9)); border-radius: 14px; padding: 12px; display: grid; gap: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.22); text-align: left; }
+.vc-pop[hidden] { display: none !important; }
+.vc-pop b { font-size: .95rem; }
+.vc-pop small { font-size: .82rem; color: var(--muted, inherit); }
+.vc-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.vc-opts button { min-height: 48px; border: 2px solid var(--line, var(--box, #c9c9c9)); background: transparent; color: inherit; border-radius: 10px; font-family: inherit; font-weight: 900; cursor: pointer; padding: 4px 2px; line-height: 1.2; }
+.vc-opts [data-fs-set="m"] { font-size: 15px; } .vc-opts [data-fs-set="l"] { font-size: 17px; } .vc-opts [data-fs-set="xl"] { font-size: 19px; }
+.vc-opts button[aria-pressed="true"] { background: var(--ink, #222); color: var(--panel, var(--paper, #fff)); border-color: var(--ink, #222); }
+.vc-row { display: flex; justify-content: flex-end; padding-top: 10px; }
+.abar-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex: 1 1 100%; }
+.toast { width: max-content; word-break: keep-all; overflow-wrap: anywhere; }
+.abrand { word-break: keep-all; overflow-wrap: anywhere; min-width: 0; }
+.mt .t small { word-break: keep-all; overflow-wrap: anywhere; }
+
+/* ===== 受付の試作で足したもの ===== */
+.savebar { position: sticky; top: 0; z-index: 25; margin: 0 -16px; padding: 8px 16px; display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; font-weight: 900; border-bottom: 2px solid var(--line); background: var(--good-soft); color: var(--good); }
+.savebar.wait { background: var(--warn-soft); color: var(--ink); border-bottom-color: var(--yellow); }
+.savebar.off { background: var(--danger-soft); color: var(--red); border-bottom-color: var(--red); }
+.savebar .big { font-size: 1.05rem; word-break: keep-all; overflow-wrap: anywhere; }
+.savebar .sub { font-size: .85rem; font-weight: 700; color: var(--muted); margin-left: auto; word-break: keep-all; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: .05em; }
+.savebar.wait .dot { background: var(--yellow); animation: blink 1s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+.prow .st { margin-left: auto; font-size: .8rem; font-weight: 900; white-space: nowrap; }
+.prow .st.ok { color: var(--good); }
+.prow .st.wait { color: var(--ink); background: var(--yellow); border-radius: 6px; padding: 0 6px; }
+.prow .st.err { color: #fff; background: var(--red); border-radius: 6px; padding: 0 6px; }
+.prow .by { font-size: .78rem; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.mode-note { font-size: .88rem; font-weight: 700; color: var(--muted); }
+.mtable { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.mtable th, .mtable td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.mtable th:first-child, .mtable td:first-child { text-align: left; }
+.mtable th { font-size: .78rem; color: var(--muted); }
+.mwrap { overflow-x: auto; }
+.sumgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; }
+.sum { background: var(--panel-2); border-radius: 10px; padding: 8px 10px; }
+.sum b { display: block; font-size: .82rem; color: var(--muted); }
+.sum .v { font-family: var(--f-display); font-weight: 400; font-size: 1.3rem; }
+.sum small { display: block; font-size: .8rem; color: var(--muted); font-weight: 700; }
+.copyta { width: 100%; min-height: 120px; font: .8rem/1.5 ui-monospace, Menlo, monospace; border: 2px solid var(--line); border-radius: 10px; padding: 8px; background: var(--panel); color: var(--ink); }
+.ver { margin: 28px 16px 20px; text-align: center; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.steps { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; }
+.lock-alt { display: grid; gap: 8px; }
+.toast { bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+
+</style>
+</head>
+<body>
+<script>
+/* 表示の切り替え：明るい・暗い／文字の大きさ。最初は端末の設定に合わせ、選んだらこの端末で覚える */
+(function () {
+  var R = document.documentElement, P = 'mk_view_';
+  function g(k) { try { return localStorage.getItem(P + k); } catch (e) { return null; } }
+  function s(k, v) { try { localStorage.setItem(P + k, v); } catch (e) {} }
+  var t = g('theme'); if (t === 'light' || t === 'dark') R.setAttribute('data-theme', t);
+  var f = g('fs'); if (f === 'l' || f === 'xl') R.setAttribute('data-fs', f);
+  var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function isDark() { var a = R.getAttribute('data-theme'); return a ? a === 'dark' : !!(mq && mq.matches); }
+  var MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+  var SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  function all(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+  function paint() {
+    var d = isDark(), fs = R.getAttribute('data-fs') || 'm';
+    all('[data-vc="theme"]').forEach(function (b) { b.innerHTML = d ? SUN : MOON; var l = d ? '明るい画面にする' : '暗い画面にする'; b.setAttribute('aria-label', l); b.title = l; });
+    all('[data-fs-set]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-fs-set') === fs ? 'true' : 'false'); });
+  }
+  function closeAll() { all('.vc-pop').forEach(function (p) { p.hidden = true; }); all('[data-vc="font"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); }); }
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest ? e.target : null;
+    var b = el && el.closest('[data-vc],[data-fs-set]');
+    if (!b) { if (!(el && el.closest('.vc-pop'))) closeAll(); return; }
+    var vc = b.getAttribute('data-vc');
+    if (vc === 'theme') { var n = isDark() ? 'light' : 'dark'; R.setAttribute('data-theme', n); s('theme', n); closeAll(); paint(); }
+    else if (vc === 'font') { var pop = b.parentNode.querySelector('.vc-pop'), open = pop.hidden; closeAll(); pop.hidden = !open; b.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+    else { var v = b.getAttribute('data-fs-set'); if (v === 'm') R.removeAttribute('data-fs'); else R.setAttribute('data-fs', v); s('fs', v); paint(); }
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(); });
+  if (mq && mq.addEventListener) mq.addEventListener('change', paint);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint); else paint();
+})();
+
+</script>
+<div class="wrap">
+  <!-- ===== パスコード ===== -->
+  <div class="lockwrap" id="lock">
+    <div class="vc-row"><div class="viewctl" role="group" aria-label="画面の表示">
+<button type="button" class="vc-btn" data-vc="theme" aria-label="暗い画面にする"></button>
+<button type="button" class="vc-btn" data-vc="font" aria-haspopup="true" aria-expanded="false" aria-label="文字の大きさを変える" title="文字の大きさ"><span class="vc-a" aria-hidden="true"><span class="s">あ</span><span class="b">あ</span></span></button>
+<div class="vc-pop" hidden><b>文字の大きさ</b><div class="vc-opts"><button type="button" data-fs-set="m">標準</button><button type="button" data-fs-set="l">大きめ</button><button type="button" data-fs-set="xl">特大</button></div><small>この端末で覚えておきます</small></div>
+</div></div>
+    <div>
+      <div class="org">泉鋼業(株)モルック部</div>
+      <h1 class="title" style="font-size:clamp(2.2rem,11vw,3.4rem)">運営<br>メニュー</h1>
+      <p class="mode-note">受付の試作（新しい仕組みのテスト版）。名簿は架空の24人です。</p>
+    </div>
+    <div class="box">
+      <p>運営パスコードを入れると、2台のスマホで同じ受付を使えます。</p>
+      <form id="lockForm" style="display:grid;gap:10px">
+        <input class="input big-in" id="passIn" type="password" autocomplete="current-password" placeholder="運営パスコード" aria-label="運営パスコード">
+        <button class="btn primary wide" id="passBtn" type="submit">運営モードにする</button>
+      </form>
+      <div class="err" id="lockErr" aria-live="polite"></div>
+    </div>
+    <div class="box plain lock-alt">
+      <p style="margin:0">パスコードなしで、この端末の中だけで操作を試すこともできます（ほかの端末とはつながりません）。</p>
+      <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
+    </div>
+    <p class="ver">版 2026.11.24</p>
+  </div>
+
+  <div id="app" hidden>
+    <header class="abar">
+      <div class="abar-in">
+        <div class="abar-top"><h1 class="abrand"><small>泉鋼業(株)モルック部</small>月いちモルック 運営</h1><div class="viewctl" role="group" aria-label="画面の表示">
+<button type="button" class="vc-btn" data-vc="theme" aria-label="暗い画面にする"></button>
+<button type="button" class="vc-btn" data-vc="font" aria-haspopup="true" aria-expanded="false" aria-label="文字の大きさを変える" title="文字の大きさ"><span class="vc-a" aria-hidden="true"><span class="s">あ</span><span class="b">あ</span></span></button>
+<div class="vc-pop" hidden><b>文字の大きさ</b><div class="vc-opts"><button type="button" data-fs-set="m">標準</button><button type="button" data-fs-set="l">大きめ</button><button type="button" data-fs-set="xl">特大</button></div><small>この端末で覚えておきます</small></div>
+</div></div>
+        <div class="pills" id="pills"></div>
+      </div>
+      <div class="when-line" id="modeLine"></div>
+    </header>
+    <div class="savebar" id="saveBar" role="status" aria-live="polite"></div>
+
+    <main>
+      <!-- ===== 受付 ===== -->
+      <section class="panel" id="ph-entry">
+        <div class="box">
+          <h2 class="h">受付</h2>
+          <div class="field">
+            <label for="eq">名前で探す</label>
+            <input class="input big-in" id="eq" type="search" autocomplete="off" enterkeyhint="done" placeholder="名前の一部（はじめての人はフルネーム）">
+          </div>
+          <div class="rgrid" id="rList"></div>
+          <div class="subbox" id="newBox" hidden style="margin-top:12px">
+            <div id="newMsg"></div>
+            <div class="actions">
+              <label class="switch"><input type="checkbox" id="pExp"><span class="tr"></span>経験豊富</label>
+              <label class="switch"><input type="checkbox" id="pEarly"><span class="tr"></span>早めに帰る</label>
+            </div>
+            <div class="field"><label for="pPair">同じチーム希望の目印（任意）</label><input class="input" id="pPair" autocomplete="off" maxlength="20" placeholder="例：A（同じ目印の人は同じチーム）"></div>
+            <button class="btn wide" id="newAdd" type="button">はじめての人として受付</button>
+          </div>
+          <p class="muted" id="rNote" style="margin:10px 0 0">タップでチェックして、下のボタンでまとめて受付します。押したらすぐ次の人に進めます。保存は裏で進みます。</p>
+        </div>
+        <div class="qbar" id="qBar" hidden><button class="btn primary" id="qAdd" type="button">チェックした人を受付</button></div>
+        <div class="box">
+          <div class="sec-h"><h2 class="h">受付済み</h2><div class="chiprow" id="pCount"></div></div>
+          <p class="muted" style="margin-top:0">「保存待ち」は、この端末にだけ入っていて、まだ共有されていない人です。電波が戻れば自動で送られます。名前を押すと受付を取り消せます。</p>
+          <ul class="plist2" id="plist"></ul>
+        </div>
+      </section>
+
+      <!-- ===== まだ作っていないタブ ===== -->
+      <section class="panel" id="ph-other" hidden>
+        <div class="box">
+          <h2 class="h" id="otherH">チーム</h2>
+          <p>この試作は受付だけです。チーム・試合・記録は、受付の計測が済んでから作ります。</p>
+          <p class="muted" style="margin:0">記録タブには、リセットの前に「バックアップを保存」（NASへ入れる用のファイル）を入れる予定です。</p>
+        </div>
+      </section>
+
+      <!-- ===== 設定（計測） ===== -->
+      <section class="panel" id="ph-set" hidden>
+        <div class="box">
+          <h2 class="h">この端末の名前</h2>
+          <p class="muted" style="margin-top:0">計測の表で、どの端末の記録かを見分けるのに使います。</p>
+          <div class="actions"><input class="input" id="devName" maxlength="12" style="flex:1 1 160px"><button class="btn" id="devSave" type="button">決める</button></div>
+        </div>
+        <div class="box">
+          <div class="sec-h"><h2 class="h">計測</h2><button class="btn small" id="syncBtn" type="button">時計を合わせ直す</button></div>
+          <p class="muted" style="margin-top:0" id="clockLine"></p>
+          <div class="sumgrid" id="mSum"></div>
+          <details style="margin-top:12px"><summary style="font-weight:900;cursor:pointer">測り方</summary>
+            <ol class="steps">
+              <li>2台とも運営モードにして、端末の名前を「1台目」「2台目」などにする</li>
+              <li>1台目で受付する（1人ずつ・何人かまとめて、をそれぞれ10回ほど）。2台目は受付タブを開いておく</li>
+              <li>同じ人を2台で同時に押す。受付済みに1人だけ出ればOK</li>
+              <li>機内モードにして受付→「保存待ち」が出る→機内モードを切る→自動で保存される</li>
+              <li>保存待ちのまま画面を再読み込みする・タブを閉じて開き直す→保存待ちが残って、電波があれば送られる</li>
+            </ol>
+          </details>
+          <div class="mwrap" style="margin-top:12px"><table class="mtable"><thead><tr><th>端末・種類</th><th>人数</th><th>次の人へ</th><th>保存確定</th><th>もう1台</th></tr></thead><tbody id="mBody"></tbody></table></div>
+          <p class="muted" style="margin:10px 0 0">「次の人へ」は押してから次の人を入力できるまで、「保存確定」は押してから共有先に届くまで、「もう1台」は押してから別の端末に出るまで（別の端末の側で記録）。</p>
+          <div class="field" style="margin-top:12px"><label for="csv">計測結果（全部コピーしてClaudeに貼り付けてください）</label><textarea class="copyta" id="csv" readonly></textarea></div>
+          <button class="btn cyan wide" id="csvCopy" type="button">計測結果を全部コピー</button>
+        </div>
+        <div class="box">
+          <h2 class="h">テスト用の操作</h2>
+          <div class="actions">
+            <button class="btn" id="seedBtn" type="button">架空の名簿24人を入れる</button>
+            <button class="btn" id="resetBtn" type="button">受付と計測を空にする</button>
+          </div>
+          <div class="subbox" id="resetConfirm" hidden>
+            <b>受付済みと計測結果を全部消します。名簿は残ります。</b>
+            <div class="actions"><button class="btn primary" id="resetYes" type="button">消す</button><button class="btn ghost" id="resetNo" type="button">やめる</button></div>
+          </div>
+          <div class="subbox" id="demoNet" hidden>
+            <label class="switch"><input type="checkbox" id="demoOffline"><span class="tr"></span>電波なしにする（練習用）</label>
+            <small class="muted">オンにすると、受付は「保存待ち」のまま残ります。オフに戻すと送られます。</small>
+          </div>
+        </div>
+        <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
+      </section>
+      <p class="ver">版 2026.11.24</p>
+    </main>
+  </div>
+</div>
+
+
+<nav class="bnav" id="bnav" aria-label="運営メニュー" hidden>
+  <div class="bnav-in">
+    <button class="nb" data-ph="entry"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M19 8v6M16 11h6"/></svg>受付<span class="badge" id="bd-entry" hidden></span></button>
+    <button class="nb" data-ph="team"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="3"/><circle cx="17" cy="8" r="3"/><path d="M1 20c0-3 2.5-5 6-5s6 2 6 5M11 20c0-3 2.5-5 6-5s6 2 6 5"/></svg>チーム<span class="badge" id="bd-team" hidden></span></button>
+    <button class="nb" data-ph="game"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg>試合<span class="badge" id="bd-game" hidden></span></button>
+    <button class="nb" data-ph="rec"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H4a3 3 0 0 0 4 4M16 6h4a3 3 0 0 1-4 4M12 13v4M8 21h8"/></svg>記録</button>
+    <button class="nb" data-ph="set"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>設定</button>
+  </div>
+</nav>
+
+
+<div class="ov" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="module">
+/* ===== 月いちモルック 受付の試作（Firebase） =====
+   データの置き場所：staff/proto/...（運営だけが読み書きできる場所。試作なので本番とは別の箱）
+   - roster/{rid}    名簿（名前・経験豊富・早帰り・同じチーム希望）
+   - checkins/{rid}  受付。名簿の番号をそのまま鍵にするので、2台で同じ人を押しても1人分になる
+   - metrics/{id}    計測の記録
+   - ping/{端末}     時計合わせ用
+*/
+const VER = '2026.11.24';
+const FB_VER = '13.2.0';
+const STAFF_EMAIL = 'unei@tsukiichi.example';
+const BOX = 'staff/proto';
+const firebaseConfig = {
+  apiKey: 'AIzaSyAL3fYkM2kFulsnPhNuuAlyeVpIZy2wdSA',
+  authDomain: 'tsukiichi-molkky.firebaseapp.com',
+  projectId: 'tsukiichi-molkky',
+  storageBucket: 'tsukiichi-molkky.firebasestorage.app',
+  messagingSenderId: '1094812109659',
+  appId: '1:1094812109659:web:1ccc08d729c95f5d31e87e'
+};
+const FAKE = ['はると', 'ゆい', 'そうた', 'めい', 'けんた', 'あおい', 'りく', 'ひな', 'だいき', 'さくら', 'ゆうと', 'みお',
+  'こうき', 'りな', 'しょう', 'なな', 'たくみ', 'えま', 'れん', 'ここ', 'いつき', 'ゆか', 'そら', 'かい'];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem('tk_' + k); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('tk_' + k, v); } catch (e) {} }
+};
+const rid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const now = () => Date.now();
+const pad = (n) => String(n).padStart(2, '0');
+const hms = (t) => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
+const sec = (ms) => (ms == null || isNaN(ms)) ? '—' : ms < 1000 ? ms + 'ms' : (ms / 1000).toFixed(1) + '秒';
+
+let DEV = ls.get('dev', '');
+if (!DEV) { DEV = rid('d'); ls.set('dev', DEV); }
+let devName = ls.get('devName', '端末' + DEV.slice(-2).toUpperCase());
+
+/* ---------- 画面の状態 ---------- */
+const S = {
+  mode: '', roster: [], checkins: [], metrics: [], fromCache: true, ready: false,
+  sel: {}, phase: 'entry', offset: null, rtt: null, errors: {}, firstSnap: true, seen: {}
+};
+let B = null; // 保存先（Firebase か 端末の中だけ）
+
+function toast(msg, bad) {
+  const t = $('toast'); t.textContent = msg; t.classList.toggle('bad', !!bad); t.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, bad ? 4200 : 2200);
+}
+
+/* ===== 保存先：Firebase ===== */
+async function fireBackend() {
+  const base = 'https://www.gstatic.com/firebasejs/' + FB_VER + '/';
+  const [A, F, U] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-firestore.js'), import(base + 'firebase-auth.js')]);
+  const app = A.initializeApp(firebaseConfig);
+  let db, persistent = true;
+  try { db = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) }); }
+  catch (e) { persistent = false; db = F.initializeFirestore(app, { localCache: F.memoryLocalCache() }); }
+  const auth = U.getAuth(app);
+  const col = (name) => F.collection(db, BOX + '/' + name);
+  const ref = (name, id) => F.doc(db, BOX + '/' + name + '/' + id);
+  const unsub = [];
+  return {
+    kind: 'fire', persistent,
+    waitUser() { return new Promise((res) => { const off = U.onAuthStateChanged(auth, (u) => { off(); res(u); }); }); },
+    login(pass) { return U.signInWithEmailAndPassword(auth, STAFF_EMAIL, pass); },
+    logout() { unsub.forEach((f) => f()); return U.signOut(auth); },
+    start(onRoster, onCheckins, onMetrics, onErr) {
+      const opt = { includeMetadataChanges: true };
+      unsub.push(F.onSnapshot(col('roster'), opt, (s) => onRoster(s.docs.map((d) => ({ id: d.id, ...d.data(), pending: d.metadata.hasPendingWrites })), s.metadata.fromCache), onErr));
+      unsub.push(F.onSnapshot(col('checkins'), opt, (s) => {
+        const list = s.docs.map((d) => { const x = d.data({ serverTimestamps: 'estimate' }); return { id: d.id, ...x, atMs: x.at && x.at.toMillis ? x.at.toMillis() : null, pending: d.metadata.hasPendingWrites }; });
+        const changes = s.docChanges().filter((c) => c.type !== 'removed').map((c) => c.doc.id);
+        onCheckins(list, s.metadata.fromCache, changes);
+      }, onErr));
+      unsub.push(F.onSnapshot(F.query(col('metrics'), F.orderBy('tapAt', 'desc'), F.limit(300)), (s) => onMetrics(s.docs.map((d) => ({ id: d.id, ...d.data() }))), onErr));
+    },
+    /* 受付：まとめて1回で送る（書き込み1回＝届くのも1回） */
+    checkin(items, meta) {
+      const b = F.writeBatch(db);
+      items.forEach((it) => {
+        if (it.isNew) b.set(ref('roster', it.id), { name: it.name, exp: !!it.exp, early: !!it.early, pair: it.pair || '', createdAt: F.serverTimestamp() });
+        b.set(ref('checkins', it.id), { name: it.name, isNew: !!it.isNew, at: F.serverTimestamp(), tapAt: meta.tapAt, tapSrv: meta.tapSrv, dev: DEV, devName, batch: meta.batch, n: items.length });
+      });
+      return b.commit();
+    },
+    cancel(id) { return F.deleteDoc(ref('checkins', id)); },
+    metric(m) { return F.setDoc(ref('metrics', m.id), m); },
+    async seed() {
+      const b = F.writeBatch(db);
+      FAKE.forEach((n, i) => b.set(ref('roster', 'r' + pad(i + 1)), { name: n, exp: i % 4 === 0, early: i % 9 === 5, pair: '', createdAt: F.serverTimestamp() }));
+      return b.commit();
+    },
+    async resetTest() {
+      for (const name of ['checkins', 'metrics']) {
+        const s = await F.getDocs(col(name));
+        for (let i = 0; i < s.docs.length; i += 400) { const b = F.writeBatch(db); s.docs.slice(i, i + 400).forEach((d) => b.delete(d.ref)); await b.commit(); }
+      }
+    },
+    /* 時計合わせ：書き込みにサーバーの時刻を入れてもらい、往復の真ん中と比べる */
+    async ping() {
+      const t1 = now();
+      await F.setDoc(ref('ping', DEV), { at: F.serverTimestamp() });
+      const t2 = now();
+      const d = await F.getDocFromServer(ref('ping', DEV));
+      const at = d.data().at.toMillis();
+      return { offset: at - (t1 + t2) / 2, rtt: t2 - t1 };
+    }
+  };
+}
+
+/* ===== 保存先：この端末の中だけ（練習用。同じ端末の別のタブとはつながる） ===== */
+function demoBackend() {
+  const KEY = 'tk_demo_server';
+  const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } };
+  const write = (s) => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} };
+  let srv = read() || { roster: {}, checkins: {}, metrics: {} };
+  const pend = { roster: {}, checkins: {} }, queue = [];
+  let cb = null, offline = false;
+  const emit = (changes) => {
+    if (!cb) return;
+    const merge = (k) => { const o = {}; Object.keys(srv[k]).forEach((id) => { o[id] = { id, ...srv[k][id], pending: false }; }); Object.keys(pend[k]).forEach((id) => { o[id] = pend[k][id] ? { id, ...pend[k][id], pending: true } : null; if (!o[id]) delete o[id]; }); return Object.values(o); };
+    cb.r(merge('roster'), offline);
+    cb.c(merge('checkins').map((x) => ({ ...x, atMs: x.atMs || x.tapAt })), offline, changes || []);
+    cb.m(Object.values(srv.metrics).sort((a, b) => b.tapAt - a.tapAt));
+  };
+  const flush = () => {
+    if (offline || !queue.length) return;
+    const job = queue.shift();
+    setTimeout(() => {
+      if (offline) { queue.unshift(job); return; }
+      srv = read() || srv;
+      job.apply(srv);
+      write(srv);
+      job.done();
+      emit(job.ids);
+      flush();
+    }, 350 + Math.random() * 900);
+  };
+  window.addEventListener('storage', (e) => { if (e.key === KEY) { const before = Object.keys(srv.checkins); srv = read() || srv; emit(Object.keys(srv.checkins).filter((id) => before.indexOf(id) < 0)); } });
+  const send = (ids, apply, local) => new Promise((done) => { local(); emit([]); queue.push({ ids, apply, done }); flush(); });
+  return {
+    kind: 'demo', persistent: true,
+    setOffline(v) { offline = v; emit([]); if (!v) flush(); },
+    waitUser() { return Promise.resolve(null); },
+    login() { return Promise.resolve(); },
+    logout() { return Promise.resolve(); },
+    start(r, c, m) { cb = { r, c, m }; emit([]); },
+    checkin(items, meta) {
+      const ids = items.map((i) => i.id);
+      return send(ids, (s) => {
+        items.forEach((it) => {
+          if (it.isNew) { s.roster[it.id] = { name: it.name, exp: !!it.exp, early: !!it.early, pair: it.pair || '' }; delete pend.roster[it.id]; }
+          s.checkins[it.id] = { name: it.name, isNew: !!it.isNew, atMs: now(), tapAt: meta.tapAt, tapSrv: meta.tapSrv, dev: DEV, devName, n: items.length };
+          delete pend.checkins[it.id];
+        });
+      }, () => {
+        items.forEach((it) => {
+          if (it.isNew) pend.roster[it.id] = { name: it.name, exp: !!it.exp, early: !!it.early, pair: it.pair || '' };
+          pend.checkins[it.id] = { name: it.name, isNew: !!it.isNew, tapAt: meta.tapAt, dev: DEV, devName };
+        });
+      });
+    },
+    cancel(id) { return send([], (s) => { delete s.checkins[id]; }, () => { pend.checkins[id] = null; }).then(() => { delete pend.checkins[id]; }); },
+    metric(mm) { srv.metrics[mm.id] = mm; write(srv); emit([]); return Promise.resolve(); },
+    seed() { FAKE.forEach((n, i) => { srv.roster['r' + pad(i + 1)] = { name: n, exp: i % 4 === 0, early: i % 9 === 5, pair: '' }; }); write(srv); emit([]); return Promise.resolve(); },
+    resetTest() { srv.checkins = {}; srv.metrics = {}; write(srv); emit([]); return Promise.resolve(); },
+    ping() { return Promise.resolve({ offset: 0, rtt: 0 }); }
+  };
+}
+
+/* ===== 起動・ログイン ===== */
+async function boot() {
+  $('lockForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const pass = $('passIn').value;
+    if (!pass) { $('lockErr').textContent = 'パスコードを入れてください'; return; }
+    $('passBtn').disabled = true; $('lockErr').textContent = 'つないでいます…';
+    try {
+      if (!B || B.kind !== 'fire') B = await fireBackend();
+      await B.login(pass);
+      $('passIn').value = '';
+      enter('fire');
+    } catch (err) {
+      const c = err && err.code || '';
+      $('lockErr').textContent = /invalid-credential|wrong-password|invalid-login/.test(c) ? 'パスコードが違います'
+        : /network|failed to fetch|import/i.test(c + (err && err.message)) ? '通信できませんでした。電波の良い場所でもう一度押してください'
+        : 'うまくいきませんでした（' + (c || (err && err.message) || '不明') + '）';
+    } finally { $('passBtn').disabled = false; }
+  };
+  $('demoBtn').onclick = () => { B = demoBackend(); enter('demo'); };
+  /* 前にログインした端末は、そのまま入る（電波がなくても入れる） */
+  if (ls.get('mode', '') === 'fire') {
+    $('lockErr').textContent = '前回のログインを確かめています…';
+    try { B = await fireBackend(); const u = await B.waitUser(); if (u) { enter('fire'); return; } } catch (e) {}
+    $('lockErr').textContent = '';
+  }
+}
+
+function enter(mode) {
+  S.mode = mode; ls.set('mode', mode);
+  $('lock').hidden = true; $('app').hidden = false; $('bnav').hidden = false;
+  $('demoNet').hidden = mode !== 'demo';
+  $('modeLine').textContent = mode === 'fire' ? 'つながっている受付（2台で共有）' + (B.persistent ? '' : '・この端末は保存待ちを画面を閉じると失います') : 'この端末の中だけの練習（ほかの端末とはつながりません）';
+  $('devName').value = devName;
+  B.start(onRoster, onCheckins, (m) => { S.metrics = m; renderMetrics(); }, (err) => { toast('読み込めませんでした（' + (err && err.code || '') + '）', true); });
+  clockSync();
+  showPhase(ls.get('phase', 'entry'));
+  renderAll();
+  setTimeout(() => $('eq').focus(), 50);
+}
+
+async function clockSync() {
+  if (S.mode !== 'fire') { S.offset = 0; S.rtt = 0; renderMetrics(); return; }
+  $('clockLine').textContent = '時計を合わせています…';
+  try {
+    let best = null;
+    for (let i = 0; i < 3; i++) { const r = await B.ping(); if (!best || r.rtt < best.rtt) best = r; }
+    S.offset = best.offset; S.rtt = best.rtt;
+  } catch (e) { /* 電波がないときは合わせられない。後でもう一度 */ }
+  renderMetrics();
+}
+
+/* ===== データが届いたとき ===== */
+function onRoster(list, fromCache) { S.roster = list; S.fromCache = fromCache; renderAll(); }
+function onCheckins(list, fromCache, changed) {
+  const t = now();
+  S.fromCache = fromCache;
+  /* もう1台に出るまで：ほかの端末が受付した人が、この端末に初めて「保存済み」で届いた時刻を記録 */
+  if (!S.firstSnap) {
+    const byBatch = {};
+    list.forEach((c) => {
+      if (S.seen[c.id] || c.pending || c.dev === DEV || changed.indexOf(c.id) < 0) return;
+      S.seen[c.id] = 1;
+      if (!c.batch || byBatch[c.batch]) return;
+      byBatch[c.batch] = 1;
+      const seenSrv = S.offset == null ? null : t + S.offset;
+      /* 2分より前に保存されたもの（この端末を閉じていた間の分）は、反映の速さに数えない */
+      if (seenSrv != null && c.atMs && seenSrv - c.atMs > 120000) return;
+      B.metric({ id: 'seen_' + DEV + '_' + c.batch, kind: 'seen', dev: DEV, devName, from: c.devName || '', n: c.n || 1, tapAt: t,
+        seenFromTap: seenSrv != null && c.tapSrv ? Math.round(seenSrv - c.tapSrv) : null,
+        seenFromSave: seenSrv != null && c.atMs ? Math.round(seenSrv - c.atMs) : null }).catch(() => {});
+    });
+  } else { list.forEach((c) => { S.seen[c.id] = 1; }); }
+  S.firstSnap = false;
+  S.checkins = list;
+  renderAll();
+}
+
+/* ===== 受付する ===== */
+function doCheckin(items) {
+  const tapAt = now();
+  const batch = rid('b');
+  const meta = { tapAt, tapSrv: S.offset == null ? null : Math.round(tapAt + S.offset), batch };
+  items.forEach((it) => { S.seen[it.id] = 1; delete S.errors[it.id]; });
+  let ready = null;
+  const p = B.checkin(items, meta);
+  /* 画面が次の人を受け付けられるようになった時刻 */
+  requestAnimationFrame(() => requestAnimationFrame(() => { ready = now() - tapAt; }));
+  p.then(() => {
+    const save = now() - tapAt;
+    B.metric({ id: 'tap_' + batch, kind: items.some((i) => i.isNew) ? 'new' : 'tap', dev: DEV, devName, n: items.length, tapAt, readyMs: ready, saveMs: save }).catch(() => {});
+  }).catch((err) => {
+    items.forEach((it) => { S.errors[it.id] = (err && err.code) || 'error'; });
+    toast('保存できませんでした：' + items.map((i) => i.name).join('・') + '（' + ((err && err.code) || '') + '）', true);
+    renderAll();
+  });
+}
+
+$('qAdd').onclick = () => {
+  const ids = Object.keys(S.sel);
+  if (!ids.length) return;
+  const items = ids.map((id) => S.roster.find((r) => r.id === id)).filter(Boolean).map((r) => ({ id: r.id, name: r.name }));
+  S.sel = {}; $('eq').value = '';
+  doCheckin(items);
+  toast(items.map((i) => i.name).join('・') + ' さんを受付');
+  renderAll(); $('eq').focus();
+};
+$('newAdd').onclick = () => {
+  const name = $('eq').value.trim().replace(/\s+/g, ' ');
+  if (!name) { $('eq').focus(); return; }
+  if (S.roster.some((r) => r.name === name)) { toast('「' + name + '」さんは名簿にいます。上の候補から選んでください', true); return; }
+  if (S.checkins.some((c) => c.name === name)) { toast('「' + name + '」さんは受付済みです', true); return; }
+  doCheckin([{ id: rid('n'), name, isNew: true, exp: $('pExp').checked, early: $('pEarly').checked, pair: $('pPair').value.trim() }]);
+  toast(name + ' さんを受付（はじめて）');
+  $('eq').value = ''; $('pExp').checked = false; $('pEarly').checked = false; $('pPair').value = '';
+  renderAll(); $('eq').focus();
+};
+$('eq').addEventListener('input', renderRoster);
+$('eq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (!$('newBox').hidden && $('newAdd').classList.contains('primary')) $('newAdd').click(); } });
+
+/* ===== 表示 ===== */
+function renderAll() { renderBar(); renderRoster(); renderList(); renderPills(); }
+
+function renderBar() {
+  const pids = {}; S.checkins.forEach((c) => { if (c.pending) pids[c.id] = 1; }); S.roster.forEach((r) => { if (r.pending) pids[r.id] = 1; });
+  const pending = Object.keys(pids).length;
+  const errs = Object.keys(S.errors).length;
+  const online = S.mode === 'demo' ? !(B && B.offline) && !$('demoOffline').checked : navigator.onLine && !S.fromCache;
+  const bar = $('saveBar');
+  bar.className = 'savebar' + (errs ? ' off' : pending ? (online ? ' wait' : ' off') : '');
+  const last = S.checkins.filter((c) => !c.pending).reduce((m, c) => Math.max(m, c.atMs || 0), 0);
+  bar.innerHTML = errs ? '<span class="big"><span class="dot"></span>保存できなかった人がいます（' + errs + '人）</span><span class="sub">名前を押して確かめてください</span>'
+    : pending ? '<span class="big"><span class="dot"></span>保存待ち ' + pending + '人</span><span class="sub">' + (online ? '送っています…' : '電波なし・この端末に入っています。電波が戻れば自動で送ります') + '</span>'
+    : '<span class="big"><span class="dot"></span>全員保存済み</span><span class="sub">' + (S.mode === 'demo' ? '練習モード' : online ? 'つながっています' : 'いまは電波なし') + (last ? '・最後の受付 ' + hms(last) : '') + '</span>';
+}
+
+function renderPills() {
+  const n = S.checkins.length, ex = S.checkins.filter((c) => { const r = S.roster.find((x) => x.id === c.id); return r && r.exp; }).length;
+  $('pills').innerHTML = '<span class="pill"><b class="num">' + n + '</b><small>受付</small></span><span class="pill"><b class="num">' + ex + '</b><small>経験豊富</small></span>';
+  const bd = $('bd-entry'); if (bd) { bd.hidden = !n; bd.textContent = n; bd.classList.add('ok'); }
+}
+
+function renderRoster() {
+  const q = $('eq').value.trim();
+  const done = {}; S.checkins.forEach((c) => { done[c.id] = 1; done['n:' + c.name] = 1; });
+  const list = S.roster.filter((r) => !done[r.id]).sort((a, b) => (a.id < b.id ? -1 : 1));
+  Object.keys(S.sel).forEach((id) => { if (!list.some((r) => r.id === id)) delete S.sel[id]; });
+  const nq = q.replace(/\s/g, '');
+  const shown = q ? list.filter((r) => r.name.replace(/\s/g, '').indexOf(nq) >= 0) : list;
+  const exact = q && (S.roster.some((r) => r.name === q) || done['n:' + q]);
+  $('newBox').hidden = !q || !!exact;
+  $('newMsg').innerHTML = shown.length
+    ? '上の候補に当てはまる人がいなければ、<b>「' + esc(q) + '」</b>さんを、はじめての人として受付できます。名前を最後まで入れてから押してください。'
+    : '<b>「' + esc(q) + '」</b>さんは名簿にいません。はじめての人として受付します。';
+  $('newAdd').textContent = '「' + q + '」さんを、はじめての人として受付';
+  $('newAdd').classList.toggle('primary', !shown.length && nq.length >= 2);
+  $('rList').innerHTML = shown.map((r) => '<label class="rc"><input type="checkbox" data-q="' + esc(r.id) + '"' + (S.sel[r.id] ? ' checked' : '') + '><span>' + esc(r.name) +
+      '<small>' + (r.exp ? '経験豊富' : '名簿') + (r.early ? '・早帰り' : '') + '</small></span></label>').join('')
+    || '<span class="muted">' + (q ? (done['n:' + q] ? '「' + esc(q) + '」さんは受付済みです' : '名簿に「' + esc(q) + '」に当てはまる人はいません')
+      : S.roster.length ? '名簿の人は全員受付済みです' : 'まだ名簿がありません。設定タブの「架空の名簿24人を入れる」で入れられます') + '</span>';
+  $('rList').querySelectorAll('[data-q]').forEach((c) => { c.onchange = () => { if (c.checked) S.sel[c.dataset.q] = 1; else delete S.sel[c.dataset.q]; updateQ(); }; });
+  $('rNote').hidden = !list.length;
+  updateQ();
+}
+function updateQ() { const n = Object.keys(S.sel).length; $('qBar').hidden = !n; $('qAdd').textContent = 'チェックした' + n + '人を受付'; }
+
+function renderList() {
+  const cs = S.checkins.slice().sort((a, b) => (b.tapAt || 0) - (a.tapAt || 0));
+  const exN = cs.filter((c) => { const r = S.roster.find((x) => x.id === c.id); return r && r.exp; }).length;
+  $('pCount').innerHTML = '<span class="stat">' + cs.length + '人</span><span class="stat">経験豊富 ' + exN + '</span>';
+  $('plist').innerHTML = cs.length ? cs.map((c) => {
+    const r = S.roster.find((x) => x.id === c.id) || {};
+    const st = S.errors[c.id] ? '<span class="st err">保存できず</span>' : c.pending ? '<span class="st wait">保存待ち</span>' : '<span class="st ok">保存済み ' + (c.atMs ? hms(c.atMs) : '') + '</span>';
+    return '<li><button class="prow" data-c="' + esc(c.id) + '"><span class="pname">' + esc(c.name) + '</span>' +
+      (c.isNew ? '<span class="tag cy">はじめて</span>' : '') + (r.exp ? '<span class="tag">経験豊富</span>' : '') + (r.early ? '<span class="tag early">早帰り</span>' : '') +
+      (c.dev && c.dev !== DEV ? '<span class="by">' + esc(c.devName || '別の端末') + '</span>' : '') + st + '</button></li>';
+  }).join('') : '<li class="muted">まだ誰も受付していません</li>';
+  $('plist').querySelectorAll('[data-c]').forEach((b) => { b.onclick = () => openCheckin(b.dataset.c); });
+}
+
+/* 受付の取り消し（ページの中で確かめる） */
+function openCheckin(id) {
+  const c = S.checkins.find((x) => x.id === id); if (!c) return;
+  const err = S.errors[id];
+  $('sheet').innerHTML = '<h2 id="sheetTitle">' + esc(c.name) + 'さん</h2>' +
+    '<p>' + (err ? '保存できませんでした（' + esc(err) + '）。電波の良い場所で、いったん取り消して受付し直してください。'
+      : c.pending ? 'まだ保存待ちです。電波が戻れば自動で送られます。' : (c.atMs ? hms(c.atMs) + 'に' : '') + (c.devName || '') + 'で受付済みです。') + '</p>' +
+    '<div class="actions"><button class="btn primary" id="cxYes" type="button">受付を取り消す</button><button class="btn ghost" id="cxNo" type="button">閉じる</button></div>';
+  $('ov').hidden = false;
+  $('cxNo').onclick = closeSheet;
+  $('cxYes').onclick = () => {
+    closeSheet(); delete S.errors[id];
+    B.cancel(id).catch((e) => toast('取り消せませんでした（' + (e && e.code || '') + '）', true));
+    toast(c.name + ' さんの受付を取り消しました'); renderAll();
+  };
+}
+function closeSheet() { $('ov').hidden = true; }
+$('ov').addEventListener('click', (e) => { if (e.target === $('ov')) closeSheet(); });
+
+/* ===== タブ ===== */
+function showPhase(ph) {
+  S.phase = ph; ls.set('phase', ph);
+  $('ph-entry').hidden = ph !== 'entry';
+  $('ph-set').hidden = ph !== 'set';
+  $('ph-other').hidden = ph === 'entry' || ph === 'set';
+  $('otherH').textContent = { team: 'チーム', game: '試合', rec: '記録' }[ph] || '';
+  document.querySelectorAll('.nb').forEach((b) => b.setAttribute('aria-current', b.dataset.ph === ph ? 'page' : 'false'));
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('.nb').forEach((b) => { b.onclick = () => showPhase(b.dataset.ph); });
+
+/* ===== 計測 ===== */
+function stats(arr) {
+  const v = arr.filter((x) => x != null && !isNaN(x)).sort((a, b) => a - b);
+  if (!v.length) return null;
+  return { n: v.length, med: v[Math.floor((v.length - 1) / 2)], max: v[v.length - 1] };
+}
+function renderMetrics() {
+  const ms = S.metrics;
+  $('clockLine').textContent = S.mode === 'demo' ? '練習モードでは、通信の時間はまねをした値です。'
+    : S.offset == null ? '時計を合わせられていません（電波を確かめて「時計を合わせ直す」）。「もう1台」の時間は合わせてから測れます。'
+    : 'この端末の時計合わせ：誤差 ±' + Math.round(S.rtt / 2) + 'ms 以内';
+  const taps = ms.filter((m) => m.kind === 'tap' || m.kind === 'new'), seens = ms.filter((m) => m.kind === 'seen');
+  const box = (title, st, note) => '<div class="sum"><b>' + title + '</b>' + (st ? '<span class="v">' + sec(st.med) + '</span><small>ふつう（中央値）・いちばん遅い ' + sec(st.max) + '・' + st.n + '回</small>' : '<span class="v">—</span><small>' + note + '</small>') + '</div>';
+  $('mSum').innerHTML = box('次の人へ', stats(taps.map((m) => m.readyMs)), 'まだ記録がありません') +
+    box('保存確定', stats(taps.map((m) => m.saveMs)), 'まだ記録がありません') +
+    box('もう1台に出る', stats(seens.map((m) => m.seenFromTap)), 'もう1台で受付タブを開いておくと記録されます');
+  $('mBody').innerHTML = ms.slice(0, 40).map((m) => '<tr><td>' + esc(m.devName || '') + '・' + (m.kind === 'seen' ? '見えた' : m.kind === 'new' ? 'はじめて' : '受付') + '<br><small class="muted">' + hms(m.tapAt) + '</small></td><td>' + (m.n || '') + '</td><td>' +
+    (m.kind === 'seen' ? '' : sec(m.readyMs)) + '</td><td>' + (m.kind === 'seen' ? '' : sec(m.saveMs)) + '</td><td>' + (m.kind === 'seen' ? sec(m.seenFromTap) : '') + '</td></tr>').join('')
+    || '<tr><td colspan="5" class="muted">まだ記録がありません</td></tr>';
+  const head = 'time,device,kind,people,next_ms,save_ms,seen_from_tap_ms,seen_from_save_ms,from';
+  $('csv').value = '月いちモルック 受付の試作 計測結果（版 ' + VER + '・' + (S.mode === 'fire' ? 'Firebase' : '練習モード') + '）\n' + head + '\n' +
+    ms.slice().reverse().map((m) => [new Date(m.tapAt).toISOString(), m.devName, m.kind, m.n, m.readyMs, m.saveMs, m.seenFromTap, m.seenFromSave, m.from].map((x) => x == null ? '' : String(x).replace(/,/g, ' ')).join(',')).join('\n');
+}
+$('syncBtn').onclick = clockSync;
+$('csvCopy').onclick = () => {
+  const ta = $('csv'), done = () => toast('計測結果をコピーしました');
+  const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? '計測結果をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
+};
+$('devSave').onclick = () => { const v = $('devName').value.trim(); if (!v) return; devName = v; ls.set('devName', v); toast('この端末を「' + v + '」にしました'); };
+
+/* ===== テスト用 ===== */
+$('seedBtn').onclick = () => {
+  if (S.roster.length >= FAKE.length) { toast('名簿はもう入っています'); return; }
+  B.seed().then(() => toast('架空の名簿24人を入れました')).catch((e) => toast('入れられませんでした（' + (e && e.code || '') + '）', true));
+};
+$('resetBtn').onclick = () => { $('resetConfirm').hidden = false; };
+$('resetNo').onclick = () => { $('resetConfirm').hidden = true; };
+$('resetYes').onclick = () => {
+  $('resetConfirm').hidden = true;
+  B.resetTest().then(() => { S.errors = {}; toast('受付と計測を空にしました'); renderAll(); }).catch((e) => toast('消せませんでした（' + (e && e.code || '') + '）', true));
+};
+$('demoOffline').onchange = () => { if (B && B.setOffline) B.setOffline($('demoOffline').checked); renderBar(); };
+$('logout').onclick = async () => {
+  try { await B.logout(); } catch (e) {}
+  ls.set('mode', ''); location.reload();
+};
+window.addEventListener('online', renderBar);
+window.addEventListener('offline', renderBar);
+window.addEventListener('beforeunload', (e) => {
+  /* 保存待ちが残っていても消えないが、念のため知らせる */
+  if (S.checkins.some((c) => c.pending) && (!B || !B.persistent)) { e.preventDefault(); e.returnValue = ''; }
+});
+
+boot();
+
+</script>
+</body>
+</html>
