@@ -501,6 +501,18 @@ body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
 /* 小さな直し：取消の送信待ちが枠からはみ出さない／消去の知らせは成功の色 */
 .prow .st.wait, .prow .st.err { white-space: normal; max-width: 9em; line-height: 1.35; padding: 2px 6px; }
 #lockErr.okmsg { color: var(--good); }
+.tag.beg { background: var(--good-soft); color: var(--good); }
+/* 受付の印（受付済みの人を押したとき・はじめての人） */
+.cf-grid { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 4px 0 12px; }
+.cf-lv { display: inline-flex; align-items: center; gap: 6px; font-weight: 900; flex-wrap: wrap; }
+.cf-lv[hidden] { display: none; }
+.cf-lv select { font: inherit; font-size: 16px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); padding: 4px 6px; }
+.cf-lv small { font-weight: 700; }
+.cf-danger { margin-top: 14px; padding-top: 12px; border-top: 2px dashed var(--line); justify-content: flex-start; }
+#selList { gap: 6px; }
+/* 印のボタンが4つ並ぶので、名前を上・ボタンを下にする（名前が縦に折れないように） */
+#selList .tmrow, #tmPeople .tmrow { grid-template-columns: minmax(0, 1fr); }
+#selList .ctl, #tmPeople .ctl { justify-content: flex-start; }
 
 </style>
 </head>
@@ -564,7 +576,7 @@ body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
       <p style="margin:0">パスコードなしで、この端末の中だけで操作を試すこともできます（ほかの端末とはつながりません）。</p>
       <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
     </div>
-    <p class="ver">版 2026.11.24-8</p>
+    <p class="ver">版 2026.11.24-9</p>
   </div>
 
   <div id="app" hidden>
@@ -608,10 +620,17 @@ body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
             <div id="newMsg"></div>
             <div class="actions">
               <label class="switch"><input type="checkbox" id="pExp"><span class="tr"></span>経験豊富</label>
+              <label class="cf-lv" id="pLvBox" hidden>評価 <select id="pLv" aria-label="評価"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label>
+              <label class="switch"><input type="checkbox" id="pBeg"><span class="tr"></span>初心者</label>
               <label class="switch"><input type="checkbox" id="pEarly"><span class="tr"></span>早めに帰る</label>
             </div>
             <div class="field"><label for="pPair">同じチーム希望の目印（任意）</label><input class="input" id="pPair" autocomplete="off" maxlength="20" placeholder="例：A（同じ目印の人は同じチーム）"></div>
             <button class="btn wide" id="newAdd" type="button">はじめての人として受付</button>
+          </div>
+          <div class="subbox" id="selBox" hidden style="margin-top:12px">
+            <b>チェックした人の印</b>
+            <p class="muted" style="margin:2px 0 8px">必要な人だけ押してください。何も押さなくても受付できます。経験豊富・初心者は名簿に残り、早帰り・目印はこの回だけです。</p>
+            <ul class="plist2" id="selList"></ul>
           </div>
           <p class="muted" id="rNote" style="margin:10px 0 0">タップでチェックして、下のボタンでまとめて受付します。押したらすぐ次の人に進めます。保存は裏で進みます。</p>
           </div>
@@ -619,7 +638,7 @@ body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
         <div class="qbar" id="qBar" hidden><button class="btn primary" id="qAdd" type="button">チェックした人を受付</button></div>
         <div class="box">
           <div class="sec-h"><h2 class="h">受付済み</h2><div class="chiprow" id="pCount"></div></div>
-          <p class="muted" style="margin-top:0">「送信待ち」は、この端末にだけ入っていて、まだサーバーで確認できていない受付です。電波が戻れば自動で送られます。名前を押すと受付を取り消せます。</p>
+          <p class="muted" style="margin-top:0">「送信待ち」は、この端末にだけ入っていて、まだサーバーで確認できていない受付です。電波が戻れば自動で送られます。名前を押すと、経験豊富・初心者・早帰り・目印を直したり、受付を取り消したりできます。</p>
           <ul class="plist2" id="plist"></ul>
         </div>
       </section>
@@ -643,7 +662,7 @@ body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
         </div>
         <div class="box">
           <h2 class="h">参加者の設定</h2>
-          <p class="muted" style="margin-top:0">経験豊富の人には1〜10の評価を付けます（10がいちばん強い）。評価は抽選で強さをそろえるためだけに使い、運営画面にだけ出します。同じチーム希望の人には、同じ目印（例：A）を入れます。同じ目印の人だけで1チームになります。</p>
+          <p class="muted" style="margin-top:0">経験豊富の人には1〜10の評価を付けます（10がいちばん強い）。評価は抽選で強さをそろえるためだけに使い、運営画面にだけ出します。同じチーム希望の人には、同じ目印（例：A）を入れます。同じ目印の人だけで1チームになります。初心者は各チームに散らばるように、早帰りの人は同じチームに重ならないように分けます。</p>
           <ul class="plist2" id="tmPeople"></ul>
         </div>
       </section>
@@ -724,7 +743,7 @@ body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
         </div>
         <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
       </section>
-      <p class="ver">版 2026.11.24-8</p>
+      <p class="ver">版 2026.11.24-9</p>
     </main>
   </div>
 </div>
@@ -821,7 +840,7 @@ if (typeof module !== 'undefined') module.exports = { fakeServerCommit, fakeAppl
    - staff/{BOX}/events/{e}/devices/{d}  各端末の「送信待ち」の件数と最後につながった時刻
    ルール側で：締めた回への書き込み、まとめた人への受付は断る
 */
-const VER = '2026.11.24-8';
+const VER = '2026.11.24-9';
 const FB_VER = '13.2.0';
 const STAFF_EMAIL = 'unei@tsukiichi.example';
 const BOX = 'proto';
@@ -846,8 +865,10 @@ const W = {
   checkin(root, eid, items, opId, tapAt, tapSrv) {
     const w = [];
     items.forEach((it) => {
-      if (it.isNew) w.push({ op: 'set', path: root + '/roster/' + it.id, data: { name: it.name, norm: norm(it.name), exp: !!it.exp, early: !!it.early, pair: it.pair || '', createdAt: TS, createdIn: eid } });
-      w.push({ op: 'set', path: root + '/events/' + eid + '/checkins/' + it.id, data: { name: it.name, isNew: !!it.isNew, at: TS, tapAt, tapSrv: tapSrv == null ? null : tapSrv, dev: DEV, devName, batch: opId, n: items.length, op: opId } });
+      /* 経験豊富・評価・初心者は名簿に（次の回にも残る）。早帰り・目印はその回の受付に */
+      if (it.isNew) w.push({ op: 'set', path: root + '/roster/' + it.id, data: { name: it.name, norm: norm(it.name), exp: !!it.exp, level: it.exp ? (it.level || 5) : null, beg: !it.exp && !!it.beg, createdAt: TS, createdIn: eid } });
+      else if (it.upd) w.push({ op: 'update', path: root + '/roster/' + it.id, data: it.upd });
+      w.push({ op: 'set', path: root + '/events/' + eid + '/checkins/' + it.id, data: { name: it.name, isNew: !!it.isNew, early: !!it.early, pair: String(it.pair || '').trim(), at: TS, tapAt, tapSrv: tapSrv == null ? null : tapSrv, dev: DEV, devName, batch: opId, n: items.length, op: opId } });
     });
     return w;
   },
@@ -974,7 +995,7 @@ const SESSION = rid('s');
 const S = {
   mode: '', cur: '', events: {}, roster: [], checkins: [], devices: [], metrics: [],
   sync: { box: null, events: null, roster: null, checkins: null }, // null=まだ / {cache:true|false, at, err}
-  sel: {}, phase: 'entry', offset: null, rtt: null, firstSnap: true, seen: {}, ops: [], verifying: false,
+  sel: {}, selFlags: {}, phase: 'entry', offset: null, rtt: null, firstSnap: true, seen: {}, ops: [], verifying: false,
   lastServer: null, liveServer: false // サーバーで確認できた人数と、その時刻（いつも組で持つ）
 };
 let B = null;
@@ -1452,8 +1473,12 @@ $('qAdd').onclick = () => {
   const ids = Object.keys(S.sel);
   if (!ids.length) return;
   const rm = rosterById();
-  const items = ids.map((id) => rm[id]).filter(Boolean).map((r) => ({ id: r.id, name: r.name }));
-  S.sel = {}; $('eq').value = '';
+  const items = ids.map((id) => rm[id]).filter(Boolean).map((r) => {
+    const f = S.selFlags[r.id] || {}, it = { id: r.id, name: r.name, early: !!f.early, pair: String(f.pair || '').trim() };
+    const upd = rosterDiff(r, f); if (upd) it.upd = upd;
+    return it;
+  });
+  S.sel = {}; S.selFlags = {}; $('eq').value = '';
   doCheckin(items, 'tap');
   renderAll(); $('eq').focus();
   toast(items.map((i) => i.name).join('・') + ' さんを受付');
@@ -1462,12 +1487,53 @@ $('newAdd').onclick = () => {
   const name = $('eq').value.trim().replace(/\s+/g, ' ');
   if (!name) { $('eq').focus(); return; }
   if (S.roster.some((r) => !r.mergedInto && r.name === name)) { toast('「' + name + '」さんは名簿にいます。上の候補から選んでください', true); return; }
-  doCheckin([{ id: rid('n'), name, isNew: true, exp: $('pExp').checked, early: $('pEarly').checked, pair: $('pPair').value.trim() }], 'new');
-  $('eq').value = ''; $('pExp').checked = false; $('pEarly').checked = false; $('pPair').value = '';
+  const exp = $('pExp').checked;
+  doCheckin([{ id: rid('n'), name, isNew: true, exp, level: exp ? +$('pLv').value : null, beg: !exp && $('pBeg').checked, early: $('pEarly').checked, pair: $('pPair').value.trim() }], 'new');
+  $('eq').value = ''; $('pExp').checked = false; $('pBeg').checked = false; $('pEarly').checked = false; $('pPair').value = ''; $('pLv').value = String(LV_DEFAULT); syncNewFlags();
   renderAll(); $('eq').focus();
   toast(name + ' さんを受付（はじめて）');
 };
 $('eq').addEventListener('input', renderRoster);
+/* はじめての人の印：経験豊富と初心者はどちらか一方。経験豊富なら評価を選ぶ */
+function syncNewFlags() { $('pLvBox').hidden = !$('pExp').checked; }
+$('pExp').addEventListener('change', () => { if ($('pExp').checked) $('pBeg').checked = false; syncNewFlags(); });
+$('pBeg').addEventListener('change', () => { if ($('pBeg').checked) { $('pExp').checked = false; syncNewFlags(); } });
+/* 名簿の値と違うところだけ、名簿の更新にする（同じなら書かない） */
+function rosterDiff(r, f) {
+  if (!('exp' in f)) return null;
+  const exp = !!f.exp, beg = !exp && !!f.beg, level = exp ? (num(f.level) || LV_DEFAULT) : null;
+  const d = {};
+  if (exp !== !!r.exp) d.exp = exp;
+  if (beg !== !!r.beg) d.beg = beg;
+  if (exp && level !== (num(r.level) || (r.exp ? LV_DEFAULT : null))) d.level = level;
+  if (!exp && r.exp) d.level = null;
+  return Object.keys(d).length ? d : null;
+}
+const LVS = Array.from({ length: 10 }, (_, i) => i + 1);
+const lvSelect = (attr, v, label) => '<select ' + attr + ' aria-label="' + esc(label) + '">' + LVS.map((n) => '<option' + (n === v ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>';
+/* チェックした人の印（受付と同時に付ける）。名簿の経験豊富・初心者を最初の値にする */
+let selSig = '';
+function renderSel() {
+  const rm = rosterById(), ids = Object.keys(S.sel).filter((id) => rm[id]);
+  Object.keys(S.selFlags).forEach((id) => { if (!S.sel[id]) delete S.selFlags[id]; });
+  ids.forEach((id) => { if (!S.selFlags[id]) { const r = rm[id]; S.selFlags[id] = { exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : LV_DEFAULT, beg: !r.exp && !!r.beg, early: false, pair: '' }; } });
+  const sig = JSON.stringify(ids.map((id) => [id, S.selFlags[id].exp, S.selFlags[id].beg, S.selFlags[id].early, S.selFlags[id].level]));
+  $('selBox').hidden = !ids.length;
+  if (sig === selSig) return; selSig = sig;
+  $('selList').innerHTML = ids.map((id) => { const f = S.selFlags[id], nm = rm[id].name; return '<li class="tmrow"><span class="nm">' + esc(nm) + '</span><span class="ctl">' +
+    '<button type="button" class="tg" data-sf="exp" data-id="' + esc(id) + '" aria-pressed="' + f.exp + '">経験豊富</button>' +
+    (f.exp ? lvSelect('data-slv="' + esc(id) + '"', f.level, nm + 'の評価') : '') +
+    '<button type="button" class="tg" data-sf="beg" data-id="' + esc(id) + '" aria-pressed="' + f.beg + '">初心者</button>' +
+    '<button type="button" class="tg" data-sf="early" data-id="' + esc(id) + '" aria-pressed="' + f.early + '">早帰り</button>' +
+    '<input data-spair="' + esc(id) + '" value="' + esc(f.pair) + '" maxlength="10" placeholder="目印" aria-label="' + esc(nm) + 'の同じチーム希望の目印"></span></li>'; }).join('');
+  $('selList').querySelectorAll('[data-sf]').forEach((b) => { b.onclick = () => {
+    const f = S.selFlags[b.dataset.id], k = b.dataset.sf; f[k] = !f[k];
+    if (k === 'exp' && f.exp) f.beg = false; if (k === 'beg' && f.beg) f.exp = false;
+    renderSel();
+  }; });
+  $('selList').querySelectorAll('[data-slv]').forEach((x) => { x.onchange = () => { S.selFlags[x.dataset.slv].level = +x.value; }; });
+  $('selList').querySelectorAll('[data-spair]').forEach((x) => { x.oninput = () => { S.selFlags[x.dataset.spair].pair = x.value; }; });
+}
 $('eq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (!$('newBox').hidden && $('newAdd').classList.contains('primary')) $('newAdd').click(); } });
 
 /* ===== 表示 ===== */
@@ -1559,7 +1625,7 @@ function renderRoster() {
   $('newAdd').classList.toggle('primary', !shown.length && !sameIn && !sameRoster && nq.length >= 2);
   const evOk = !!(S.cur && S.events[S.cur] && S.events[S.cur].status === 'open');
   $('rList').innerHTML = !evOk ? '' : shown.map((r) => '<label class="rc"><input type="checkbox" data-q="' + esc(r.id) + '"' + (S.sel[r.id] ? ' checked' : '') + '><span>' + esc(r.name) +
-      '<small>' + (r.exp ? '経験豊富' : '名簿') + (r.early ? '・早帰り' : '') + '</small></span></label>').join('')
+      '<small>' + (r.exp ? '経験豊富' : r.beg ? '初心者' : '名簿') + '</small></span></label>').join('')
     || '<span class="muted">' + (q ? (sameIn ? '「' + esc(sameIn.name) + '」さんは受付済みです' : '名簿に「' + esc(q) + '」に当てはまる人はいません')
       : S.roster.length ? '名簿の人は全員受付済みです' : S.sync.roster && !S.sync.roster.cache ? 'まだ名簿がありません。設定タブの「架空の名簿24人を入れる」で入れられます' : '名簿を読み込んでいます…') + '</span>';
   $('rList').querySelectorAll('[data-q]').forEach((c) => { c.onchange = () => { if (c.checked) S.sel[c.dataset.q] = 1; else delete S.sel[c.dataset.q]; updateQ(); }; });
@@ -1567,7 +1633,7 @@ function renderRoster() {
   $('entryBox').hidden = !evOk;
   updateQ();
 }
-function updateQ() { const n = Object.keys(S.sel).length; $('qBar').hidden = !n; $('qAdd').textContent = 'チェックした' + n + '人を受付'; }
+function updateQ() { const n = Object.keys(S.sel).length; $('qBar').hidden = !n; $('qAdd').textContent = 'チェックした' + n + '人を受付'; renderSel(); }
 
 /* 同じ名前かもしれない人（運営が確かめたときだけまとめる） */
 function dupGroups() {
@@ -1632,14 +1698,14 @@ function markDistinct(pair) {
 function renderList() {
   const cs = people().sort((a, b) => (b.tapAt || 0) - (a.tapAt || 0));
   const rm = rosterById();
-  const exN = cs.filter((c) => rm[c.id] && rm[c.id].exp).length;
+  const exN = cs.filter((c) => rm[c.id] && rm[c.id].exp).length, bgN = cs.filter((c) => rm[c.id] && !rm[c.id].exp && rm[c.id].beg).length;
   const outPend = unsent().filter((o) => o.type === 'out' && o.eid === S.cur);
-  $('pCount').innerHTML = '<span class="stat">' + cs.length + '人</span><span class="stat">経験豊富 ' + exN + '</span>';
+  $('pCount').innerHTML = '<span class="stat">' + cs.length + '人</span><span class="stat">経験豊富 ' + exN + '</span><span class="stat">初心者 ' + bgN + '</span>';
   $('plist').innerHTML = (cs.length ? cs.map((c) => {
     const r = rm[c.id] || {};
     const st = c.pending ? '<span class="st wait">送信待ち</span>' : '<span class="st ok">確認済み ' + hms(c.at) + '</span>';
     return '<li><button class="prow" data-c="' + esc(c.id) + '"><span class="pname">' + esc(c.name) + '</span>' +
-      (c.isNew ? '<span class="tag cy">はじめて</span>' : '') + (r.exp ? '<span class="tag">経験豊富</span>' : '') + (r.early ? '<span class="tag early">早帰り</span>' : '') +
+      (c.isNew ? '<span class="tag cy">はじめて</span>' : '') + (r.exp ? '<span class="tag">経験豊富</span>' : r.beg ? '<span class="tag beg">初心者</span>' : '') + (c.early ? '<span class="tag early">早帰り</span>' : '') + (c.pair ? '<span class="tag pod">目印 ' + esc(c.pair) + '</span>' : '') +
       (c.dev && c.dev !== DEV ? '<span class="by">' + esc(c.devName || '別の端末') + '</span>' : '') + st + '</button></li>';
   }).join('') : '<li class="muted">' + (S.sync.checkins && !S.sync.checkins.cache ? 'まだ誰も受付していません' : '受付を読み込んでいます…') + '</li>') +
     outPend.map((o) => '<li><div class="prow" style="opacity:.75"><span class="pname">' + esc(o.items[0].name) + '</span><span class="st wait">取消の送信待ち</span></div></li>').join('');
@@ -1664,8 +1730,8 @@ function resend(id) {
   const rm = rosterById(), here = {}; people().forEach((p) => { here[p.id] = 1; });
   const items = o.items.map((it) => {
     const to = resolveId(it.id, rm);
-    if (to !== it.id) return { id: to, name: (rm[to] || {}).name || it.name };
-    return rm[it.id] ? { id: it.id, name: it.name } : it; // 名簿に入らなかった新しい人は、もう一度名簿ごと作る
+    if (to !== it.id) return { id: to, name: (rm[to] || {}).name || it.name, early: it.early, pair: it.pair };
+    return rm[it.id] ? { id: it.id, name: it.name, early: it.early, pair: it.pair } : it; // 名簿に入らなかった新しい人は、もう一度名簿ごと作る
   }).filter((it) => !here[it.id]);
   dropOp(id);
   if (items.length) doCheckin(items, items.some((i) => i.isNew) ? 'new' : 'tap'); else toast('もう受付済みでした');
@@ -1675,11 +1741,36 @@ function resend(id) {
 /* 受付の取り消し */
 function openCheckin(id) {
   const c = people().find((x) => x.id === id); if (!c) return;
+  const r = rosterById()[c.id] || {};
+  const f = { exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : LV_DEFAULT, beg: !r.exp && !!r.beg, early: !!c.early, pair: String(c.pair || '') };
+  const sw = (k, label) => '<label class="switch"><input type="checkbox" id="cf_' + k + '"' + (f[k] ? ' checked' : '') + '><span class="tr"></span>' + label + '</label>';
   $('sheet').innerHTML = '<h2 id="sheetTitle">' + esc(c.name) + 'さん</h2>' +
     '<p>' + (c.pending ? 'まだ送信待ちです。電波が戻れば自動で送られます。' : esc(hms(c.at)) + 'に' + esc(c.devName || '') + 'で受付済み（サーバーで確認済み）。') + '</p>' +
-    '<div class="actions"><button class="btn primary" id="cxYes" type="button">受付を取り消す</button><button class="btn ghost" id="cxNo" type="button">閉じる</button></div>';
+    '<div class="cf-grid">' + sw('exp', '経験豊富') + '<label class="cf-lv" id="cfLvBox"' + (f.exp ? '' : ' hidden') + '>評価 ' + lvSelect('id="cf_level"', f.level, c.name + 'の評価') + '<small class="muted">10がいちばん強い</small></label>' +
+    sw('beg', '初心者') + sw('early', '早めに帰る') + '</div>' +
+    '<div class="field"><label for="cf_pair">同じチーム希望の目印</label><input class="input" id="cf_pair" maxlength="10" autocomplete="off" value="' + esc(f.pair) + '" placeholder="例：A（同じ目印の人は同じチーム）"></div>' +
+    '<p class="muted" style="margin:0">経験豊富・評価・初心者は名簿に残り、次の回にも使います。早めに帰る・目印はこの回だけです。</p>' +
+    '<div class="actions"><button class="btn primary" id="cfSave" type="button">変更を保存</button><button class="btn ghost" id="cxNo" type="button">閉じる</button></div>' +
+    '<div class="actions cf-danger"><button class="btn small" id="cxYes" type="button">受付を取り消す</button></div>';
   $('ov').hidden = false;
+  const ex = $('cf_exp'), bg = $('cf_beg');
+  ex.onchange = () => { if (ex.checked) bg.checked = false; $('cfLvBox').hidden = !ex.checked; };
+  bg.onchange = () => { if (bg.checked) { ex.checked = false; $('cfLvBox').hidden = true; } };
   $('cxNo').onclick = closeSheet;
+  $('cfSave').onclick = () => {
+    const nf = { exp: ex.checked, level: +$('cf_level').value, beg: bg.checked, early: $('cf_early').checked, pair: $('cf_pair').value.trim() };
+    closeSheet();
+    if (needEvent()) return;
+    const w = [], upd = rosterDiff(r, nf), cu = {};
+    if (upd) w.push({ op: 'update', path: ROOT + '/roster/' + c.id, data: upd });
+    if (nf.early !== !!c.early) cu.early = nf.early;
+    if (nf.pair !== String(c.pair || '').trim()) cu.pair = nf.pair;
+    if (Object.keys(cu).length) w.push({ op: 'update', path: ROOT + '/events/' + S.cur + '/checkins/' + c.rawId, data: cu });
+    if (!w.length) { toast('変更はありませんでした'); return; }
+    const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: c.id, name: c.name }], tapAt: now() };
+    runOp(op, w); T.preview = null;
+    toast(c.name + ' さんの印を変えました');
+  };
   $('cxYes').onclick = () => {
     closeSheet();
     if (needEvent()) return;
@@ -1749,10 +1840,10 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const T = { count: 0, preview: null, msg: '', draft: {} }; // draft：入力中の目印（描き直しても消えないように）
 function rint(n) { const a = new Uint32Array(1); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : (a[0] = Math.floor(Math.random() * 4294967296)); return a[0] % n; }
 function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = rint(i + 1); [r[i], r[j]] = [r[j], r[i]]; } return r; }
-/* 抽選に使う参加者（受付済み＋名簿の経験豊富・評価・早帰り＋受付の目印） */
+/* 抽選に使う参加者（受付済み＋名簿の経験豊富・評価・初心者＋その回の受付の早帰り・目印） */
 function drawPeople() {
   const rm = rosterById();
-  return people().map((p) => { const r = rm[p.id] || {}; return { id: p.id, rawId: p.rawId, name: p.name, exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : 0, early: !!r.early, pair: String(p.pair || '').trim(), pending: p.pending }; });
+  return people().map((p) => { const r = rm[p.id] || {}; return { id: p.id, rawId: p.rawId, name: p.name, exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : 0, beg: !r.exp && !!r.beg, early: !!p.early, pair: String(p.pair || '').trim(), pending: p.pending }; });
 }
 /* 目印ごとのまとまり（2人以上）と、目印が1人だけの人。
    「ほかの人が入ってもよい」（本人に確認済み）にした2〜3人のまとまりは open：同じチームに入れたうえで、ほかの人で埋める */
@@ -1797,7 +1888,8 @@ function balance(rest, K, seeds) {
   const score = (teams) => {
     const sums = teams.map((t) => t.reduce((s, p) => s + p.level, 0)), exps = teams.map((t) => t.filter((p) => p.exp).length);
     const early = teams.reduce((s, t) => s + Math.max(0, t.filter((p) => p.early).length - 1), 0);
-    return (Math.max(...sums) - Math.min(...sums)) * 10 + (Math.max(...exps) - Math.min(...exps)) * 100 + early * 30;
+    const begs = teams.map((t) => t.filter((p) => p.beg).length);
+    return (Math.max(...sums) - Math.min(...sums)) * 10 + (Math.max(...exps) - Math.min(...exps)) * 100 + early * 30 + (Math.max(...begs) - Math.min(...begs)) * 40;
   };
   const tries = [];
   for (let n = 0; n < 300; n++) {
@@ -1817,21 +1909,24 @@ function balance(rest, K, seeds) {
       teams[order[k]].push(p);
       k += dir; if (k >= K || k < 0) { dir = -dir; k += dir; }
     });
-    /* 経験豊富でない人：早帰りの人を先に、早帰りがいない・人数の多いチームへ */
-    const others = shuffle(rest.filter((p) => !p.exp && !locked[p.id])).sort((a, b) => (b.early ? 1 : 0) - (a.early ? 1 : 0));
+    /* 経験豊富でない人：早帰り・初心者の人を先に、同じ印の人が少ない・人数の多いチームへ */
+    const w = (p) => (p.early ? 2 : 0) + (p.beg ? 1 : 0);
+    const others = shuffle(rest.filter((p) => !p.exp && !locked[p.id])).sort((a, b) => w(b) - w(a));
     others.forEach((p) => {
       const open = teams.map((t, i) => i).filter((i) => teams[i].length < caps[i]);
-      const pick = p.early ? open.sort((a, b) => teams[a].filter((x) => x.early).length - teams[b].filter((x) => x.early).length || caps[b] - caps[a] || rint(3) - 1)[0] : open[rint(open.length)];
+      const cnt = (i) => teams[i].filter((x) => (p.early && x.early) || (p.beg && x.beg)).length;
+      const pick = w(p) ? open.sort((a, b) => cnt(a) - cnt(b) || caps[b] - caps[a] || rint(3) - 1)[0] : open[rint(open.length)];
       teams[pick].push(p);
     });
-    /* 経験豊富どうしの入れ替えで評価の合計をそろえる */
+    /* 経験豊富どうしの入れ替えで評価の合計を、それ以外どうしの入れ替えで初心者・早帰りの散らばりをそろえる */
     let best = score(teams), improved = true, loops = 0;
     while (improved && loops++ < 20) {
       improved = false;
       for (let a = 0; a < K; a++) for (let b = a + 1; b < K; b++) {
         for (let i = 0; i < teams[a].length; i++) for (let j = 0; j < teams[b].length; j++) {
           const x = teams[a][i], y = teams[b][j];
-          if (x.exp !== y.exp || x.level === y.level || locked[x.id] || locked[y.id]) continue;
+          if (x.exp !== y.exp || locked[x.id] || locked[y.id]) continue;
+          if (x.exp ? x.level === y.level : (x.beg === y.beg && x.early === y.early)) continue;
           teams[a][i] = y; teams[b][j] = x;
           const s = score(teams);
           if (s < best) { best = s; improved = true; } else { teams[a][i] = x; teams[b][j] = y; }
@@ -1870,6 +1965,8 @@ function checkTeams(teams, ps, opens) {
   const normal = teams.filter((t) => !t.fixed), sz = normal.map((t) => t.members.length);
   if (normal.length) res.push([Math.max(...sz) - Math.min(...sz) <= 1 && Math.min(...sz) >= TEAM_MIN, 'ほかのチームは ' + [...new Set(sz)].sort().join('〜') + '人（人数差1人以内）']);
   const ex = normal.map((t) => t.members.filter((m) => m.exp).length), lv = normal.map((t) => t.members.reduce((s, m) => s + m.level, 0));
+  const bg = normal.map((t) => t.members.filter((m) => m.beg).length);
+  if (normal.length && Math.max(...bg)) res.push([Math.max(...bg) - Math.min(...bg) <= 1, '初心者は各チーム ' + Math.min(...bg) + (Math.max(...bg) !== Math.min(...bg) ? '〜' + Math.max(...bg) : '') + '人']);
   if (normal.length) res.push([Math.max(...ex) - Math.min(...ex) <= 1, '経験豊富は各チーム ' + Math.min(...ex) + (Math.max(...ex) !== Math.min(...ex) ? '〜' + Math.max(...ex) : '') + '人・評価の合計 ' + Math.min(...lv) + '〜' + Math.max(...lv)]);
   return res;
 }
@@ -1921,7 +2018,7 @@ function teamCard(t, i, edit) {
   return '<div class="tcard' + (t.fixed ? ' fixed' : '') + '"><div class="thd">' +
     (edit ? '<input class="input tm-name" data-tn="' + i + '" value="' + esc(t.name) + '" maxlength="12" aria-label="チーム名">' : '<span class="tm-name">' + esc(t.name) + '</span>') + '</div>' +
     '<div class="tm-meta">' + t.members.length + '人' + (t.fixed ? '・同じチーム希望「' + esc(t.fixed) + '」' : '') + (t.mark ? '・目印「' + esc(t.mark) + '」の人とほかの人' : '') + '・経験豊富 ' + ex + '人・評価計 ' + lv + '</div>' +
-    '<ul class="tm-mem">' + t.members.map((m) => '<li>' + esc(m.name) + (m.exp ? '<span class="lv">経験' + m.level + '</span>' : '') + (m.early ? '<span class="tag early">早帰り</span>' : '') + '</li>').join('') + '</ul></div>';
+    '<ul class="tm-mem">' + t.members.map((m) => '<li>' + esc(m.name) + (m.exp ? '<span class="lv">経験' + m.level + '</span>' : m.beg ? '<span class="tag beg">初心者</span>' : '') + (m.early ? '<span class="tag early">早帰り</span>' : '') + '</li>').join('') + '</ul></div>';
 }
 function renderTeamResult(ps) {
   const ev = S.events[S.cur] || {};
@@ -1956,9 +2053,13 @@ function renderTeamPeople(ps) {
     '<li class="tmrow"><span class="nm">' + esc(p.name) + (p.pending ? ' <small class="muted">送信待ち</small>' : '') + '</span><span class="ctl">' +
     '<button type="button" class="tg" data-exp="' + esc(p.id) + '" aria-pressed="' + p.exp + '">経験豊富</button>' +
     (p.exp ? '<select data-lv="' + esc(p.id) + '" aria-label="' + esc(p.name) + 'の評価">' + LV.map((v) => '<option' + (v === p.level ? ' selected' : '') + '>' + v + '</option>').join('') + '</select>' : '') +
+    '<button type="button" class="tg" data-beg="' + esc(p.id) + '" aria-pressed="' + p.beg + '">初心者</button>' +
+    '<button type="button" class="tg" data-early="' + esc(p.rawId) + '" aria-pressed="' + p.early + '">早帰り</button>' +
     '<input data-pair="' + esc(p.rawId) + '" value="' + esc(p.rawId in T.draft ? T.draft[p.rawId] : p.pair) + '" maxlength="10" placeholder="目印" aria-label="' + esc(p.name) + 'の同じチーム希望の目印"></span></li>').join('')
     : '<li class="muted">まだ受付済みの人がいません</li>';
-  $('tmPeople').querySelectorAll('[data-exp]').forEach((b) => { b.onclick = () => { const p = ps.find((x) => x.id === b.dataset.exp); editRoster(p, { exp: !p.exp, level: !p.exp ? LV_DEFAULT : null }); }; });
+  $('tmPeople').querySelectorAll('[data-exp]').forEach((b) => { b.onclick = () => { const p = ps.find((x) => x.id === b.dataset.exp); editRoster(p, !p.exp ? { exp: true, level: LV_DEFAULT, beg: false } : { exp: false, level: null }); }; });
+  $('tmPeople').querySelectorAll('[data-beg]').forEach((b) => { b.onclick = () => { const p = ps.find((x) => x.id === b.dataset.beg); editRoster(p, !p.beg ? { beg: true, exp: false, level: null } : { beg: false }); }; });
+  $('tmPeople').querySelectorAll('[data-early]').forEach((b) => { b.onclick = () => { const p = ps.find((x) => x.rawId === b.dataset.early); editCheckin(p, { early: !p.early }); }; });
   $('tmPeople').querySelectorAll('[data-lv]').forEach((s) => { s.onchange = () => { const p = ps.find((x) => x.id === s.dataset.lv); editRoster(p, { level: +s.value }); }; });
   $('tmPeople').querySelectorAll('[data-pair]').forEach((inp) => {
     inp.oninput = () => { T.draft[inp.dataset.pair] = inp.value; };
@@ -1982,10 +2083,11 @@ function editRoster(p, data) {
   runOp(op, [{ op: 'update', path: ROOT + '/roster/' + p.id, data }]);
   T.preview = null;
 }
-function editPair(p, label) {
+function editPair(p, label) { editCheckin(p, { pair: label }); }
+function editCheckin(p, data) {
   if (!p || needEvent()) return;
   const op = { id: rid('o'), type: 'edit', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: [{ id: p.id, name: p.name }], tapAt: now() };
-  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur + '/checkins/' + p.rawId, data: { pair: label } }]);
+  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur + '/checkins/' + p.rawId, data }]);
   T.preview = null;
 }
 function doDraw() {
@@ -2148,7 +2250,7 @@ $('selfBtn').onclick = async () => {
 /* ===== テスト用 ===== */
 $('seedBtn').onclick = () => {
   if (S.roster.filter((r) => /^r\d\d$/.test(r.id)).length >= FAKE.length) { toast('架空の名簿はもう入っています'); return; }
-  B.commit(FAKE.map((n, i) => ({ op: 'set', path: ROOT + '/roster/r' + pad(i + 1), data: { name: n, norm: norm(n), exp: i % 4 === 0, level: i % 4 === 0 ? [9, 7, 6, 5, 4, 2][i / 4] : null, early: i % 9 === 5, pair: '', createdAt: TS } })))
+  B.commit(FAKE.map((n, i) => ({ op: 'set', path: ROOT + '/roster/r' + pad(i + 1), data: { name: n, norm: norm(n), exp: i % 4 === 0, level: i % 4 === 0 ? [9, 7, 6, 5, 4, 2][i / 4] : null, beg: i % 4 !== 0 && i % 7 === 3, createdAt: TS } })))
     .then(() => toast('架空の名簿24人を入れました'), (e) => toast('入れられませんでした（' + ((e && e.code) || '') + '）', true));
 };
 $('demoOffline').onchange = () => { if (B && B.setOffline) B.setOffline($('demoOffline').checked); renderBar(); };

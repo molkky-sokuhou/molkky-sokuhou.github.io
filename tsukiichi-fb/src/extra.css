@@ -80,3 +80,15 @@
 /* 小さな直し：取消の送信待ちが枠からはみ出さない／消去の知らせは成功の色 */
 .prow .st.wait, .prow .st.err { white-space: normal; max-width: 9em; line-height: 1.35; padding: 2px 6px; }
 #lockErr.okmsg { color: var(--good); }
+.tag.beg { background: var(--good-soft); color: var(--good); }
+/* 受付の印（受付済みの人を押したとき・はじめての人） */
+.cf-grid { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 4px 0 12px; }
+.cf-lv { display: inline-flex; align-items: center; gap: 6px; font-weight: 900; flex-wrap: wrap; }
+.cf-lv[hidden] { display: none; }
+.cf-lv select { font: inherit; font-size: 16px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); padding: 4px 6px; }
+.cf-lv small { font-weight: 700; }
+.cf-danger { margin-top: 14px; padding-top: 12px; border-top: 2px dashed var(--line); justify-content: flex-start; }
+#selList { gap: 6px; }
+/* 印のボタンが4つ並ぶので、名前を上・ボタンを下にする（名前が縦に折れないように） */
+#selList .tmrow, #tmPeople .tmrow { grid-template-columns: minmax(0, 1fr); }
+#selList .ctl, #tmPeople .ctl { justify-content: flex-start; }

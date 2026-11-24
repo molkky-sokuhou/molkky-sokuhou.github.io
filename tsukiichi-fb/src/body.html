@@ -59,10 +59,17 @@
             <div id="newMsg"></div>
             <div class="actions">
               <label class="switch"><input type="checkbox" id="pExp"><span class="tr"></span>経験豊富</label>
+              <label class="cf-lv" id="pLvBox" hidden>評価 <select id="pLv" aria-label="評価"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label>
+              <label class="switch"><input type="checkbox" id="pBeg"><span class="tr"></span>初心者</label>
               <label class="switch"><input type="checkbox" id="pEarly"><span class="tr"></span>早めに帰る</label>
             </div>
             <div class="field"><label for="pPair">同じチーム希望の目印（任意）</label><input class="input" id="pPair" autocomplete="off" maxlength="20" placeholder="例：A（同じ目印の人は同じチーム）"></div>
             <button class="btn wide" id="newAdd" type="button">はじめての人として受付</button>
+          </div>
+          <div class="subbox" id="selBox" hidden style="margin-top:12px">
+            <b>チェックした人の印</b>
+            <p class="muted" style="margin:2px 0 8px">必要な人だけ押してください。何も押さなくても受付できます。経験豊富・初心者は名簿に残り、早帰り・目印はこの回だけです。</p>
+            <ul class="plist2" id="selList"></ul>
           </div>
           <p class="muted" id="rNote" style="margin:10px 0 0">タップでチェックして、下のボタンでまとめて受付します。押したらすぐ次の人に進めます。保存は裏で進みます。</p>
           </div>
@@ -70,7 +77,7 @@
         <div class="qbar" id="qBar" hidden><button class="btn primary" id="qAdd" type="button">チェックした人を受付</button></div>
         <div class="box">
           <div class="sec-h"><h2 class="h">受付済み</h2><div class="chiprow" id="pCount"></div></div>
-          <p class="muted" style="margin-top:0">「送信待ち」は、この端末にだけ入っていて、まだサーバーで確認できていない受付です。電波が戻れば自動で送られます。名前を押すと受付を取り消せます。</p>
+          <p class="muted" style="margin-top:0">「送信待ち」は、この端末にだけ入っていて、まだサーバーで確認できていない受付です。電波が戻れば自動で送られます。名前を押すと、経験豊富・初心者・早帰り・目印を直したり、受付を取り消したりできます。</p>
           <ul class="plist2" id="plist"></ul>
         </div>
       </section>
@@ -94,7 +101,7 @@
         </div>
         <div class="box">
           <h2 class="h">参加者の設定</h2>
-          <p class="muted" style="margin-top:0">経験豊富の人には1〜10の評価を付けます（10がいちばん強い）。評価は抽選で強さをそろえるためだけに使い、運営画面にだけ出します。同じチーム希望の人には、同じ目印（例：A）を入れます。同じ目印の人だけで1チームになります。</p>
+          <p class="muted" style="margin-top:0">経験豊富の人には1〜10の評価を付けます（10がいちばん強い）。評価は抽選で強さをそろえるためだけに使い、運営画面にだけ出します。同じチーム希望の人には、同じ目印（例：A）を入れます。同じ目印の人だけで1チームになります。初心者は各チームに散らばるように、早帰りの人は同じチームに重ならないように分けます。</p>
           <ul class="plist2" id="tmPeople"></ul>
         </div>
       </section>
