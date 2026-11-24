@@ -56,7 +56,7 @@ async def main():
         # ① 各端末の最後の報告（全員確定とは言わない）
         await B.wait_for_timeout(500); sb=await st(B)
         ok('全員分' not in sb['box'] and '1台目：' in sb['box'] and 'の報告で送信待ち' in sb['box'],'① 各端末の最後の報告だけを出す：'+sb['box'].split(' | ')[-2:][0][:150])
-        # ③ 24人一括（残り14人＋新規10人で24人）: 8人ずつ3回に分かれる
+        # ③ 24人一括（残り14人＋新規10人で24人）: 4人ずつ6回に分かれる
         for n in range(10): await newp(A,'しけん%02d'%n)
         await A.wait_for_timeout(3000)
         # 9人取消して全員を一括で受付 → まずはみんな取消（画面上で）
@@ -68,14 +68,14 @@ async def main():
         get('/slow?ms=1200')
         await pickall(A)
         sa=await st(A); ins=[o for o in sa['ops'] if o[0]=='in']
-        ok(len(ins)==3 and sorted(o[2] for o in ins)==[8,8,8],'③ 24人が8人ずつ3つの操作に分かれる '+str([o[2] for o in ins]))
+        ok(len(ins)==6 and all(o[2]==4 for o in ins),'③ 24人が4人ずつ6つの操作に分かれる '+str([o[2] for o in ins]))
         await A.wait_for_timeout(1700); await ca.set_offline(True); await A.wait_for_timeout(300)
         sa=await st(A); print('     切断時の状態:',[o[1] for o in sa['ops'] if o[0]=='in'], 'サーバー', len(srv_in(e1)),'人')
         await A.close(); get('/slow?ms=0'); await ca.set_offline(False)
         A=await reopen(ca,'1台目'); await A.wait_for_timeout(4000)
         sa=await st(A)
         ok(len(srv_in(e1))==24 and sa['unsent']==0 and all(o[1]=='done' for o in sa['ops'] if o[0]=='in'),'③ 切断→開き直しで24人全員が届き、操作はすべて届いた扱い（サーバー'+str(len(srv_in(e1)))+'人）')
-        # 拒否が途中の1回だけに起きる：Bが圏外のあいだに、サーバー側で2回目の中の1人（r10）を別の人にまとめる
+        # 拒否が途中の1回だけに起きる：Bが圏外のあいだに、サーバー側で3回目の中の1人（r10）を別の人にまとめる
         get('/reset'); await A.close(); await B.close(); await ca.close(); await cb.close()
         ca,A=await mk(b,'1台目'); cb,B=await mk(b,'2台目')
         await startEvent(A); await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2500)
@@ -86,11 +86,11 @@ async def main():
         await ca.set_offline(False); await A.wait_for_timeout(5000)
         sa=await st(A)
         rejn=[r for r in sa['rej']]
-        ok(len(rejn)==1 and rejn[0].startswith('だいき/さくら/ゆうと/みお/こうき/りな/しょう/なな') and '「さくら」さんは別の人とまとめ済み' in rejn[0],'③ 拒否された2回目の8人が名前つきで残る：'+str(rejn))
-        ok(len(srv_in(e1))==16,'③ ほかの2回分（16人）は保存されている：'+str(len(srv_in(e1))))
+        ok(len(rejn)==1 and rejn[0].startswith('だいき/さくら/ゆうと/みお') and '「さくら」さんは別の人とまとめ済み' in rejn[0],'③ 拒否された3回目の4人が名前つきで残る：'+str(rejn))
+        ok(len(srv_in(e1))==20,'③ ほかの5回分（20人）は保存されている：'+str(len(srv_in(e1))))
         await A.click('#rjList [data-rs]'); await A.wait_for_timeout(3000)
         sa=await st(A); s=srv_in(e1)
-        ok(len(s)==23 and 'さくら' not in s and 'はると' in s and not sa['rej'] and sa['unsent']==0,'③ 送り直すと、さくらは行き先（はると）に読み替え、残り7人が保存：'+str(len(s))+'人')
+        ok(len(s)==23 and 'さくら' not in s and 'はると' in s and not sa['rej'] and sa['unsent']==0,'③ 送り直すと、さくらは行き先（はると）に読み替え、残り3人が保存：'+str(len(s))+'人')
         # ④ 逆向きの同時まとめ
         get('/reset'); await A.close(); await B.close(); await ca.close(); await cb.close()
         ca,A=await mk(b,'1台目'); cb,B=await mk(b,'2台目')

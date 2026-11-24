@@ -1,6 +1,6 @@
 import re, sys, pathlib
 VER = sys.argv[1] if len(sys.argv) > 1 else '2026.11.24'
-S = pathlib.Path('/home/claude/tsukiichi-fb/src')
+S = pathlib.Path(__file__).resolve().parent / 'src'
 r = lambda n: (S / n).read_text(encoding='utf8')
 VIEWCTL = '''<div class="viewctl" role="group" aria-label="画面の表示">
 <button type="button" class="vc-btn" data-vc="theme" aria-label="暗い画面にする"></button>
@@ -36,7 +36,7 @@ html = f'''<!DOCTYPE html>
 </html>
 '''
 # 運営の画面は admin/、参加者の画面（11/22版の参加者ページ）は入口の index.html
-base = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else '/home/claude/tsukiichi-fb')
+base = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else S.parent)
 (base / 'admin').mkdir(exist_ok=True)
 (base / 'admin' / 'index.html').write_text(html, encoding='utf8')
 (base / 'index.html').write_text(r('view.html').replace('@@VER@@', VER), encoding='utf8')

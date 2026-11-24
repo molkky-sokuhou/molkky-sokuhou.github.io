@@ -107,12 +107,13 @@ async def main():
 
         # ⑥⑦ 参加者画面の中身：古い中身が後から届いても、新しい中身に書き直す
         await A.wait_for_timeout(3000)
-        good = docs()['public/tsukiichi_proto']['body']
-        commit([{'op': 'set', 'path': 'public/tsukiichi_proto', 'data': {'body': '{"state":{"teams":[]},"records":{}}', 'updatedAt': 'old'}}])
+        published = docs()['public/tsukiichi_proto']
+        ok('by' not in published, '公開文書に運営端末名を保存しない')
+        stale = commit([{'op': 'set', 'path': 'public/tsukiichi_proto', 'data': {'body': '{"state":{"teams":[]},"records":{}}', 'updatedAt': 'old'}}])
         await A.wait_for_timeout(5000)
         now_body = docs()['public/tsukiichi_proto']['body']
         mine = await A.evaluate("JSON.stringify(window.__tk.publicData())")
-        ok(now_body == mine, '⑥ 古い中身で上書きされても、運営の端末が新しい中身に書き直す')
+        ok(not stale['ok'] and now_body == mine, '⑥ 古い形式の公開書き込みを拒否し、最新の内容を保つ')
         # 送っている途中に得点が変わっても、最後の得点が届く
         get('/slow?ms=2500')
         await closeov(A); await A.click('.nb[data-ph=game]'); await A.wait_for_timeout(300)
@@ -181,7 +182,7 @@ async def main():
           const opt=t.teamOptions(ps).out.find(o=>o.T===4);let bad=0,expBad=0;
           for(let n=0;n<100;n++){const tm=t.drawTeams(ps,opt);const tp=tm.map(x=>x.members.filter(m=>m.top).length),ex=tm.map(x=>x.members.filter(m=>m.exp).length);
             if(Math.max(...tp)-Math.min(...tp)>1)bad++;if(Math.max(...ex)-Math.min(...ex)>1)expBad++;}
-          const ps2=[];for(let i=0;i<6;i++)ps2.push({id:'q'+i,name:'q'+i,exp:false,level:0,beg:false,early:i<3,pair:'',top:false,pts:0});
+          const ps2=[];for(let i=0;i<6;i++)ps2.push({id:'q'+i,name:'q'+i,exp:i<3,level:i<3?5:0,beg:false,early:i<3,pair:'',top:false,pts:0});
           const t2=t.balance(ps2,2);const allEarly=t2.some(x=>x.every(m=>m.early));
           return JSON.stringify([bad,expBad,allEarly]);}"""))
         ok(r[0] == 0 and r[1] == 0, '抽選：100回とも、経験豊富と実績上位が各チームに1人ずつ（ずれ %d・%d回）' % (r[0], r[1]))
