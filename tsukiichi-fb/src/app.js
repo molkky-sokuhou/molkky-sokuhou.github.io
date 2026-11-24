@@ -931,6 +931,7 @@ $('evNew').onclick = openNewEvent;
    - 結果は開催回の記録に保存（運営だけが見る場所）。チーム名の初期値は A, B, C…
 */
 const TEAM_MIN = 2, TEAM_MAX = 4, LV_DEFAULT = 5;
+const EVEN_ONLY = true; // 月いちモルックはチーム数を偶数にする（総当たりで休みのチームを出さない）
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const T = { count: 0, preview: null, msg: '', draft: {} }; // draft：入力中の目印（描き直しても消えないように）
 function rint(n) { const a = new Uint32Array(1); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : (a[0] = Math.floor(Math.random() * 4294967296)); return a[0] % n; }
@@ -957,9 +958,10 @@ function teamOptions(ps) {
   for (let K = 1; K <= R; K++) {
     const base = Math.floor(R / K), extra = R % K;
     if (base < TEAM_MIN || base + (extra ? 1 : 0) > TEAM_MAX) continue;
+    if (EVEN_ONLY && (G + K) % 2) continue;
     out.push({ T: G + K, K, base, extra, fixed: groups.map((g) => g.members.length) });
   }
-  return { groups, out, why: out.length ? '' : '人数が足りないか、目印の組み方でチームが作れません' };
+  return { groups, out, why: out.length ? '' : '人数が足りないか、目印の組み方で、偶数のチーム数（1チーム' + TEAM_MIN + '〜' + TEAM_MAX + '人）に分けられません' };
 }
 function sizesText(o) {
   const parts = o.fixed.map((n) => '希望' + n + '人');
@@ -1065,14 +1067,14 @@ function renderTeam() {
     (lonely.length ? '<p style="margin:4px 0 0">目印が1人だけ：' + esc(lonely.map((p) => p.name + '（' + p.pair + '）').join('・')) + '。この人は普通に抽選します。</p>' : '');
   const { out, why: optWhy } = teamOptions(ps);
   if (!out.some((o) => o.T === T.count)) {
-    /* はじめは1チーム3人に近く、偶数のチーム数を選んでおく */
-    const pick = out.slice().sort((a, b) => Math.abs(a.base + a.extra / a.K - 3) - Math.abs(b.base + b.extra / b.K - 3) || (a.T % 2) - (b.T % 2))[0];
+    /* はじめは、2人のチームができない数のうち、1チーム3人にいちばん近い数を選んでおく */
+    const pick = out.slice().sort((a, b) => (a.base < 3) - (b.base < 3) || Math.abs(a.base + a.extra / a.K - 3) - Math.abs(b.base + b.extra / b.K - 3))[0];
     T.count = pick ? pick.T : 0;
   }
   const cur = out.find((o) => o.T === T.count);
   $('tmCounts').innerHTML = out.length ? '<b>チーム数</b><div class="tm-count" role="group" aria-label="チーム数">' +
     out.map((o) => '<button type="button" data-tc="' + o.T + '" aria-pressed="' + (o.T === T.count) + '">' + o.T + '<small>チーム</small></button>').join('') + '</div>' +
-    (cur ? '<div class="tm-sizes">' + esc(sizesText(cur)) + (cur.T % 2 ? '<br><span class="muted">奇数なので、総当たりでは毎回1チームが休みになります</span>' : '') + '</div>' : '')
+    (cur ? '<div class="tm-sizes">' + esc(sizesText(cur)) + '</div>' : '') + (EVEN_ONLY ? '<p class="muted" style="margin:4px 0 0">チーム数は偶数だけです（総当たりで休みのチームを出さないため）。</p>' : '')
     : '<p class="err">' + esc(optWhy) + '</p>';
   $('tmCounts').querySelectorAll('[data-tc]').forEach((b) => { b.onclick = () => { T.count = +b.dataset.tc; T.preview = null; renderTeam(); }; });
   $('tmDraw').disabled = !!why || !cur;

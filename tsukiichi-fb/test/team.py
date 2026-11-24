@@ -35,25 +35,26 @@ async def main():
         opts=await A.evaluate("[...document.querySelectorAll('[data-tc]')].map(b=>+b.dataset.tc)")
         sel=await A.evaluate("+document.querySelector('[data-tc][aria-pressed=true]').dataset.tc")
         print('   選べるチーム数:',opts,' はじめの選択:',sel,' 内訳:',await A.inner_text('.tm-sizes'))
-        ok(7 in opts,'7チームを選べる')
-        await A.click('[data-tc="7"]'); await A.wait_for_timeout(100)
+        ok(all(o%2==0 for o in opts) and 6 in opts and 7 not in opts,'偶数のチーム数だけ選べる '+str(opts))
+        ok(sel==6,'はじめは6チーム（2人のチームができない中で3人に近い）')
+        await A.click('[data-tc="6"]'); await A.wait_for_timeout(100)
         await A.click('#tmDraw'); await A.wait_for_timeout(500)
         prev=await A.evaluate("window.__tk.T.preview.map(t=>({name:t.name,fixed:t.fixed,m:t.members.map(x=>({n:x.name,e:x.exp,l:x.level}))}))")
         allnames=[m['n'] for t in prev for m in t['m']]
-        ok(len(prev)==7,'7チームに分かれた')
+        ok(len(prev)==6,'6チームに分かれた')
         ok(len(allnames)==22 and len(set(allnames))==22 and not set(OUT)&set(allnames),'22人全員が重複なく入っている（受付していない2人は入らない）')
         fixed=[t for t in prev if t['fixed']]
         ok(len(fixed)==1 and sorted(m['n'] for m in fixed[0]['m'])==sorted(PAIR),'希望の4人だけで1チーム（'+(fixed[0]['name'] if fixed else '?')+'）')
         normal=[t for t in prev if not t['fixed']]
-        ok(len(normal)==6 and all(len(t['m'])==3 for t in normal),'残り18人が3人ずつ6チーム')
-        ok(all(sum(1 for m in t['m'] if m['e'])==1 for t in normal),'経験豊富は各チーム1人ずつ')
-        ok(sorted(t['name'] for t in prev)==list('ABCDEFG'),'チーム名の初期値は A〜G')
+        ok(len(normal)==5 and sorted(len(t['m']) for t in normal)==[3,3,4,4,4],'残り18人が4人×3・3人×2の5チーム')
+        ok(sorted(sum(1 for m in t['m'] if m['e']) for t in normal)==[1,1,1,1,2],'経験豊富6人は5チームに1〜2人ずつ')
+        ok(sorted(t['name'] for t in prev)==list('ABCDEF'),'チーム名の初期値は A〜F')
         checks=await A.inner_text('#tmChecks'); print('   画面の点検:\n     '+checks.replace('\n','\n     '))
         ok('✗' not in checks,'画面の点検はすべて ✓')
         for t in sorted(prev,key=lambda x:x['name']): print('    ',t['name'],('希望'+t['fixed']) if t['fixed'] else '','/'.join(m['n']+('★'+str(m['l']) if m['e'] else '') for m in t['m']))
         await A.screenshot(path='team_prev.png',full_page=True)
         # 何回も抽選して、毎回正しいかと、組み合わせが変わるか
-        stat=await A.evaluate("""()=>{const t=window.__tk;const ps=t.drawPeople();const o=t.teamOptions(ps).out.find(x=>x.T===7);let bad=0,sigs=new Set();
+        stat=await A.evaluate("""()=>{const t=window.__tk;const ps=t.drawPeople();const o=t.teamOptions(ps).out.find(x=>x.T===6);let bad=0,sigs=new Set();
           for(let i=0;i<200;i++){const r=t.drawTeams(ps,o);if(t.checkTeams(r,ps).some(c=>!c[0]))bad++;sigs.add(r.map(x=>x.members.map(m=>m.id).sort().join(',')).sort().join('|'));}
           return {bad,variety:sigs.size}}""")
         ok(stat['bad']==0,'200回抽選してすべて点検合格（不合格 '+str(stat['bad'])+'回）')
@@ -61,9 +62,9 @@ async def main():
         # 保存してもう1台に出る
         await A.click('#tmSave'); await A.wait_for_timeout(3000)
         ev=[v for k,v in server()['docs'].items() if k.count('/')==3 and '/events/' in k][0]
-        ok(len(ev.get('teams',[]))==7,'開催回に7チームが保存された')
+        ok(len(ev.get('teams',[]))==6,'開催回に6チームが保存された')
         await B.click('.nb[data-ph=team]'); await B.wait_for_timeout(1500)
-        ok('決まったチーム' in await B.inner_text('#tmResH') and await B.locator('#tmTeams .tcard').count()==7,'もう1台にも決まったチームが出る')
+        ok('決まったチーム' in await B.inner_text('#tmResH') and await B.locator('#tmTeams .tcard').count()==6,'もう1台にも決まったチームが出る')
         await B.screenshot(path='team_saved_dark.png',full_page=True)
         print('   sw', await A.evaluate('document.documentElement.scrollWidth'), await B.evaluate('document.documentElement.scrollWidth'))
         # 経験豊富の評価を変えると、抽選の材料に反映される
