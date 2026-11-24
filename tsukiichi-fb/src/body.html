@@ -139,8 +139,37 @@
           </div>
           <ul class="plist2" id="recList"></ul>
         </div>
-        <div class="box plain">
-          <p class="muted" style="margin:0">覇王戦・過去の優勝の追加・スプレッドシートからの記録の取り込み・「バックアップを保存」はこのあと作ります。</p>
+        <div class="box" id="hoBox">
+          <div class="sec-h"><h2 class="h">覇王戦</h2><button class="btn small" id="hoNew" type="button">結果を記録する</button></div>
+          <ul class="mini-list" id="hoPast"></ul>
+          <h3 class="s" id="hoElH" style="margin:14px 0 2px"></h3>
+          <p class="muted" id="hoElNote" style="margin:0 0 6px"></p>
+          <ul class="plist2" id="hoEl"></ul>
+          <button class="btn wide" id="hoCopy" type="button">出場資格の一覧をコピー</button>
+          <p class="muted" style="margin:8px 0 0">LINEなどに貼れる形でコピーします。参加者画面の「順位・記録」にも、同じ一覧が出ます。</p>
+        </div>
+        <div class="box" id="bkBox">
+          <h2 class="h">バックアップ（自宅のNASへ）</h2>
+          <p class="muted" style="margin-top:0">名簿・記録・開催回（受付つき）・大会の案内を、1つのファイルに保存します。</p>
+          <p id="bkDirLine" style="margin:0 0 6px"></p>
+          <div class="actions">
+            <button class="btn primary" id="bkSave" type="button">いま保存する</button>
+            <button class="btn" id="bkPick" type="button" hidden>保存先のフォルダを選ぶ</button>
+          </div>
+          <p class="muted" id="bkLast" style="margin:8px 0 0"></p>
+          <p id="bkMsg" aria-live="polite" style="margin:6px 0 0"></p>
+          <details style="margin-top:10px"><summary style="font-weight:900;cursor:pointer">バックアップから戻す</summary>
+            <p class="muted">サーバーにない名簿・記録・大会の案内だけを足します（あるものは書き換えません。開催回と受付は戻しません）。</p>
+            <input type="file" id="bkFile" accept=".json,application/json">
+            <button class="btn" id="bkRestoreGo" type="button" hidden style="margin-top:8px"></button>
+          </details>
+        </div>
+        <div class="box" id="impBox">
+          <h2 class="h">現行のスプレッドシートの記録</h2>
+          <p class="muted" style="margin-top:0" id="impSum"></p>
+          <div class="field"><label for="impExp">経験豊富の人（名前を「・」でつないで貼り付け）</label><textarea class="input" id="impExp" rows="2" placeholder="名前・名前・…"></textarea>
+            <small class="muted">経験豊富の印は運営だけの情報なので、このページの中には入れていません。Claude が渡した一覧を貼り付けてから取り込んでください。</small></div>
+          <button class="btn" id="impGo" type="button">取り込む</button>
         </div>
       </section>
 
@@ -168,6 +197,13 @@
           <p class="muted" style="margin:10px 0 0">「次の人へ」は押してから次の人を入力できるまで、「保存確定」は押してから共有先に届くまで、「もう1台」は押してから別の端末に出るまで（別の端末の側で記録）。</p>
           <div class="field" style="margin-top:12px"><label for="csv">計測結果（全部コピーしてClaudeに貼り付けてください）</label><textarea class="copyta" id="csv" readonly></textarea></div>
           <button class="btn cyan wide" id="csvCopy" type="button">計測結果を全部コピー</button>
+        </div>
+        <div class="box">
+          <h2 class="h">大会の案内（参加者画面に出ます）</h2>
+          <p class="muted" style="margin-top:0">開催日は次の回の日です（大会当日にチームを出すと、その日の日付になります）。毎月、次の開催日に書き換えてください。</p>
+          <div id="infoFields"></div>
+          <div class="actions"><button class="btn primary" id="infoSave" type="button">保存する</button><button class="btn ghost" id="infoReset" type="button">保存している内容に戻す</button></div>
+          <p class="muted" id="infoMsg" aria-live="polite" style="margin:6px 0 0"></p>
         </div>
         <div class="box">
           <h2 class="h">開催回</h2>
@@ -200,7 +236,6 @@
           <div class="actions">
             <button class="btn" id="seedBtn" type="button">架空の名簿24人を入れる</button>
             <button class="btn" id="seedHist" type="button">架空の過去の記録を入れる</button>
-            <button class="btn" id="importPast" type="button">いまの参加者ページの過去の記録を取り込む</button>
           </div>
           <div class="subbox" id="demoNet" hidden>
             <label class="switch"><input type="checkbox" id="demoOffline"><span class="tr"></span>電波なしにする（練習用）</label>

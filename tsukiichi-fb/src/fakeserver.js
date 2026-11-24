@@ -60,12 +60,14 @@ function fakeServerCommit(db, writes, now) {
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && (p[2] === 'metrics' || p[2] === 'ping')) ok = true;
+    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'conf') ok = !del;
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'hist') {
       if (del) ok = false;
       else if (!before) ok = true;
       else {
         const keys = new Set(Object.keys(before).concat(Object.keys(next))), changed = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k]));
-        ok = next.movedFrom === before.rid && next.rid !== before.rid && (next.mv || 0) === (before.mv || 0) + 1 && changed.every((k) => k === 'rid' || k === 'movedFrom' || k === 'movedAt' || k === 'mv') && notMerged(p[1], next.rid);
+        ok = next.movedFrom === before.rid && next.rid !== before.rid && (next.mv || 0) === (before.mv || 0) + 1 && changed.every((k) => k === 'rid' || k === 'movedFrom' || k === 'movedAt' || k === 'mv') && notMerged(p[1], next.rid)
+          || (before.kind === 'haoh' && next.kind === 'haoh' && next.no === before.no);
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'events') {

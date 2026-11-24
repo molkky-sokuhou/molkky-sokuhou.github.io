@@ -125,3 +125,13 @@
 .rstat span { white-space: nowrap; }
 .to-view { margin-left: auto; align-self: center; font-size: .78rem; font-weight: 900; color: var(--muted); border: 2px solid var(--line); border-radius: 999px; padding: 4px 10px; text-decoration: none; white-space: nowrap; }
 .abar-top .viewctl { margin-left: 8px; }
+/* 覇王戦 */
+#hoPast li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#hoPast li > span { flex: 1 1 auto; min-width: 0; }
+#hoPast li .btn { flex: 0 0 auto; }
+#hoEl li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+#hoEl .rstat { display: flex; gap: 10px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
+ul.checks { list-style: none; margin: 6px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5em, 1fr)); gap: 4px 10px; }
+ul.checks label { display: flex; align-items: center; gap: 6px; min-height: 40px; }
+ul.checks input { width: 20px; height: 20px; }
+#hoEl .pname { font-weight: 900; }

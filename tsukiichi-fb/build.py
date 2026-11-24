@@ -30,7 +30,7 @@ html = f'''<!DOCTYPE html>
 {body}
 <script type="module">
 {r('fakeserver.js')}
-{r('app.js').replace('@@VER@@', VER).replace('/*@@PAST@@*/ { rows: [], haoh: [] }', r('past.json'))}
+{r('app.js').replace('@@VER@@', VER).replace('/*@@PAST@@*/ { roster: [], events: [], haoh: [], info: {} }', r('past.json'))}
 </script>
 </body>
 </html>

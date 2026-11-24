@@ -22,7 +22,7 @@ async def main():
         ca,A=await mk(b,ADMIN)
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
         await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.wait_for_timeout(1500)
-        await A.click('#importPast'); await A.wait_for_timeout(3000)
+        await A.click('.nb[data-ph=rec]'); await A.click('#impGo'); await A.click('#impGo'); await A.wait_for_timeout(3500)
         d=pub(); ok(d is not None,'運営の端末が公開データを書く')
         ok(d and d['state']['previousResult'] and d['state']['previousResult']['date']=='2026-11-21','前回の結果＝取り込んだ11/21の大会')
         await reload(V)

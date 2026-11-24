@@ -159,7 +159,13 @@ service cloud.firestore {
         && request.resource.data.rid != resource.data.rid
         && request.resource.data.get('mv', 0) == resource.data.get('mv', 0) + 1
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rid', 'movedFrom', 'movedAt', 'mv'])
-        && notMerged(box, request.resource.data.rid);
+        && notMerged(box, request.resource.data.rid)
+        || isStaff() && resource.data.get('kind', '') == 'haoh' && request.resource.data.get('kind', '') == 'haoh'
+          && request.resource.data.no == resource.data.no;
+    }
+    // 大会の案内（参加者画面に出す文言）
+    match /staff/{box}/conf/{doc} {
+      allow read, write: if isStaff();
     }
     match /staff/{box}/events/{e} {
       allow read: if isStaff();
@@ -582,6 +588,8 @@ async function enter(mode) {
   B.sub(ROOT + '/roster', (list, fc) => { mark('roster', fc); S.roster = list.map((d) => ({ id: d.id, ...d.data, pending: d.pending })); renderAll(); }, onErr('roster'));
   B.subDoc(PUB, (d, fc) => { S.sync.pub = { cache: fc }; S.pub = d; schedulePublish(); }, () => {});
   B.sub(ROOT + '/hist', (list, fc) => { mark('hist', fc); S.hist = list.map((d) => ({ id: d.id, ...d.data })); renderAll(); }, onErr('hist'));
+  B.subDoc(INFO, (d, fc) => { mark('info', fc); S.info = d; renderInfo(); schedulePublish(); }, onErr('info'));
+  bkLoad();
   B.subMetrics((m) => { S.metrics = m; renderMetrics(); });
   clockSync();
   renderRules();
@@ -1163,7 +1171,7 @@ function openNewEvent() {
     const d = new Date(), e = 'e' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + Math.random().toString(36).slice(2, 6);
     const writes = W.newEvent(ROOT, seen, Boolean(seen), e, name, seen && S.events[seen] ? courtsOf(S.events[seen]) : 0, close);
     closeSheet();
-    B.commit(writes).then(() => toast('「' + name + '」を始めました'), async (err) => {
+    B.commit(writes).then(() => { toast('「' + name + '」を始めました'); if (seen) setTimeout(() => saveBackup(true), 3000); }, async (err) => {
       if ((err && err.code) === 'permission-denied' && seen) {
         try { const now2 = await B.getServer(ROOT + '/events/' + seen); if (now2 && now2.status === 'open') { toast('締める直前に、ほかの端末から結果やチームの変更が届きました。最新の順位で、もう一度「新しい回を始める」を押してください', true); return; } } catch (e) {}
       }
@@ -1402,7 +1410,7 @@ function renderTeam() {
   markTop(ps, T.preview ? T.preview.length : savedN || T.count);
   const topN = ps.filter((p) => p.top).length, hd = lastHaohDate();
   $('tmTarget').textContent = '対象：受付済み ' + ps.length + '人（経験豊富 ' + exN + '人' + (topN ? '・実績上位 ' + topN + '人' : '') + (groups.length ? '・同じチーム希望 ' + groups.map((g) => '「' + g.label + '」' + g.members.length + '人').join('・') : '') + '）。' +
-    '実績上位は、' + (hd ? '前回の覇王戦（' + fmtDate(hd) + '）より後' : 'これまで') + 'の大会の成績（優勝2点・3位以内1点）が多い順に、チーム数と同じ人数です';
+    '実績上位は、' + (hd ? '前回の覇王戦（' + fmtDate(hd) + '）以降' : 'これまで') + 'の大会の成績（優勝2点・3位以内1点）が多い順に、チーム数と同じ人数です';
   $('tmCounts').innerHTML = out.length ? '<b>チーム数</b><div class="tm-count" role="group" aria-label="チーム数">' +
     out.map((o) => '<button type="button" data-tc="' + o.T + '" aria-pressed="' + (o.T === T.count) + '">' + o.T + '<small>チーム</small></button>').join('') + '</div>' +
     (cur ? '<div class="tm-sizes">' + esc(sizesText(cur)) + '</div>' : '') + (EVEN_ONLY ? '<p class="muted" style="margin:4px 0 0">チーム数は偶数だけです（総当たりで休みのチームを出さないため）。</p>' : '')
@@ -1861,7 +1869,7 @@ function personStats(season, after) {
   const out = {};
   histRows().forEach((h) => {
     if (season && (h.date || '') < SEASON_START) return;
-    if (after && (h.date || '') <= after) return;
+    if (after && (h.date || '') < after) return; // 覇王戦の日の優勝も入れる（出場資格と同じ）
     const o = out[h.pid] || (out[h.pid] = { n: 0, win: 0, top3: 0, dates: {}, dup: [] });
     const prev = o.dates[h.date];
     if (prev === undefined) { o.dates[h.date] = h.rank; return; }
@@ -1887,6 +1895,7 @@ function renderRec() {
     '<span class="rstat"><span>参加 ' + x.s.n + '回</span>' + (x.s.win ? '<span>優勝 ' + x.s.win + '</span>' : '') + (x.s.top3 ? '<span>3位以内 ' + x.s.top3 + '</span>' : '') + '</span></button></li>').join('')
     : '<li class="muted">' + (q ? '「' + esc(REC.q) + '」に当てはまる人はいません' : 'まだ名簿がありません') + '</li>';
   $('recList').querySelectorAll('[data-pp]').forEach((b) => { b.onclick = () => openPerson(b.dataset.pp); });
+  renderHaoh(); renderImport(); renderBackup();
 }
 $('recQ').addEventListener('input', () => { REC.q = $('recQ').value; renderRec(); });
 document.querySelectorAll('#recScope [data-sc]').forEach((b) => { b.onclick = () => { REC.scope = b.dataset.sc; renderRec(); }; });
@@ -1907,7 +1916,7 @@ function openPerson(pid) {
     '<p>参加 ' + s.n + '回・優勝 ' + s.win + '回・3位以内 ' + s.top3 + '回（通算）</p>' +
     ((s.dup || []).length ? '<p class="warnline">同じ日の記録が2件あります（' + esc(s.dup.map(fmtDate).join('・')) + '）。いまは良い方の順位で数えています。別の人の記録なら、チェックして別の人へ移してください。</p>' : '') +
     (rows.length ? '<ul class="hrows">' + rows.map((h) => '<li><label><input type="checkbox" data-hr="' + esc(h.id) + '"><span><b>' + esc(fmtDate(h.date)) + '</b> ' + esc(h.ename || '') +
-      '<br><small>' + esc(h.team || '') + '・' + h.rank + '位／' + h.teams + 'チーム・' + h.total + '点' + (h.rid !== pid ? '・記録の名前「' + esc((rm[h.rid] || {}).name || h.name) + '」' : '') + '</small></span></label></li>').join('') + '</ul>'
+      '<br><small>' + esc(h.team || '') + '・' + h.rank + '位' + (h.teams ? '／' + h.teams + 'チーム' : '') + (h.total != null ? '・' + h.total + '点' : '') + (h.rid !== pid ? '・記録の名前「' + esc((rm[h.rid] || {}).name || h.name) + '」' : '') + '</small></span></label></li>').join('') + '</ul>'
       : '<p class="muted">まだ大会の記録がありません。</p>') +
     (rows.length ? '<div class="subbox"><b>チェックした記録を、別の人の記録にする</b><p class="muted" style="margin:2px 0 6px">同じ名前の別の人の記録が混ざっていたときに使います。</p>' +
       '<div class="field"><label for="spTo">移す先</label><select class="input" id="spTo"><option value="">（選んでください）</option><option value="_new">新しい人として名簿に入れる</option>' + others.map(opt).join('') + '</select></div>' +
@@ -2054,6 +2063,7 @@ function seedHistory() {
    名前・チーム・コート・得点・順位・記録だけを入れる（経験豊富・評価・初心者・早帰り・目印・UID・端末の記録は入れない）。
    チームと対戦表は、抽選の発表が終わる（開催回の shown）まで出さない。出すまでは前回の結果を出す */
 const PUB = 'public/tsukiichi_' + BOX;
+const INFO = ROOT + '/conf/info';
 const SETTINGS = { '大会名': '月いちモルック', '時間': '12時〜17時', '場所': '香川県高松市国分寺 B&G海洋センター ゲートボールコート', '住所': '香川県高松市国分寺町新名2069-1', '参加費': '1人200円', 'お知らせ': '指導員6名在籍なので初心者の方も大歓迎！小学生もガンガン投げてますよ。家族で参加大歓迎。', 'インスタ': 'izumi_molkky' };
 function stamp(ms) { const d = new Date(ms + 9 * 3600000); return d.toISOString().slice(0, 16).replace('T', ' ').replace(/-/g, '/'); }
 /* 記録（hist）を大会ごとにまとめる：前回の結果と、これまでの優勝チーム。
@@ -2083,7 +2093,8 @@ function publicData() {
   const pos = assignCourts(ms, courtsOf(ev)), rm = rosterById();
   const evs = histEvents();
   const state = {
-    settings: { ...SETTINGS, '開催日': evDate(ev) }, courts: courtsOf(ev),
+    /* 開催日：チームを出している回（当日）はその回の日、それ以外は案内に書いた次回の開催日 */
+    settings: { ...infoNow(), '開催日': shown || !infoNow()['開催日'] ? evDate(ev) : infoNow()['開催日'] }, courts: courtsOf(ev),
     players: shown ? ps.filter((p) => p.team).map((p) => ({ name: p.name, team: p.team })) : [],
     teams: teams.map((t) => ({ no: t.no, name: t.name })),
     matches: ms.map((m) => ({ id: m.id, cycle: m.c, round: m.r, a: m.a, b: m.b, totalA: hasRes(m) ? m.ta : '', totalB: hasRes(m) ? m.tb : '', court: (pos[m.id] || {}).court || 1, wave: (pos[m.id] || {}).wave || 1 })),
@@ -2109,7 +2120,7 @@ function schedulePublish(delay) {
   clearTimeout(pubTimer); pubTimer = setTimeout(publishNow, delay == null ? 1200 : delay);
 }
 function publishNow() {
-  if (!S.cur || !S.events[S.cur] || !['events', 'box', 'roster', 'checkins', 'hist', 'pub'].every((k) => S.sync[k] && !S.sync[k].cache) || unsent().length) return;
+  if (!S.cur || !S.events[S.cur] || !['events', 'box', 'roster', 'checkins', 'hist', 'pub', 'info'].every((k) => S.sync[k] && !S.sync[k].cache) || unsent().length) return;
   if (pubBusy) { pubAgain = true; return; }
   const body = JSON.stringify(publicData());
   const rev = S.events[S.cur].rev || '';
@@ -2130,21 +2141,237 @@ function publishNow() {
   });
 }
 function setShown(on, drawId) { teamOp(on ? '参加者画面にチームを出す' : '参加者画面からチームを下げる', on ? { shown: true, shownDraw: drawId || '' } : { shown: false }, on ? 'ほかの端末で抽選し直されていたため、参加者画面には出しませんでした。チームタブで、いまのチームを確かめてください' : ''); }
-/* テスト用：いまの参加者ページに載っている過去の記録（2025/12〜の優勝、11/21の全結果、覇王戦）を取り込む */
-const PAST = /*@@PAST@@*/ { rows: [], haoh: [] }; // 組み立てのとき（build.py）に src/past.json の中身へ置き換える
-function importPast() {
-  if (S.hist.some((h) => /^imp-/.test(h.eid || ''))) { toast('過去の記録はもう取り込んであります'); return; }
-  const live = liveRoster(), byNorm = {}; live.forEach((r) => { byNorm[norm(r.name)] = r.id; });
-  const roster = [], hist = [];
-  const idOf = (name) => { const k = norm(name); if (!byNorm[k]) { byNorm[k] = 'm' + Math.random().toString(36).slice(2, 9); roster.push({ op: 'set', path: ROOT + '/roster/' + byNorm[k], data: { name, norm: k, exp: false, beg: false, createdAt: TS, createdIn: 'import' } }); } return byNorm[k]; };
-  const members = {}; PAST.rows.forEach((r) => { (members[r.date + '|' + r.team] = members[r.date + '|' + r.team] || []).push(r.name); });
-  PAST.rows.forEach((r) => {
-    const id = idOf(r.name), full = r.total != null;
-    hist.push({ op: 'set', path: ROOT + '/hist/imp-' + r.date + '_' + id, data: { eid: 'imp-' + r.date, ename: '月いちモルック（' + fmtDate(r.date) + '）', date: r.date, rid: id, name: r.name, team: full ? r.team : '優勝チーム', members: members[r.date + '|' + r.team], rank: r.rank, teams: r.teams || null, played: null, total: full ? r.total : null, src: 'import', at: TS } });
+/* ===== 現行のスプレッドシート（月いちモルック 運営シート）からの取り込み =====
+   名簿（名簿ID・経験豊富）、大会ごとの順位と参加者、覇王戦、大会の案内。build.py が src/past.json の中身を入れる。
+   すでにある人（同じ名簿ID・同じ名前）と、すでにある記録（同じ日・同じ人）・覇王戦（同じ回）は飛ばすので、何度押しても重ならない */
+const PAST = /*@@PAST@@*/ { roster: [], events: [], haoh: [], info: {} };
+/* 経験豊富の印は運営だけの情報なので、公開されるページの中に入れない。取り込むときに運営が名前を貼り付ける */
+function importExp() { const el = $('impExp'); return new Set(String((el && el.value) || '').split(/[・,、\s]+/).map(norm).filter(Boolean)); }
+function importPlan() {
+  const rm = rosterById(), byNorm = {}, idMap = {}, w = [], names = {}, ex = importExp();
+  liveRoster().forEach((r) => { byNorm[norm(r.name)] = r.id; });
+  let newP = 0, expN = 0, rows = 0, skip = 0, haoh = 0;
+  PAST.roster.forEach((p) => {
+    let id = rm[p.id] ? resolveId(p.id, rm) : byNorm[norm(p.name)];
+    const isExp = ex.has(norm(p.name));
+    if (!id) { id = p.id; newP++; if (isExp) expN++; w.push({ op: 'set', path: ROOT + '/roster/' + id, data: { name: p.name, norm: norm(p.name), exp: isExp, beg: false, first: p.first || '', createdAt: TS, createdIn: 'sheet' } }); }
+    else if (isExp && !(rm[id] || {}).exp) { expN++; w.push({ op: 'update', path: ROOT + '/roster/' + id, data: { exp: true } }); }
+    idMap[p.id] = id; names[p.id] = p.name;
   });
-  PAST.haoh.forEach((h) => { const id = idOf(h.name); hist.push({ op: 'set', path: ROOT + '/hist/haoh_' + h.no, data: { kind: 'haoh', no: h.no, date: h.date, rid: id, name: h.name, src: 'import', at: TS } }); });
-  const all = roster.concat(hist);
-  Promise.all(chunks(all, 400).map((part) => B.commit(S.cur ? W.rev(ROOT, S.cur, part) : part))).then(() => toast('過去の記録を取り込みました（' + PAST.rows.length + '件・覇王戦' + PAST.haoh.length + '件）'), (e) => toast('取り込めませんでした（' + ((e && e.code) || '') + '）', true));
+  const have = {}; histRows().forEach((h) => { have[h.date + '|' + h.pid] = 1; });
+  PAST.events.forEach((e) => {
+    e.standings.forEach((t, i) => {
+      t.members.forEach((m) => {
+        const pid = idMap[m];
+        if (!pid) return;
+        if (have[e.date + '|' + pid]) { skip++; return; }
+        have[e.date + '|' + pid] = 1; rows++;
+        w.push({ op: 'set', path: ROOT + '/hist/imp-' + e.date + '_' + pid, data: { eid: 'imp-' + e.date, ename: '月いちモルック（' + fmtDate(e.date) + '）', date: e.date, rid: pid, name: names[m], team: t.team, teamNo: i + 1,
+          members: t.members.map((x) => names[x]), rank: t.rank, teams: e.teams || null, played: t.played == null ? null : t.played, total: t.total == null ? null : t.total, src: 'sheet', at: TS } });
+      });
+    });
+  });
+  PAST.haoh.forEach((h) => {
+    if (S.hist.some((x) => x.kind === 'haoh' && num(x.no) === h.no)) return;
+    haoh++; w.push({ op: 'set', path: ROOT + '/hist/haoh_' + h.no, data: { kind: 'haoh', no: h.no, date: h.date, rid: idMap[h.rid] || h.rid, name: h.name, entrants: [], src: 'sheet', at: TS } });
+  });
+  const info = !S.info;
+  if (info) w.push({ op: 'set', path: INFO, data: { ...PAST.info, updatedAt: TS } });
+  return { w, newP, expN, rows, skip, haoh, info, total: PAST.roster.length, events: PAST.events.length };
+}
+function renderImport() {
+  if (!$('impBox')) return;
+  const pl = importPlan(), none = !pl.w.length;
+  $('impSum').textContent = '取り込み元：' + (PAST.src || '') + '。名簿 ' + pl.total + '人・大会 ' + pl.events + '回分・覇王戦 ' + PAST.haoh.length + '回。' +
+    (none ? 'すべて取り込み済みです。' : '新しく入るもの：名簿 ' + pl.newP + '人' + (pl.expN ? '（経験豊富の印 ' + pl.expN + '人）' : '') + '・記録 ' + pl.rows + '件' + (pl.skip ? '（すでにある ' + pl.skip + '件は飛ばします）' : '') + '・覇王戦 ' + pl.haoh + '件' + (pl.info ? '・大会の案内' : '') + '。');
+  $('impGo').hidden = none;
+}
+function importSheet(btn) {
+  if (needEvent()) return;
+  if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = 'もう一度押すと取り込みます'; btn.classList.add('primary'); return; }
+  delete btn.dataset.armed; btn.textContent = '取り込む'; btn.classList.remove('primary');
+  const pl = importPlan(); if (!pl.w.length) { toast('すべて取り込み済みです'); return; }
+  btn.disabled = true;
+  /* 名簿を先に（記録より前に人がいるように）。1回のまとめ書きは400件まで */
+  const ros = pl.w.filter((x) => x.path.indexOf('/roster/') > 0), rest = pl.w.filter((x) => x.path.indexOf('/roster/') < 0);
+  const send = (parts) => parts.reduce((pr, part) => pr.then(() => B.commit(S.cur ? W.rev(ROOT, S.cur, part) : part)), Promise.resolve());
+  send(chunks(ros, 400)).then(() => send(chunks(rest, 400))).then(() => { btn.disabled = false; toast('取り込みました（名簿 ' + pl.newP + '人・記録 ' + pl.rows + '件・覇王戦 ' + pl.haoh + '件）'); },
+    (e) => { btn.disabled = false; toast('取り込めませんでした（' + ((e && e.code) || '') + '）。もう一度押すと、まだの分だけ入れます', true); });
+}
+
+/* ===== 大会の案内（参加者画面に出す。運営画面の設定タブで直す） ===== */
+const INFO_KEYS = [['大会名', 'text'], ['開催日', 'date'], ['時間', 'text'], ['場所', 'text'], ['住所', 'text'], ['参加費', 'text'], ['お知らせ', 'area'], ['インスタ', 'text']];
+function infoNow() { const o = { ...SETTINGS }; if (S.info) INFO_KEYS.forEach(([k]) => { if (S.info[k] != null) o[k] = String(S.info[k]); }); return o; }
+function renderInfo(force) {
+  const box = $('infoFields'); if (!box) return;
+  if (box.dataset.ready && !force) { $('infoMsg').textContent = S.info && S.info.updatedAt ? '最後に保存：' + hm(S.info.updatedAt) + (S.info.by ? '（' + S.info.by + '）' : '') : ''; return; }
+  const o = infoNow();
+  box.innerHTML = INFO_KEYS.map(([k, t]) => '<div class="field"><label for="if_' + k + '">' + esc(k) + (k === 'インスタ' ? '（@なし）' : '') + '</label>' +
+    (t === 'area' ? '<textarea class="input" id="if_' + k + '" rows="3">' + esc(o[k] || '') + '</textarea>' : '<input class="input" id="if_' + k + '" type="' + t + '" value="' + esc(o[k] || '') + '">') + '</div>').join('');
+  box.dataset.ready = '1';
+  $('infoMsg').textContent = '';
+}
+function saveInfo() {
+  const data = {}; INFO_KEYS.forEach(([k]) => { data[k] = $('if_' + k).value.trim(); });
+  if (data['開催日'] && !/^\d{4}-\d\d-\d\d$/.test(data['開催日'])) { $('infoMsg').textContent = '開催日は日付で選んでください'; return; }
+  $('infoSave').disabled = true; $('infoMsg').textContent = '保存しています…';
+  B.commit([{ op: 'set', path: INFO, data: { ...data, updatedAt: TS, by: devName } }]).then(() => { $('infoSave').disabled = false; $('infoMsg').textContent = '保存しました。参加者画面にも出ます'; schedulePublish(); },
+    (e) => { $('infoSave').disabled = false; $('infoMsg').textContent = '保存できませんでした（' + ((e && e.code) || '') + '）。電波を確かめて、もう一度押してください'; });
+}
+
+/* ===== 覇王戦：記録と、次の出場資格（前回の覇王戦の日以降に優勝した覇者。同じ日の優勝も入れる。2026-11-25 丸岡さん確認） ===== */
+function haohList() { return S.hist.filter((h) => h.kind === 'haoh').map((h) => ({ ...h, no: num(h.no) })).sort((a, b) => a.no - b.no); }
+function haohEligible() {
+  const hs = haohList(), last = hs.reduce((a, h) => (!a || (h.date || '') > (a.date || '') || ((h.date || '') === (a.date || '') && h.no > a.no) ? h : a), null);
+  const cut = last ? last.date || '' : '', rm = rosterById(), by = {};
+  histRows().forEach((h) => {
+    if (h.rank !== 1 || !h.date || (cut && h.date < cut)) return;
+    const e = by[h.pid] || (by[h.pid] = { id: h.pid, name: (rm[h.pid] || {}).name || h.name, dates: {} });
+    e.dates[h.date] = 1;
+  });
+  const list = Object.values(by).map((e) => ({ id: e.id, name: e.name, wins: Object.keys(e.dates).length, dates: Object.keys(e.dates).sort() }))
+    .sort((a, b) => b.wins - a.wins || (a.name < b.name ? -1 : 1));
+  return { last, cut, nextNo: hs.reduce((m, h) => Math.max(m, h.no || 0), 0) + 1, list };
+}
+function renderHaoh() {
+  if (!$('hoBox')) return;
+  const hs = haohList(), el = haohEligible(), rm = rosterById();
+  $('hoPast').innerHTML = hs.length ? hs.slice().reverse().map((h) => '<li><span><b>第' + h.no + '回</b> ' + esc(fmtDate(h.date)) + '　覇王 <b>' + esc((rm[resolveId(h.rid, rm)] || {}).name || h.name) + '</b>' +
+    ((h.entrants || []).length ? '<small class="muted">（出場 ' + h.entrants.length + '人）</small>' : '') + '</span><button class="btn small ghost" type="button" data-ho="' + h.no + '">直す</button></li>').join('') : '<li class="muted">まだ覇王戦の記録がありません</li>';
+  $('hoElH').textContent = '第' + el.nextNo + '回 覇王戦に出られる覇者 ' + el.list.length + '人';
+  $('hoElNote').textContent = el.cut ? '前回（第' + el.last.no + '回 ' + fmtDate(el.cut) + '）の覇王戦の日以降に、月いちで優勝したチームのメンバーです。' : 'まだ覇王戦の記録がないので、これまでの優勝チームのメンバー全員です。';
+  $('hoEl').innerHTML = el.list.length ? el.list.map((e) => '<li><span class="pname">' + esc(e.name) + '</span><span class="rstat"><span>優勝 ' + e.wins + '回</span><span>' + esc(e.dates.map(fmtDate).join('・')) + '</span></span></li>').join('') : '<li class="muted">まだいません</li>';
+  $('hoPast').querySelectorAll('[data-ho]').forEach((b) => { b.onclick = () => openHaoh(+b.dataset.ho); });
+}
+function haohText() {
+  const el = haohEligible();
+  return '第' + el.nextNo + '回 覇王戦 出場資格（' + (el.cut ? fmtDate(el.cut) + '以降の覇者' : 'これまでの覇者') + '）' + el.list.length + '人\n' + el.list.map((e) => '・' + e.name + (e.wins > 1 ? '（優勝' + e.wins + '回）' : '')).join('\n');
+}
+function openHaoh(no) {
+  const el = haohEligible(), old = no ? haohList().find((h) => h.no === no) : null, rm = rosterById();
+  const live = liveRoster().slice().sort((a, b) => (a.name < b.name ? -1 : 1));
+  const entr = old ? (old.entrants || []).map((id) => resolveId(id, rm)) : el.list.map((e) => e.id);
+  const pool = old ? live.filter((r) => entr.includes(r.id)) : el.list.map((e) => rm[e.id]).filter(Boolean);
+  const king = old ? resolveId(old.rid, rm) : '';
+  $('sheet').innerHTML = '<h2 id="sheetTitle">' + (old ? '第' + old.no + '回 覇王戦の記録を直す' : '覇王戦の結果を記録する') + '</h2>' +
+    '<div class="field"><label for="hoNo">何回目</label><input class="input" id="hoNo" inputmode="numeric" maxlength="3" value="' + (old ? old.no : el.nextNo) + '"' + (old ? ' disabled' : '') + ' style="max-width:6em"></div>' +
+    '<div class="field"><label for="hoDate">開催日</label><input class="input" id="hoDate" type="date" value="' + esc(old ? old.date : jstDate(srvNow())) + '"></div>' +
+    '<div class="field"><b>出場した人</b>' + (old ? '' : '<small class="muted" style="display:block">出場資格のある覇者 ' + el.list.length + '人を最初からチェックしています。出なかった人は外してください。</small>') +
+    '<ul class="checks" id="hoEnt">' + pool.map((r) => '<li><label><input type="checkbox" value="' + esc(r.id) + '"' + (entr.includes(r.id) ? ' checked' : '') + '> ' + esc(r.name) + '</label></li>').join('') + '</ul>' +
+    '<div class="field"><label for="hoAdd">ほかの人を出場者に足す</label><select class="input" id="hoAdd"><option value="">（選ぶと上に足します）</option>' + live.filter((r) => !pool.includes(r)).map((r) => '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>').join('') + '</select></div></div>' +
+    '<div class="field"><label for="hoKing">覇王（優勝した人）</label><select class="input" id="hoKing"></select></div>' +
+    '<p class="err" id="hoErr" aria-live="polite"></p>' +
+    '<div class="actions"><button class="btn primary" id="hoSave" type="button">記録する</button><button class="btn ghost" id="hoCancel" type="button">やめる</button></div>';
+  const fillKing = () => {
+    const ids = [...$('hoEnt').querySelectorAll('input:checked')].map((x) => x.value), cur = $('hoKing').value || king;
+    $('hoKing').innerHTML = '<option value="">（選んでください）</option>' + ids.map((id) => '<option value="' + esc(id) + '"' + (id === cur ? ' selected' : '') + '>' + esc((rm[id] || {}).name || id) + '</option>').join('');
+  };
+  fillKing();
+  $('hoEnt').onchange = fillKing;
+  $('hoAdd').onchange = () => {
+    const id = $('hoAdd').value; if (!id) return;
+    $('hoEnt').insertAdjacentHTML('beforeend', '<li><label><input type="checkbox" value="' + esc(id) + '" checked> ' + esc((rm[id] || {}).name || id) + '</label></li>');
+    $('hoAdd').querySelector('option[value="' + CSS.escape(id) + '"]').remove(); $('hoAdd').value = ''; fillKing();
+  };
+  $('hoCancel').onclick = closeSheet;
+  $('hoSave').onclick = () => {
+    const n = old ? old.no : parseInt($('hoNo').value, 10), date = $('hoDate').value, k = $('hoKing').value;
+    const ids = [...$('hoEnt').querySelectorAll('input:checked')].map((x) => x.value);
+    if (!(n > 0)) { $('hoErr').textContent = '何回目かを数字で入れてください'; return; }
+    if (!old && haohList().some((h) => h.no === n)) { $('hoErr').textContent = '第' + n + '回はもう記録があります。直すときは一覧の「直す」から'; return; }
+    if (!/^\d{4}-\d\d-\d\d$/.test(date)) { $('hoErr').textContent = '開催日を選んでください'; return; }
+    if (!k) { $('hoErr').textContent = '覇王を選んでください'; return; }
+    const data = { kind: 'haoh', no: n, date, rid: k, name: (rm[k] || {}).name || '', entrants: ids, src: 'app', at: TS };
+    if (recOp('第' + n + '回 覇王戦の記録', [{ op: 'set', path: ROOT + '/hist/haoh_' + n, data }])) { closeSheet(); toast('第' + n + '回 覇王戦を記録しました。次の出場資格は ' + fmtDate(date) + ' 以降の覇者になります'); }
+  };
+  $('ov').hidden = false;
+}
+
+/* ===== バックアップ（自宅NASのフォルダへ）=====
+   パソコンの Chrome・Edge では、保存先のフォルダ（NASの共有フォルダ）を一度選べば、ボタン1つと「回を締めたとき」に、日付つきのファイルをそこへ保存する。
+   選べない端末（iPhone など）は、ファイルとして保存（「ファイル」アプリから NAS へ入れる）。中身は名簿・記録・開催回（受付つき）・大会の案内 */
+const BK = { dir: null, last: ls.get('bk_last', 0), busy: false };
+const bkIdb = () => new Promise((res, rej) => { const r = indexedDB.open('tk_backup', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+async function bkGet(k) { const db = await bkIdb(); return new Promise((res) => { const r = db.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => res(null); }); }
+async function bkPut(k, v) { const db = await bkIdb(); return new Promise((res) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => res(true); t.onerror = () => res(false); }); }
+async function bkLoad() { try { BK.dir = window.showDirectoryPicker ? await bkGet('dir_' + BOX) : null; } catch (e) { BK.dir = null; } renderBackup(); }
+async function backupData() {
+  const docs = {}, put = (path, d) => { docs[path] = d; };
+  const ev = await B.getServerCol(ROOT + '/events'), ro = await B.getServerCol(ROOT + '/roster'), hi = await B.getServerCol(ROOT + '/hist');
+  put(ROOT, await B.getServer(ROOT)); put(INFO, await B.getServer(INFO));
+  ro.forEach((d) => put(ROOT + '/roster/' + d.id, strip(d))); hi.forEach((d) => put(ROOT + '/hist/' + d.id, strip(d)));
+  for (const e of ev) { put(ROOT + '/events/' + e.id, strip(e)); (await B.getServerCol(ROOT + '/events/' + e.id + '/checkins')).forEach((c) => put(ROOT + '/events/' + e.id + '/checkins/' + c.id, strip(c))); }
+  return { app: 'tsukiichi-fb', ver: VER, box: BOX, savedAt: srvNow(), savedBy: devName, counts: { roster: ro.length, hist: hi.length, events: ev.length }, docs };
+}
+function strip(d) { const o = { ...d }; delete o.id; return o; }
+function bkName() { const d = new Date(srvNow() + 9 * 3600000).toISOString(); return 'tsukiichi_' + d.slice(0, 10) + '_' + d.slice(11, 13) + d.slice(14, 16) + '.json'; }
+async function saveBackup(auto) {
+  if (BK.busy || !B) return;
+  if (S.mode === 'demo' && auto) return; // 練習モードの締めでは保存しない
+  BK.busy = true; renderBackup('バックアップを作っています…');
+  try {
+    const data = await backupData(), text = JSON.stringify(data), name = bkName();
+    let where = '';
+    if (BK.dir) {
+      let perm = await BK.dir.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted' && !auto) perm = await BK.dir.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        const fh = await BK.dir.getFileHandle(name, { create: true }), wr = await fh.createWritable();
+        await wr.write(text); await wr.close(); where = '「' + BK.dir.name + '」フォルダ';
+      } else if (auto) { BK.busy = false; renderBackup('締めたときの自動保存は、フォルダへの書き込みの許可が切れていたためできませんでした。「いま保存する」を押してください'); return; }
+    }
+    if (!where) {
+      if (auto) { BK.busy = false; renderBackup(); return; }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); where = 'この端末の「ダウンロード」';
+    }
+    BK.last = srvNow(); ls.set('bk_last', BK.last); BK.busy = false;
+    renderBackup('保存しました：' + where + 'に ' + name + '（名簿 ' + data.counts.roster + '人・記録 ' + data.counts.hist + '件・開催回 ' + data.counts.events + '回）');
+  } catch (e) { BK.busy = false; renderBackup('保存できませんでした（' + ((e && (e.code || e.name)) || '') + '）。電波とフォルダを確かめて、もう一度押してください'); }
+}
+function renderBackup(msg) {
+  if (!$('bkBox')) return;
+  const can = !!window.showDirectoryPicker;
+  $('bkDirLine').textContent = can ? (BK.dir ? '保存先：「' + BK.dir.name + '」フォルダ（この端末で選んだもの）。回を締めたときも自動で保存します。' : '保存先のフォルダがまだ選ばれていません。NASの共有フォルダを選んでください。')
+    : 'この端末ではフォルダを選べないので、ファイルとして保存します。iPhone は「ファイル」アプリで NAS（サーバへ接続）に移してください。パソコンの Chrome で開くと、NAS のフォルダへ直接保存できます。';
+  $('bkPick').hidden = !can;
+  $('bkPick').textContent = BK.dir ? '保存先を選び直す' : '保存先のフォルダを選ぶ';
+  $('bkSave').disabled = BK.busy;
+  const days = BK.last ? Math.floor((srvNow() - BK.last) / 86400000) : null;
+  $('bkLast').textContent = BK.last ? 'この端末からの最後の保存：' + fmtDate(jstDate(BK.last)) + ' ' + hm(BK.last) + (days > 31 ? '（1か月以上たっています）' : '') : 'この端末からはまだ保存していません。';
+  if (msg != null) $('bkMsg').textContent = msg;
+}
+async function pickBackupDir() {
+  try { const d = await window.showDirectoryPicker({ id: 'tsukiichi-backup', mode: 'readwrite' }); BK.dir = d; await bkPut('dir_' + BOX, d); renderBackup('保存先を「' + d.name + '」にしました'); }
+  catch (e) { if (e && e.name !== 'AbortError') renderBackup('フォルダを選べませんでした（' + e.name + '）'); }
+}
+/* バックアップから戻す：サーバーにない名簿・記録・大会の案内だけを足す（あるものは書き換えない）。開催回と受付は戻さない */
+async function restoreBackup(file) {
+  let data; try { data = JSON.parse(await file.text()); } catch (e) { renderBackup('ファイルを読めませんでした（バックアップのファイルを選んでください）'); return; }
+  if (!data || data.app !== 'tsukiichi-fb' || !data.docs) { renderBackup('月いちのバックアップのファイルではありません'); return; }
+  const rm = rosterById(), hid = {}; S.hist.forEach((h) => { hid[h.id] = 1; });
+  const add = [], mergeLater = [];
+  Object.keys(data.docs).forEach((path) => {
+    const d = data.docs[path], parts = path.split('/'); if (!d || parts.length !== 4 || parts[1] !== data.box) return;
+    const p = ROOT + '/' + parts[2] + '/' + parts[3];
+    if (parts[2] === 'roster' && !rm[parts[3]]) { const { mergedInto, ...rest } = d; add.push({ op: 'set', path: p, data: { ...rest, restoredAt: TS } }); if (mergedInto) mergeLater.push({ op: 'update', path: p, data: { mergedInto } }); }
+    if (parts[2] === 'hist' && !hid[parts[3]]) add.push({ op: 'set', path: p, data: { ...d, restoredAt: TS } });
+    if (parts[2] === 'conf' && parts[3] === 'info' && !S.info) add.push({ op: 'set', path: INFO, data: d });
+  });
+  if (!add.length) { BK.plan = null; $('bkRestoreGo').hidden = true; renderBackup('このバックアップの名簿・記録は、すべてサーバーにあります。戻すものはありません'); return; }
+  BK.plan = { add, mergeLater };
+  $('bkRestoreGo').hidden = false; $('bkRestoreGo').textContent = 'サーバーにない ' + add.length + '件を足す';
+  renderBackup('バックアップ（' + fmtDate(jstDate(data.savedAt || 0)) + ' 保存）に、サーバーにない名簿・記録・案内が ' + add.length + '件あります。足すときは下のボタンを押してください（あるものは書き換えません）。');
+}
+async function applyRestore() {
+  const pl = BK.plan; if (!pl || needEvent()) return;
+  $('bkRestoreGo').disabled = true;
+  try {
+    for (const part of chunks(pl.add, 400)) await B.commit(S.cur ? W.rev(ROOT, S.cur, part) : part);
+    for (const part of chunks(pl.mergeLater, 15)) await B.commit(S.cur ? W.rev(ROOT, S.cur, part) : part);
+    BK.plan = null; $('bkRestoreGo').hidden = true; renderBackup('バックアップから ' + pl.add.length + '件を戻しました');
+  } catch (e) { renderBackup('戻せませんでした（' + ((e && e.code) || '') + '）'); }
+  $('bkRestoreGo').disabled = false;
 }
 
 /* ===== タブ ===== */
@@ -2257,6 +2484,10 @@ $('selfBtn').onclick = async () => {
     await tryW('ほかの端末で直された名前を、古い画面から戻す（断られるはず）', [{ op: 'update', path: R + '/roster/' + ppl[11].id, data: { name: 'X', nameChk: { v: '別の名前', op: 'n1' } } }], 'denied');
     await tryW('いまの名前を確かめて名前を戻す', [{ op: 'update', path: R + '/roster/' + ppl[11].id, data: { name: 'X', nameChk: { v: ppl[11].name, op: 'n2' } } }], 'ok');
     await tryW('大会の記録を書く', [{ op: 'set', path: R + '/hist/h1' + t, data: { eid: e1, date: '2026-01-01', rid: ppl[4].id, name: ppl[4].name, rank: 1, teams: 4, at: TS } }], 'ok');
+    await tryW('覇王戦を記録する', [{ op: 'set', path: R + '/hist/haoh_t' + t, data: { kind: 'haoh', no: 1, date: '2026-01-01', rid: ppl[4].id, name: 'x', entrants: [], at: TS } }], 'ok');
+    await tryW('覇王戦の記録を直す', [{ op: 'set', path: R + '/hist/haoh_t' + t, data: { kind: 'haoh', no: 1, date: '2026-01-02', rid: ppl[5].id, name: 'y', entrants: [ppl[5].id], at: TS } }], 'ok');
+    await tryW('大会の記録を覇王戦の記録に書き換える（断られるはず）', [{ op: 'set', path: R + '/hist/h1' + t, data: { kind: 'haoh', no: 9, date: '2026-01-01' } }], 'denied');
+    await tryW('大会の案内を保存する', [{ op: 'set', path: R + '/conf/info', data: { '大会名': '試験', updatedAt: TS } }], 'ok');
     await tryW('記録を別の人へ移す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[5].id, movedFrom: ppl[4].id, movedAt: TS, mv: 1 } }], 'ok');
     await tryW('同じ記録を、古い持ち主のつもりで別の端末が移す（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[6].id, movedFrom: ppl[4].id, movedAt: TS, mv: 1 } }], 'denied');
     await tryW('記録を元の人へ戻す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[4].id, movedFrom: ppl[5].id, movedAt: TS, mv: 2 } }], 'ok');
@@ -2316,7 +2547,16 @@ $('seedBtn').onclick = () => {
     .then(() => toast('架空の名簿24人を入れました'), (e) => toast('入れられませんでした（' + ((e && e.code) || '') + '）', true));
 };
 $('seedHist').onclick = seedHistory;
-$('importPast').onclick = importPast;
+$('impGo').onclick = () => importSheet($('impGo'));
+$('impExp').oninput = renderImport;
+$('infoSave').onclick = saveInfo;
+$('infoReset').onclick = () => renderInfo(true);
+$('hoNew').onclick = () => { if (!needEvent()) openHaoh(0); };
+$('hoCopy').onclick = () => { navigator.clipboard.writeText(haohText()).then(() => toast('出場資格の一覧をコピーしました'), () => toast('コピーできませんでした', true)); };
+$('bkSave').onclick = () => saveBackup(false);
+$('bkPick').onclick = pickBackupDir;
+$('bkFile').onchange = () => { const f = $('bkFile').files[0]; $('bkFile').value = ''; if (f) restoreBackup(f); };
+$('bkRestoreGo').onclick = applyRestore;
 $('demoOffline').onchange = () => { if (B && B.setOffline) B.setOffline($('demoOffline').checked); renderBar(); };
 $('logout').onclick = async () => { try { await B.logout(); } catch (e) {} ls.set('mode', ''); location.reload(); };
 /* この端末からデータを消す：送信待ち・届かなかった操作があるあいだは消さない */
@@ -2437,6 +2677,6 @@ $('rulesCopy').onclick = () => {
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
 };
-window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance };
+window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance, BK, saveBackup, haohEligible, importPlan, infoNow };
 
 boot();

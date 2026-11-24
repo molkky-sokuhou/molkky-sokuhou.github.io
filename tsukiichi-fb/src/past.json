@@ -1,1 +1,451 @@
-{"rows": [{"name": "マルック", "rank": 1, "date": "2026-11-21", "team": "E", "total": 660, "teams": 8}, {"name": "kenji", "rank": 1, "date": "2026-11-21", "team": "E", "total": 660, "teams": 8}, {"name": "コトリン", "rank": 2, "date": "2026-11-21", "team": "F", "total": 657, "teams": 8}, {"name": "イオリちゃん", "rank": 2, "date": "2026-11-21", "team": "F", "total": 657, "teams": 8}, {"name": "えだまめ", "rank": 3, "date": "2026-11-21", "team": "A", "total": 648, "teams": 8}, {"name": "ヤマップ", "rank": 3, "date": "2026-11-21", "team": "A", "total": 648, "teams": 8}, {"name": "てつ", "rank": 4, "date": "2026-11-21", "team": "D", "total": 591, "teams": 8}, {"name": "カリヤス", "rank": 4, "date": "2026-11-21", "team": "D", "total": 591, "teams": 8}, {"name": "学園長", "rank": 4, "date": "2026-11-21", "team": "D", "total": 591, "teams": 8}, {"name": "ナオキックス", "rank": 5, "date": "2026-11-21", "team": "C", "total": 589, "teams": 8}, {"name": "マギー", "rank": 5, "date": "2026-11-21", "team": "C", "total": 589, "teams": 8}, {"name": "モモ", "rank": 6, "date": "2026-11-21", "team": "H", "total": 572, "teams": 8}, {"name": "ランコム", "rank": 6, "date": "2026-11-21", "team": "H", "total": 572, "teams": 8}, {"name": "Yosi", "rank": 6, "date": "2026-11-21", "team": "H", "total": 572, "teams": 8}, {"name": "リクくん", "rank": 7, "date": "2026-11-21", "team": "B", "total": 490, "teams": 8}, {"name": "りくママ", "rank": 7, "date": "2026-11-21", "team": "B", "total": 490, "teams": 8}, {"name": "ゆきちゃん", "rank": 7, "date": "2026-11-21", "team": "B", "total": 490, "teams": 8}, {"name": "りんごちゃん", "rank": 7, "date": "2026-11-21", "team": "B", "total": 490, "teams": 8}, {"name": "あいちゃん", "rank": 8, "date": "2026-11-21", "team": "G", "total": 434, "teams": 8}, {"name": "96", "rank": 8, "date": "2026-11-21", "team": "G", "total": 434, "teams": 8}, {"name": "ナギ", "rank": 8, "date": "2026-11-21", "team": "G", "total": 434, "teams": 8}, {"name": "マルック", "date": "2025-12-20", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "つーじー", "date": "2025-12-20", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "学園長", "date": "2025-12-20", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "マルック", "date": "2026-02-22", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "つーじー", "date": "2026-02-22", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "かおりん", "date": "2026-02-22", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "マルック", "date": "2026-03-15", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "コトリン", "date": "2026-03-15", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "マルック", "date": "2026-04-25", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "アンリ", "date": "2026-04-25", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "96", "date": "2026-04-25", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "ねこ", "date": "2026-05-16", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "やきとり", "date": "2026-05-16", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "アンノリ", "date": "2026-06-20", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "ヤマップ", "date": "2026-06-20", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "ナオキックス", "date": "2026-07-11", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "アンリ", "date": "2026-07-11", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "河野くん", "date": "2026-07-11", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "ナオキックス", "date": "2026-08-29", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "とめ", "date": "2026-08-29", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "ゆかり", "date": "2026-08-29", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "クラ", "date": "2026-08-29", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "コトリン", "date": "2026-09-19", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "ランコム", "date": "2026-09-19", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "アンノリ", "date": "2026-09-19", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "チキン", "date": "2026-09-19", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "ナオキックス", "date": "2026-10-24", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "ランコム", "date": "2026-10-24", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}, {"name": "きうち", "date": "2026-10-24", "rank": 1, "team": "優勝チーム（過去の記録）", "total": null}], "haoh": [{"no": 1, "name": "やきとり", "date": "2025-11-22"}], "prev": {"date": "2026-11-21", "standings": [{"name": "E", "total": 660, "members": "マルック・kenji", "rank": 1, "played": "―"}, {"name": "F", "total": 657, "members": "コトリン・イオリちゃん", "rank": 2, "played": "―"}, {"name": "A", "total": 648, "members": "えだまめ・ヤマップ", "rank": 3, "played": "―"}, {"name": "D", "total": 591, "members": "てつ・カリヤス・学園長", "rank": 4, "played": "―"}, {"name": "C", "total": 589, "members": "ナオキックス・マギー", "rank": 5, "played": "―"}, {"name": "H", "total": 572, "members": "モモ・ランコム・Yosi", "rank": 6, "played": "―"}, {"name": "B", "total": 490, "members": "リクくん・りくママ・ゆきちゃん・りんごちゃん", "rank": 7, "played": "―"}, {"name": "G", "total": 434, "members": "あいちゃん・96・ナギ", "rank": 8, "played": "―"}]}}
+{
+"src": "月いちモルック 運営シート（2026-11-24 時点）",
+"roster": [
+{
+"id": "Mmwptjmnxmppaqx",
+"name": "てつ",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptjzhfywrzt5",
+"name": "カリヤス",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptk9lrtxdn00",
+"name": "あいちゃん",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptkhr0xoxu14",
+"name": "モモ",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptl0w8bykwt9",
+"name": "コトリン",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptl7wb5yfzph",
+"name": "96",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptlhjo91ueq5",
+"name": "ナオキックス",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptlqsi08ysv1",
+"name": "えだまめ",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptm2m4d27lyp",
+"name": "ランコム",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptmb0upse3ll",
+"name": "マルック",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptmka4u8mmsj",
+"name": "ヤマップ",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptnaxlw6mds1",
+"name": "kenji",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptnlk42uv5lt",
+"name": "Yosi",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptntv46iznvx",
+"name": "イオリちゃん",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptovtavftzd7",
+"name": "やきとり",
+"first": "2025-12-20"
+},
+{
+"id": "Mmwptru73fnw86c",
+"name": "ナギ",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptsc0lmo4927",
+"name": "マギー",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwptxvijgnfnj6",
+"name": "きうち",
+"first": "2026-10-24"
+},
+{
+"id": "Mmwptynzb2qnjoc",
+"name": "アンノリ",
+"first": "2026-09-19"
+},
+{
+"id": "Mmwptynzbkrlsrf",
+"name": "チキン",
+"first": "2026-09-19"
+},
+{
+"id": "Mmwptzc62kfcdj9",
+"name": "とめ",
+"first": "2026-08-29"
+},
+{
+"id": "Mmwptzc62r6rkzg",
+"name": "クラ",
+"first": "2026-08-29"
+},
+{
+"id": "Mmwptzc62divxae",
+"name": "ゆかり",
+"first": "2026-08-29"
+},
+{
+"id": "Mmwpu0wzt1ucx4t",
+"name": "アンリ",
+"first": "2026-07-11"
+},
+{
+"id": "Mmwpu0wzt4sd0x8",
+"name": "河野くん",
+"first": "2026-07-11"
+},
+{
+"id": "Mmwpu2740jaq0gn",
+"name": "ねこ",
+"first": "2026-05-16"
+},
+{
+"id": "Mmwpu3v0nklne3e",
+"name": "つーじー",
+"first": "2026-02-22"
+},
+{
+"id": "Mmwpu3v0nn8rq5n",
+"name": "かおりん",
+"first": "2026-02-22"
+},
+{
+"id": "Mmwpu4w8tj9dtwr",
+"name": "学園長",
+"first": "2025-12-20"
+},
+{
+"id": "Mmwpui92r18soqw",
+"name": "リクくん",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwpv3d39d7agen",
+"name": "ゆきちゃん",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwpv3nus94a4l4",
+"name": "りんごちゃん",
+"first": "2026-11-21"
+},
+{
+"id": "Mmwpv3xdhvsyy7a",
+"name": "りくママ",
+"first": "2026-11-21"
+}
+],
+"events": [
+{
+"date": "2025-12-20",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwpu4w8tj9dtwr",
+"Mmwpu3v0nklne3e",
+"Mmwptmb0upse3ll"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-02-22",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwptmb0upse3ll",
+"Mmwpu3v0nklne3e",
+"Mmwpu3v0nn8rq5n"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-03-15",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwptmb0upse3ll",
+"Mmwptl0w8bykwt9"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-04-25",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwptmb0upse3ll",
+"Mmwptl7wb5yfzph",
+"Mmwpu0wzt1ucx4t"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-05-16",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwptovtavftzd7",
+"Mmwpu2740jaq0gn"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-06-20",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwptmka4u8mmsj",
+"Mmwptynzb2qnjoc"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-07-11",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwptlhjo91ueq5",
+"Mmwpu0wzt1ucx4t",
+"Mmwpu0wzt4sd0x8"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-08-29",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwptzc62kfcdj9",
+"Mmwptzc62r6rkzg",
+"Mmwptzc62divxae",
+"Mmwptlhjo91ueq5"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-09-19",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwptynzb2qnjoc",
+"Mmwptl0w8bykwt9",
+"Mmwptm2m4d27lyp",
+"Mmwptynzbkrlsrf"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-10-24",
+"teams": null,
+"standings": [
+{
+"rank": 1,
+"team": "優勝チーム",
+"members": [
+"Mmwptxvijgnfnj6",
+"Mmwptlhjo91ueq5",
+"Mmwptm2m4d27lyp"
+],
+"played": null,
+"total": null
+}
+]
+},
+{
+"date": "2026-11-21",
+"teams": 8,
+"standings": [
+{
+"rank": 1,
+"team": "E",
+"members": [
+"Mmwptmb0upse3ll",
+"Mmwptnaxlw6mds1"
+],
+"played": 7,
+"total": 660
+},
+{
+"rank": 2,
+"team": "F",
+"members": [
+"Mmwptl0w8bykwt9",
+"Mmwptntv46iznvx"
+],
+"played": 7,
+"total": 657
+},
+{
+"rank": 3,
+"team": "A",
+"members": [
+"Mmwptlqsi08ysv1",
+"Mmwptmka4u8mmsj"
+],
+"played": 7,
+"total": 648
+},
+{
+"rank": 4,
+"team": "D",
+"members": [
+"Mmwptjmnxmppaqx",
+"Mmwptjzhfywrzt5",
+"Mmwpu4w8tj9dtwr"
+],
+"played": 7,
+"total": 591
+},
+{
+"rank": 5,
+"team": "C",
+"members": [
+"Mmwptlhjo91ueq5",
+"Mmwptsc0lmo4927"
+],
+"played": 7,
+"total": 589
+},
+{
+"rank": 6,
+"team": "H",
+"members": [
+"Mmwptkhr0xoxu14",
+"Mmwptm2m4d27lyp",
+"Mmwptnlk42uv5lt"
+],
+"played": 7,
+"total": 572
+},
+{
+"rank": 7,
+"team": "B",
+"members": [
+"Mmwpui92r18soqw",
+"Mmwpv3d39d7agen",
+"Mmwpv3nus94a4l4",
+"Mmwpv3xdhvsyy7a"
+],
+"played": 7,
+"total": 490
+},
+{
+"rank": 8,
+"team": "G",
+"members": [
+"Mmwptk9lrtxdn00",
+"Mmwptl7wb5yfzph",
+"Mmwptru73fnw86c"
+],
+"played": 7,
+"total": 434
+}
+]
+}
+],
+"haoh": [
+{
+"no": 1,
+"date": "2025-12-20",
+"rid": "Mmwptovtavftzd7",
+"name": "やきとり"
+}
+],
+"info": {
+"大会名": "月いちモルック",
+"開催日": "2026-12-19",
+"時間": "12時〜17時",
+"場所": "B&G海洋センター ゲートボールコート",
+"住所": "香川県高松市国分寺町新名2069-1",
+"参加費": "1人200円",
+"お知らせ": "指導員6名在籍なので初心者の方も大歓迎！小学生もガンガン投げてますよ。家族で参加大歓迎。",
+"インスタ": "izumi_molkky"
+},
+"courts": 6
+}
