@@ -81,6 +81,7 @@ const chunks = (a, n) => { const r = []; for (let i = 0; i < a.length; i += n) r
 
 /* ===== Firestore のルール（運営アカウントの番号＝UIDで判定）。設定タブでUID入りの全文をコピーできる ===== */
 const RULES = `rules_version = '2';
+// 月いちモルック Firebase版のルール：版 ${VER}（運営画面のいちばん下の版と同じなら、最新のルールです）
 service cloud.firestore {
   match /databases/{database}/documents {
     // 運営アカウント（UIDで判定）
@@ -1254,10 +1255,23 @@ function markTop(ps, K) {
   ps.forEach((p) => { p.top = p.pts > 0 && p.pts >= cut; });
   return ps;
 }
+/* 同じチームにしない組（名簿の ng：{相手の名簿ID: true}。両方の人に書く。外すときは false。1つの欄だけ書き換えるので、2台で別々に足しても消し合わない）。
+   まとめた人の分も、まとめ先の人に付け替えて数える */
+function ngMap(rm) {
+  rm = rm || rosterById(); const out = {};
+  S.roster.forEach((r) => Object.keys(r.ng || {}).filter((t) => r.ng[t] === true).forEach((t) => {
+    const a = resolveId(r.id, rm), b = resolveId(t, rm); if (!a || !b || a === b || !rm[b]) return;
+    (out[a] = out[a] || new Set()).add(b); (out[b] = out[b] || new Set()).add(a);
+  }));
+  return out;
+}
+const NG0 = new Set(); const ngOf = (p) => p.ng || NG0;
+function ngPairs(ps) { const ids = new Set(ps.map((p) => p.id)), out = []; ps.forEach((p) => ngOf(p).forEach((q) => { if (ids.has(q) && p.id < q) out.push([p, ps.find((x) => x.id === q)]); })); return out; }
+function ngBad(teams) { const out = []; teams.forEach((t) => { const m = t.members || t; m.forEach((a) => m.forEach((b) => { if (a.id < b.id && a.ng && a.ng.has(b.id)) out.push([a, b, t.name]); })); }); return out; }
 /* 抽選に使う参加者（受付済み＋名簿の経験豊富・評価・初心者＋その回の受付の早帰り・目印＋実績） */
 function drawPeople() {
-  const rm = rosterById(), pts = topPoints();
-  return people().map((p) => { const r = rm[p.id] || {}; return { id: p.id, rawId: p.rawId, name: p.name, exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : 0, beg: !r.exp && !!r.beg, early: !!p.early, pair: String(p.pair || '').trim(), pending: p.pending, team: p.team || 0, pts: pts[p.id] || 0, top: false }; });
+  const rm = rosterById(), pts = topPoints(), ng = ngMap(rm);
+  return people().map((p) => { const r = rm[p.id] || {}; return { ng: ng[p.id] || new Set(), id: p.id, rawId: p.rawId, name: p.name, exp: !!r.exp, level: r.exp ? (num(r.level) || LV_DEFAULT) : 0, beg: !r.exp && !!r.beg, early: !!p.early, pair: String(p.pair || '').trim(), pending: p.pending, team: p.team || 0, pts: pts[p.id] || 0, top: false }; });
 }
 /* 目印ごとのまとまり（2人以上）と、目印が1人だけの人。
    「ほかの人が入ってもよい」（本人に確認済み）にした2〜3人のまとまりは open：同じチームに入れたうえで、ほかの人で埋める */
@@ -1275,6 +1289,8 @@ function teamOptions(ps, opens) {
   const { groups, closed, opened } = pairGroups(ps, opens);
   const G = closed.length, inG = closed.reduce((s, g) => s + g.members.length, 0), R = ps.length - inG;
   const out = [];
+  const ngIn = groups.filter((g) => ngBad([g.members]).length);
+  if (ngIn.length) return { groups, out, why: '同じ目印のまとまりに、同じチームにしない組が入っています（' + ngIn.map((g) => '「' + g.label + '」：' + ngBad([g.members]).map((x) => x[0].name + 'と' + x[1].name).join('・')).join('／') + '）。目印を直してください' };
   if (groups.some((g) => g.members.length > TEAM_MAX)) return { groups, out, why: '同じ目印の人が' + TEAM_MAX + '人より多いまとまりがあります（' + groups.filter((g) => g.members.length > TEAM_MAX).map((g) => g.label + '：' + g.members.length + '人').join('・') + '）' };
   const osz = opened.map((g) => g.members.length);
   /* 全員が「その人たちだけのチーム」の目印のとき（残りの人がいない）も、偶数ならそのまま組める */
@@ -1310,7 +1326,8 @@ function balance(rest, K, seeds) {
     const begs = spread(teams.map((t) => t.filter((p) => p.beg).length));
     const early = teams.reduce((s, t) => s + Math.max(0, t.filter((p) => p.early).length - 1), 0);
     const lv = spread(teams.map((t) => t.reduce((s, p) => s + p.level, 0)));
-    return stay * 1e10 + exps * 1e8 + tops * 1e6 + begs * 1e4 + Math.min(early, 99) * 100 + Math.min(lv, 99);
+    const ng = ngBad(teams).length; // 同じチームにしない組（必ず守る。目印の次に強い）
+    return ng * 1e12 + stay * 1e10 + exps * 1e8 + tops * 1e6 + begs * 1e4 + Math.min(early, 99) * 100 + Math.min(lv, 99);
   };
   const tries = [];
   for (let n = 0; n < 300; n++) {
@@ -1334,7 +1351,8 @@ function balance(rest, K, seeds) {
     const w = (p) => (p.early ? 4 : 0) + (p.top ? 2 : 0) + (p.beg ? 1 : 0);
     const others = shuffle(rest.filter((p) => !p.exp && !locked[p.id])).sort((a, b) => w(b) - w(a));
     others.forEach((p) => {
-      const open = teams.map((t, i) => i).filter((i) => teams[i].length < caps[i]);
+      let open = teams.map((t, i) => i).filter((i) => teams[i].length < caps[i]);
+      if (ngOf(p).size) { const ok = open.filter((i) => !teams[i].some((x) => ngOf(p).has(x.id))); if (ok.length) open = ok; }
       const cnt = (i) => teams[i].filter((x) => (p.early && x.early) || (p.top && x.top) || (p.beg && x.beg)).length;
       const pick = w(p) ? open.sort((a, b) => cnt(a) - cnt(b) || caps[b] - caps[a] || rint(3) - 1)[0] : open[rint(open.length)];
       teams[pick].push(p);
@@ -1347,7 +1365,7 @@ function balance(rest, K, seeds) {
         for (let i = 0; i < teams[a].length; i++) for (let j = 0; j < teams[b].length; j++) {
           const x = teams[a][i], y = teams[b][j];
           if (locked[x.id] || locked[y.id]) continue;
-          if (x.exp === y.exp && x.level === y.level && x.beg === y.beg && x.early === y.early && x.top === y.top) continue;
+          if (x.exp === y.exp && x.level === y.level && x.beg === y.beg && x.early === y.early && x.top === y.top && !ngOf(x).size && !ngOf(y).size) continue;
           teams[a][i] = y; teams[b][j] = x;
           const s = score(teams);
           if (s < best) { best = s; improved = true; } else { teams[a][i] = x; teams[b][j] = y; }
@@ -1397,6 +1415,7 @@ function checkTeams(teams, ps, opens) {
     if (g.open) res.push([together, '目印「' + g.label + '」の' + g.members.length + '人は ' + (t ? t.name : '?') + ' チームに一緒（ほかの人も可）']);
     else res.push([together && t.members.length === g.members.length, '目印「' + g.label + '」の' + g.members.length + '人だけで ' + (t ? t.name : '?') + ' チーム']);
   });
+  if (ngPairs(ps).length) { const bad = ngBad(teams); res.push([!bad.length, bad.length ? '同じチームにしない組が同じチームです：' + bad.map((x) => x[0].name + 'と' + x[1].name + '（' + x[2] + '）').join('・') : '同じチームにしない組（' + ngPairs(ps).length + '組）は、別々のチームです']); }
   const normal = teams.filter((t) => !t.fixed), sz = normal.map((t) => t.members.length);
   if (normal.length) res.push([Math.max(...sz) - Math.min(...sz) <= 1 && Math.min(...sz) >= TEAM_MIN, 'ほかのチームは ' + Math.min(...sz) + (Math.max(...sz) !== Math.min(...sz) ? '〜' + Math.max(...sz) : '') + '人（人数差1人以内' + (Math.min(...sz) < TEAM_MIN ? '・1チーム' + TEAM_MIN + '人以上' : '') + '）']);
   const ex = normal.map((t) => t.members.filter((m) => m.exp).length), lv = normal.map((t) => t.members.reduce((s, m) => s + m.level, 0));
@@ -1414,7 +1433,7 @@ function checkTeams(teams, ps, opens) {
   return res;
 }
 /* 抽選に使った条件（受付の顔ぶれ・経験豊富と評価・初心者・早帰り・目印・ほかの人も可）。表示中の結果は、これが変わったら使わない */
-function drawSig(ps) { return JSON.stringify([ps.map((p) => [p.id, p.exp, p.level, p.beg, p.early, p.pts, norm(p.pair || '')].join('|')).sort(), Object.keys(openMarks()).sort()]); }
+function drawSig(ps) { return JSON.stringify([ps.map((p) => [p.id, p.exp, p.level, p.beg, p.early, p.pts, norm(p.pair || ''), [...ngOf(p)].sort().join(',')].join('|')).sort(), Object.keys(openMarks()).sort()]); }
 function teamReady() {
   if (!S.cur || !S.events[S.cur] || S.events[S.cur].status !== 'open') return '開催回がまだありません。受付タブで回を始めてください';
   if (serverState() !== 'ok') return 'サーバーで受付を確認できていません。電波を確かめてください';
@@ -1453,6 +1472,7 @@ function renderTeam() {
   markTop(ps, T.preview ? T.preview.length : savedN || T.count);
   const topN = ps.filter((p) => p.top).length, hd = lastHaohDate();
   $('tmTarget').textContent = '対象：受付済み ' + ps.length + '人（経験豊富 ' + exN + '人' + (topN ? '・実績上位 ' + topN + '人' : '') + (groups.length ? '・同じチーム希望 ' + groups.map((g) => '「' + g.label + '」' + g.members.length + '人').join('・') : '') + '）。' +
+    (ngPairs(ps).length ? '同じチームにしない組：' + ngPairs(ps).map((x) => x[0].name + 'と' + x[1].name).join('・') + '。' : '') +
     '実績上位は、' + (hd ? '前回の覇王戦（' + fmtDate(hd) + '）以降' : 'これまで') + 'の大会の成績（優勝2点・3位以内1点）が多い順に、チーム数と同じ人数です';
   $('tmCounts').innerHTML = out.length ? '<b>チーム数</b><div class="tm-count" role="group" aria-label="チーム数">' +
     out.map((o) => '<button type="button" data-tc="' + o.T + '" aria-pressed="' + (o.T === T.count) + '">' + o.T + '<small>チーム</small></button>').join('') + '</div>' +
@@ -1601,7 +1621,10 @@ function doDraw() {
   const opt = teamOptions(ps).out.find((o) => o.T === T.count);
   if (!opt) { T.msg = 'このチーム数では分けられません'; renderTeam(); return; }
   const ev = S.events[S.cur] || {};
-  T.preview = drawTeams(ps, opt); T.sig = drawSig(ps); T.base = ev.rev || ''; T.eid = S.cur;
+  let res = null;
+  for (let n = 0; n < 5 && (!res || ngBad(res).length); n++) res = drawTeams(ps, opt);
+  if (ngBad(res).length) { T.preview = null; T.msg = 'このチーム数では、同じチームにしない組（' + ngBad(res).map((x) => x[0].name + 'と' + x[1].name).join('・') + '）を別々にできませんでした。チーム数を変えるか、目印を見直してください'; renderTeam(); return; }
+  T.preview = res; T.sig = drawSig(ps); T.base = ev.rev || ''; T.eid = S.cur;
   renderTeam();
   $('tmResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1622,7 +1645,7 @@ function saveTeams() {
   if (!T.preview || needEvent()) return;
   const why = teamReady(); if (why) { T.msg = why; renderTeam(); return; }
   const ps = markTop(drawPeople(), T.preview.length);
-  if (drawSig(ps) !== T.sig || !checkTeams(T.preview, ps)[0][0]) { T.msg = '抽選のあとに受付や印が変わりました。もう一度抽選してください'; T.preview = null; renderTeam(); return; }
+  if (drawSig(ps) !== T.sig || !checkTeams(T.preview, ps)[0][0] || ngBad(T.preview.map((t) => ({ ...t, members: t.members.map((m) => ps.find((x) => x.id === m.id) || m) }))).length) { T.msg = '抽選のあとに受付や印が変わりました。もう一度抽選してください'; T.preview = null; renderTeam(); return; }
   /* 抽選したあとに、ほかの端末で結果・チーム・対戦表などが変わっていたら決めない（入った結果を黙って消さないように） */
   const ev0 = S.events[S.cur] || {};
   if (T.eid !== S.cur || (ev0.rev || '') !== T.base) { T.msg = '抽選したあとに、ほかの端末で試合の結果やチームが変わりました。いまの状態を確かめて、もう一度抽選してください'; T.preview = null; renderTeam(); return; }
@@ -1955,6 +1978,7 @@ function openPerson(pid) {
   const merged = S.roster.filter((r) => r.mergedInto === pid);
   const others = liveRoster().filter((r) => r.id !== pid).sort((a, b) => (a.name < b.name ? -1 : 1));
   const opt = (r) => '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>';
+  const ngSet = ngMap(rm)[pid] || new Set(), ngList = [...ngSet].map((id) => rm[id]).filter(Boolean).sort((a, b) => (a.name < b.name ? -1 : 1));
   $('sheet').innerHTML = '<h2 id="sheetTitle">' + esc(me.name) + 'さんの記録</h2>' +
     '<p>参加 ' + s.n + '回・優勝 ' + s.win + '回・3位以内 ' + s.top3 + '回（通算）</p>' +
     ((s.dup || []).length ? '<p class="warnline">同じ日の記録が2件あります（' + esc(s.dup.map(fmtDate).join('・')) + '）。いまは良い方の順位で数えています。別の人の記録なら、チェックして別の人へ移してください。</p>' : '') +
@@ -1965,6 +1989,10 @@ function openPerson(pid) {
       '<div class="field"><label for="spTo">移す先</label><select class="input" id="spTo"><option value="">（選んでください）</option><option value="_new">新しい人として名簿に入れる</option>' + others.map(opt).join('') + '</select></div>' +
       '<div class="field" id="spNewBox" hidden><label for="spNew">新しい人の名前</label><input class="input" id="spNew" maxlength="30" autocomplete="off"></div>' +
       '<p class="err" id="spErr"></p><button class="btn small" id="spGo" type="button">記録を移す</button></div>' : '') +
+    '<div class="subbox"><b>同じチームにしない人</b><p class="muted" style="margin:2px 0 6px">抽選で必ず別々のチームにします（運営の画面だけに出ます。参加者の画面には出ません）。</p>' +
+      (ngList.length ? '<ul class="hrows">' + ngList.map((r) => '<li><span><b>' + esc(r.name) + '</b></span><button class="btn small ghost" type="button" data-ngrm="' + esc(r.id) + '">外す</button></li>').join('') + '</ul>' : '') +
+      '<div class="field"><label for="ngWith">足す人</label><select class="input" id="ngWith"><option value="">（選んでください）</option>' + others.filter((r) => !ngSet.has(r.id)).map(opt).join('') + '</select></div>' +
+      '<button class="btn small" id="ngAdd" type="button">足す</button></div>' +
     '<div class="subbox"><b>ほかの人とまとめる（同じ人だったとき）</b><p class="muted" style="margin:2px 0 6px">名前を間違えて登録したなどで、同じ人の記録が2人に分かれているときに使います。あとで元に戻せます。</p>' +
       '<div class="field"><label for="mgWith">まとめる相手</label><select class="input" id="mgWith"><option value="">（選んでください）</option>' + others.map(opt).join('') + '</select></div>' +
       '<div id="mgMore" hidden></div></div>' +
@@ -1975,6 +2003,24 @@ function openPerson(pid) {
     '<div class="actions"><button class="btn ghost" id="ppClose" type="button">閉じる</button></div>';
   $('ov').hidden = false;
   $('ppClose').onclick = closeSheet;
+  /* 同じチームにしない人：両方の名簿に書く。外すときは、まとめた人の分も含めて、この2人をつなぐ欄をすべて false にする */
+  const ngWrite = (w, label) => B.commit(w).then(() => { toast(label); openPerson(pid); }, (e) => toast('保存できませんでした（' + ((e && e.code) || '') + '）。電波を確かめてください', true));
+  $('ngAdd').onclick = () => {
+    const t = $('ngWith').value; if (!t) return;
+    ngWrite([{ op: 'update', path: ROOT + '/roster/' + pid, data: { ['ng.' + t]: true } }, { op: 'update', path: ROOT + '/roster/' + t, data: { ['ng.' + pid]: true } }], (rm[t] || {}).name + 'さんと同じチームにしないようにしました');
+  };
+  $('sheet').querySelectorAll('[data-ngrm]').forEach((b) => { b.onclick = () => {
+    const t = b.dataset.ngrm, rm2 = rosterById(), w = []; let merged = false;
+    S.roster.forEach((r) => {
+      const who = resolveId(r.id, rm2), other = who === pid ? t : who === t ? pid : ''; if (!other) return;
+      const d = {}; Object.keys(r.ng || {}).forEach((x) => { if (r.ng[x] === true && resolveId(x, rm2) === other) d['ng.' + x] = false; });
+      if (!Object.keys(d).length) return;
+      if (r.mergedInto) merged = true; else w.push({ op: 'update', path: ROOT + '/roster/' + r.id, data: d });
+    });
+    if (merged) { toast('まとめた人の名簿にある組なので外せません。まとめを元に戻してから外してください', true); return; }
+    const live = w;
+    ngWrite(live, (rm[t] || {}).name + 'さんを外しました');
+  }; });
   const checked = () => [...$('sheet').querySelectorAll('[data-hr]:checked')].map((c) => rows.find((h) => h.id === c.dataset.hr));
   /* 記録を分ける */
   if ($('spGo')) {
@@ -2912,6 +2958,6 @@ $('rulesCopy').onclick = () => {
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
 };
-window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance, BK, saveBackup, haohEligible, importPlan, infoNow, openHaoh };
+window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance, BK, saveBackup, haohEligible, importPlan, infoNow, openHaoh, openPerson };
 
 boot();
