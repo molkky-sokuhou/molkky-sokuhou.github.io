@@ -84,7 +84,7 @@ async def main():
         ok(ra.get('mergedInto') == b_ and rb.get('mergedInto') == c_ and not ra.get('restoreMerge') and not rb.get('restoreMerge'), '⑤ A→B と B→C のまとめが両方戻る（restoreMerge は消える）')
         get('/reset'); await ca.close(); ca, A = await mk(b, '3台目')
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        commit([{'op': 'set', 'path': R + '/roster/' + i, 'data': {**{k: v for k, v in bk['docs'][R + '/roster/' + i].items() if k != 'mergedInto'}, 'restoredAt': 1}} for i in (a_, b_, c_)])
+        commit([{'op': 'set', 'path': R + '/roster/' + i, 'data': {**{k: v for k, v in bk['docs'][R + '/roster/' + i].items() if k != 'mergedInto'}, 'restoredAt': 1, 'unmergedAt': 2}} for i in (a_, b_, c_)])  # 「元に戻す」をした人には unmergedAt がある
         await A.wait_for_timeout(1500); await A.click('.nb[data-ph=rec]'); await A.evaluate("document.querySelector('#bkBox details').open=true")
         await A.set_input_files('#bkFile', '/tmp/v23_bk.json'); await A.wait_for_timeout(1000)
         if await A.locator('#bkRestoreGo').is_visible(): await A.click('#bkRestoreGo'); await A.wait_for_timeout(3000)

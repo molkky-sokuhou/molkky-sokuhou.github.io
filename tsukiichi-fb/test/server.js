@@ -15,6 +15,8 @@ const srv = http.createServer((req, res) => {
     if (u.pathname === '/reset') { db = { docs: {}, ver: 0 }; slow = 0; failUntil = 0; res.end('{}'); return; }
     // 試験用：ルールを通さずに文書を置く（版20までの古いデータを再現する）
     if (u.pathname === '/seed') { const w = JSON.parse(body); Object.keys(w).forEach((k) => { db.docs[k] = w[k]; }); db.ver++; res.end('{}'); return; }
+    // 試験用：本番のルールの版（rulesVer の判定）を変える。n を空にすると画面と同じ版
+    if (u.pathname === '/rulesno') { const n = u.searchParams.get('n'); if (n) db.rulesNo = +n; else delete db.rulesNo; res.end('{}'); return; }
     if (u.pathname === '/slow') { slow = +u.searchParams.get('ms') || 0; res.end('{}'); return; }
     if (u.pathname === '/fail') { failUntil = Date.now() + (+u.searchParams.get('ms') || 0); res.end('{}'); return; }
     if (u.pathname === '/commit') {

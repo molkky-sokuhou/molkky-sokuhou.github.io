@@ -79,7 +79,9 @@ async def main():
         ok(len(ros) == 33 and 'ゆい' not in ros, '名簿はスプレッドシートの33人だけ残る（%d人）：%s' % (len(ros), msg))
         ok(len(hs) == 51 and all(h.get('src') == 'sheet' for h in hs), '記録は取り込んだ50件＋覇王戦1件だけ残る（%d件）' % len(hs))
         ok(len(evs) == 1 and not cks, 'テストで締めた回と、受付は消える（回 %d・受付 %d）' % (len(evs), len(cks)))
-        ok((d.get(R + '/conf/cleanup') or {}).get('until') == 0, '片付けが終わると、削除できる時間を閉じる')
+        import time
+        u = (d.get(R + '/conf/cleanup') or {}).get('until', 0)
+        ok(0 < u - time.time() * 1000 <= 5 * 60000 + 5000, '片付けの時間は5分まで（版28：終わっても0に戻さず、5分で閉じる）')
         from urllib.request import Request, urlopen
         rr = json.loads(urlopen(Request(SRV + '/commit', data=json.dumps({'writes': [{'op': 'delete', 'path': R + '/hist/haoh_1'}]}).encode(), method='POST')).read())
         ok(not rr['ok'], '片付けの時間のあとは、記録を消せない（ルール）')

@@ -80,8 +80,9 @@ const W = {
 const chunks = (a, n) => { const r = []; for (let i = 0; i < a.length; i += n) r.push(a.slice(i, i + n)); return r; };
 
 /* ===== Firestore のルール（運営アカウントの番号＝UIDで判定）。設定タブでUID入りの全文をコピーできる ===== */
-/* ルールの版：ルールの中身を変えたときだけ上げる（アプリの版とは別）。本番のルールが古いかどうかは、rulesVer/この版 が読めるかで分かる */
-const RULES_VER = 'R24', FB_PROJECT = 'tsukiichi-molkky';
+/* ルールの版：ルールの中身を変えたときだけ上げる（アプリの版とは別）。
+   本番のルールは rulesVer/N（N は自分の版以下）だけ読ませる。この画面の版 N が読めなければ本番が古い。N+1 が読めれば、この画面の方が古い */
+const RULES_NO = 25, RULES_VER = 'R' + RULES_NO, FB_PROJECT = 'tsukiichi-molkky';
 const RULES = `rules_version = '2';
 // 月いちモルック Firebase版のルール：ルールの版 ${RULES_VER}（システムタブで、本番のルールが最新か分かります）
 service cloud.firestore {
@@ -120,9 +121,9 @@ service cloud.firestore {
     match /public/{path=**} {
       allow read: if true;
     }
-    // ルールの版の目印。この版の名前だけ読める（文書はなくてよい）。読めなければ、本番のルールが古い
+    // ルールの版の目印。この版以下の番号だけ読める（文書はなくてよい）
     match /rulesVer/{v} {
-      allow get: if isStaff() && v == '${RULES_VER}';
+      allow get: if isStaff() && v.matches('^[0-9]+$') && int(v) <= ${RULES_NO};
     }
     match /public/{id} {
       allow create, update: if isStaff()
@@ -561,7 +562,7 @@ function fakeBackend() {
       const id = rid('b'); queue.push({ id, writes: JSON.parse(JSON.stringify(writes)) }); save('queue', queue); emit(); tick();
       return new Promise((res, rej) => { waiters[id] = { res, rej }; });
     },
-    async getServer(path) { const st = await T.state(); return st.docs[path] || null; },
+    async getServer(path) { const st = await T.state(); if (!fakeReadOk(path, st, RULES_NO)) throw { code: 'permission-denied' }; return st.docs[path] || null; },
     async getServerCol(path) { const st = await T.state(), depth = path.split('/').length + 1; return Object.keys(st.docs).filter((k) => k.indexOf(path + '/') === 0 && k.split('/').length === depth).map((k) => ({ id: k.split('/').pop(), ...st.docs[k] })); },
     waitPending() { return ready.then(() => new Promise((res) => { const f = () => { if (!queue.length) res(); else setTimeout(f, 200); }; f(); })); },
     uid() { return ''; },
@@ -1265,11 +1266,16 @@ function markTop(ps, K) {
 /* 同じチームにしない組（名簿の ng：{相手の名簿ID: true}。両方の人に書く。外すときは false。1つの欄だけ書き換えるので、2台で別々に足しても消し合わない）。
    まとめた人の分も、まとめ先の人に付け替えて数える */
 function ngMap(rm) {
-  rm = rm || rosterById(); const out = {};
-  S.roster.forEach((r) => Object.keys(r.ng || {}).filter((t) => r.ng[t] === true).forEach((t) => {
-    const a = resolveId(r.id, rm), b = resolveId(t, rm); if (!a || !b || a === b || !rm[b]) return;
-    (out[a] = out[a] || new Set()).add(b); (out[b] = out[b] || new Set()).add(a);
+  /* まとめられていない人の名簿の欄が優先。まとめた人（mergedInto あり）の名簿にある組は、まとめ先の2人のどちらかが false を書いていなければ数える
+     （まとめた人の名簿は書き換えられないので、外すときはまとめ先の人に false を書く） */
+  rm = rm || rosterById(); const live = {}, off = {}, old = {}, key = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
+  S.roster.forEach((r) => Object.keys(r.ng || {}).forEach((t) => {
+    const a = resolveId(r.id, rm), b = resolveId(t, rm); if (!a || !b || a === b || !rm[b] || !rm[a]) return;
+    const k = key(a, b);
+    if (r.mergedInto) { if (r.ng[t] === true) old[k] = 1; } else if (r.ng[t] === true) live[k] = 1; else if (r.ng[t] === false) off[k] = 1;
   }));
+  const out = {};
+  Object.keys({ ...live, ...old }).forEach((k) => { if (!live[k] && off[k]) return; const [a, b] = k.split('|'); (out[a] = out[a] || new Set()).add(b); (out[b] = out[b] || new Set()).add(a); });
   return out;
 }
 const NG0 = new Set(); const ngOf = (p) => p.ng || NG0;
@@ -2010,21 +2016,21 @@ function openPerson(pid) {
     '<div class="actions"><button class="btn ghost" id="ppClose" type="button">閉じる</button></div>';
   $('ov').hidden = false;
   $('ppClose').onclick = closeSheet;
-  /* 同じチームにしない人：両方の名簿に書く。外すときは、まとめた人の分も含めて、この2人をつなぐ欄をすべて false にする */
-  const ngWrite = (w, label) => B.commit(w).then(() => { toast(label); openPerson(pid); }, (e) => toast('保存できませんでした（' + ((e && e.code) || '') + '）。電波を確かめてください', true));
+  /* 同じチームにしない人：両方の名簿に書く（いまの回があれば rev も変え、ほかの端末で開いている抽選案の「決める」を断る） */
+  const ngWrite = (w, label) => B.commit(S.cur ? W.rev(ROOT, S.cur, w) : w).then(() => { toast(label); openPerson(pid); }, (e) => toast('保存できませんでした（' + ((e && e.code) || '') + '）。電波を確かめてください', true));
   $('ngAdd').onclick = () => {
     const t = $('ngWith').value; if (!t) return;
     ngWrite([{ op: 'update', path: ROOT + '/roster/' + pid, data: { ['ng.' + t]: true } }, { op: 'update', path: ROOT + '/roster/' + t, data: { ['ng.' + pid]: true } }], (rm[t] || {}).name + 'さんと同じチームにしないようにしました');
   };
   $('sheet').querySelectorAll('[data-ngrm]').forEach((b) => { b.onclick = () => {
-    const t = b.dataset.ngrm, rm2 = rosterById(), w = []; let merged = false;
-    S.roster.forEach((r) => {
-      const who = resolveId(r.id, rm2), other = who === pid ? t : who === t ? pid : ''; if (!other) return;
-      const d = {}; Object.keys(r.ng || {}).forEach((x) => { if (r.ng[x] === true && resolveId(x, rm2) === other) d['ng.' + x] = false; });
-      if (!Object.keys(d).length) return;
-      if (r.mergedInto) merged = true; else w.push({ op: 'update', path: ROOT + '/roster/' + r.id, data: d });
+    /* まとめられていない2人の名簿で、この2人をつなぐ欄をすべて false にする。相手の名簿IDそのものにも false を書く（まとめた人の名簿にある組を打ち消す） */
+    const t = b.dataset.ngrm, rm2 = rosterById(), w = [];
+    [[pid, t], [t, pid]].forEach(([me2, other]) => {
+      const r = rm2[me2]; if (!r) return;
+      const d = { ['ng.' + other]: false };
+      Object.keys(r.ng || {}).forEach((x) => { if (r.ng[x] === true && resolveId(x, rm2) === other) d['ng.' + x] = false; });
+      w.push({ op: 'update', path: ROOT + '/roster/' + me2, data: d });
     });
-    if (merged) { toast('まとめた人の名簿にある組なので外せません。まとめを元に戻してから外してください', true); return; }
     const live = w;
     ngWrite(live, (rm[t] || {}).name + 'さんを外しました');
   }; });
@@ -2375,7 +2381,7 @@ function openHaoh(no) {
   const fillKing = () => {
     /* 覇王は出場した人から選ぶ。取り込んだ記録など出場者が分からないときも、記録されている覇王は選べるようにする */
     const ids = [...$('hoEnt').querySelectorAll('input:checked')].map((x) => x.value), cur = $('hoKing').value || king;
-    if (king && !((old && old.entrants) || []).length && !ids.includes(king)) ids.unshift(king); // 出場者の記録がない回（取り込んだ記録）だけ
+    if (king && !ids.length && !((old && old.entrants) || []).length) ids.unshift(king); // 出場者がだれも選ばれていない回（取り込んだ記録）だけ
     $('hoKing').innerHTML = '<option value="">（選んでください）</option>' + ids.map((id) => '<option value="' + esc(id) + '"' + (id === cur ? ' selected' : '') + '>' + esc((rm[id] || {}).name || id) + '</option>').join('');
   };
   fillKing();
@@ -2393,6 +2399,7 @@ function openHaoh(no) {
     if (!old && haohList().some((h) => h.no === n)) { $('hoErr').textContent = '第' + n + '回はもう記録があります。直すときは一覧の「直す」から'; return; }
     if (!/^\d{4}-\d\d-\d\d$/.test(date)) { $('hoErr').textContent = '開催日を選んでください'; return; }
     if (!k) { $('hoErr').textContent = '覇王を選んでください'; return; }
+    if (ids.length && !ids.includes(k)) { $('hoErr').textContent = '覇王は出場者の中から選んでください'; return; }
     /* ver：この記録の版。直すときは見ていた版（editOf）を添え、ルールで同じときだけ通す（2台が同じ回を同時に書いても上書きしない） */
     const opv = rid('hv');
     const data = { kind: 'haoh', no: n, date, rid: k, name: (rm[k] || {}).name || '', entrants: ids, src: old ? old.src || 'app' : 'app', ver: opv, editOf: old ? old.ver || '' : 'new', at: TS }; // 新しく記録するときの 'new' は、どの版とも合わない（同じ回がもうあれば断られる）
@@ -2470,10 +2477,16 @@ async function restorePlan(data) {
     const d = data.docs[path], parts = path.split('/'); if (!d || parts.length !== 4 || parts[1] !== data.box) return;
     const p = ROOT + '/' + parts[2] + '/' + parts[3];
     if (parts[2] === 'roster') {
-      const cur = rm[parts[3]], { mergedInto, ...rest } = d;
-      /* まとめは、戻した人に restoreMerge（まとめ先）を付けておき、まとめ終えたら消す。あとで運営が「元に戻す」をした人は、もう一度戻してもまとめ直さない */
-      if (!cur) add.push({ op: 'set', path: p, data: { ...rest, restoredAt: TS, ...(mergedInto ? { restoreMerge: mergedInto } : {}) } });
-      if (mergedInto && (!cur || (cur.restoreMerge === mergedInto && !cur.mergedInto))) mergeLater.push({ op: 'update', path: p, data: { mergedInto, restoreMerge: null }, src: parts[3], dst: mergedInto });
+      const cur = rm[parts[3]], { mergedInto: m0, restoreMerge: r0, ...rest } = d;
+      const want = m0 || r0 || ''; // 戻している途中に取ったバックアップには restoreMerge だけが残っている
+      /* まとめ先の人が、いまのサーバーでほかの人へまとめられていたら、その先へまとめる（まとめられた人へはまとめられないため） */
+      let dst = want; for (let i = 0; dst && rm[dst] && rm[dst].mergedInto && i < 20; i++) dst = rm[dst].mergedInto;
+      if (dst === parts[3]) dst = '';
+      /* まとめは、戻した人に restoreMerge（まとめ先）を付けておき、まとめ終えたら消す。
+         続きをするのは、まだまとまっていない人で、restoreMerge が残っている人か、版22までに戻した途中の人（restoredAt だけ。「元に戻す」をした人は unmergedAt があるので除く） */
+      if (!cur) add.push({ op: 'set', path: p, data: { ...rest, restoredAt: TS, ...(dst ? { restoreMerge: dst } : {}) } });
+      const resume = cur && !cur.mergedInto && (cur.restoreMerge || (cur.restoredAt && !cur.unmergedAt));
+      if (dst && (!cur || resume)) mergeLater.push({ op: 'update', path: p, data: { mergedInto: dst, restoreMerge: null }, src: parts[3], dst });
     }
     if (parts[2] === 'hist' && !hid[parts[3]]) add.push({ op: 'set', path: p, data: { ...d, restoredAt: TS } });
     if (parts[2] === 'conf' && parts[3] === 'info' && !info) add.push({ op: 'set', path: INFO, data: d });
@@ -2595,7 +2608,7 @@ async function clRun() {
   if (S.cur !== cl.eid) { CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = '調べたあとに、ほかの端末で新しい回が始まりました。もう一度「消すものを調べる」から'; return; }
   const key = sysKey(); if (!key) { cl.running = false; $('clMsg').textContent = 'システムのパスワードを入れ直してください（「システムを閉じる」→入り直す）'; return; }
   const on = new Set([...$('clList').querySelectorAll('[data-cl]:checked')].map((x) => x.dataset.cl));
-  const simple = [], delHist = new Set(), skipped = [];
+  const simple = [], delHist = new Set(), skipped = [], delR = [], keepCopy = {};
   Object.keys(cl.histGroups).forEach((k) => { if (on.has('h:' + k)) cl.histGroups[k].forEach((id) => { simple.push(ROOT + '/hist/' + id); delHist.add(id); }); });
   /* 名簿の人は、消す直前にサーバーを読み直し、残す記録の持ち主や、まとめ先になっている人は消さない（調べたあとに記録が移された場合など） */
   const delRoster = cl.roster.filter((r) => on.has('r:' + r.id));
@@ -2603,15 +2616,23 @@ async function clRun() {
   if (delRoster.length) {
     let hiNow, roNow;
     try { hiNow = await B.getServerCol(ROOT + '/hist'); roNow = await B.getServerCol(ROOT + '/roster'); } catch (e) { cl.running = false; $('clGo').disabled = false; $('clMsg').textContent = 'サーバーを読めませんでした。電波を確かめてください'; return; }
-    const gone = new Set(delRoster.map((r) => r.id)), used = new Set();
-    hiNow.forEach((h) => { if (!delHist.has(h.id) && h.rid) used.add(h.rid); });
-    roNow.forEach((r) => { if (r.mergedInto && !gone.has(r.id)) used.add(r.mergedInto); });
-    delRoster.forEach((r) => { if (used.has(r.id)) skipped.push(r.name); else simple.push(ROOT + '/roster/' + r.id); });
+    /* 残る記録の持ち主・残る人のまとめ先は消さない。消さないと決めた人のまとめ先も残すので、変わらなくなるまで繰り返す */
+    let gone = new Set(delRoster.map((r) => r.id).filter((id) => roNow.some((x) => x.id === id)));
+    for (;;) {
+      const used = new Set();
+      hiNow.forEach((h) => { if (!delHist.has(h.id) && h.rid) used.add(h.rid); });
+      roNow.forEach((r) => { if (r.mergedInto && !gone.has(r.id)) used.add(r.mergedInto); });
+      const next = new Set([...gone].filter((id) => !used.has(id)));
+      if (next.size === gone.size) break; gone = next;
+    }
+    delRoster.forEach((r) => { if (!gone.has(r.id)) skipped.push(r.name); else { delR.push(ROOT + '/roster/' + r.id); keepCopy[r.id] = roNow.find((x) => x.id === r.id); } });
   }
   const CLEAN = ROOT + '/conf/cleanup', del = (path) => ({ op: 'delete', path });
-  let n = 0;
+  /* 片付けの時間は5分ずつ。続いている間は延ばし、終わっても0には戻さない（同時に片付けているほかの端末を止めないため。5分で自然に閉じる） */
+  let n = 0, winAt = 0;
+  const openWin = async () => { if (Date.now() - winAt < 120000) return; await B.commit([{ op: 'set', path: CLEAN, data: { until: Math.floor(srvNow()) + 5 * 60000, key, by: devName } }]); winAt = Date.now(); };
   try {
-    await B.commit([{ op: 'set', path: CLEAN, data: { until: Math.floor(srvNow()) + 15 * 60000, key, by: devName } }]);
+    await openWin();
     /* いまの回：受付を消すとき・チームを空にするときは、調べたときの rev から順に rev を変える（その間に結果や受付が変わっていたら断られる） */
     const ck = on.has('ck') ? cl.ck.map((c) => ROOT + '/events/' + cl.eid + '/checkins/' + c.id) : [];
     if (ck.length || on.has('tm')) {
@@ -2627,14 +2648,28 @@ async function clRun() {
     }
     for (const e of cl.events) if (on.has('e:' + e.id)) {
       const cks = (await B.getServerCol(ROOT + '/events/' + e.id + '/checkins')).map((c) => ROOT + '/events/' + e.id + '/checkins/' + c.id);
-      for (const part of chunks(cks, 6)) { await B.commit(part.map(del)); n += part.length; } // 1人3回の参照×6人＝18（上限20）
-      await B.commit([del(ROOT + '/events/' + e.id)]); n++;
+      for (const part of chunks(cks, 6)) { await openWin(); await B.commit(part.map(del)); n += part.length; } // 1人3回の参照×6人＝18（上限20）
+      await openWin(); await B.commit([del(ROOT + '/events/' + e.id)]); n++;
     }
-    for (const part of chunks(simple, 15)) { await B.commit(part.map(del)); n += part.length; $('clMsg').textContent = '消しています… ' + n + '件'; }
-    await B.commit([{ op: 'set', path: CLEAN, data: { until: 0, by: devName } }]);
+    for (const part of chunks(simple, 15)) { await openWin(); await B.commit(part.map(del)); n += part.length; $('clMsg').textContent = '消しています… ' + n + '件'; }
+    for (const part of chunks(delR, 15)) { await openWin(); await B.commit(part.map(del)); n += part.length; $('clMsg').textContent = '消しています… ' + n + '件'; }
+    /* 読み直してから消すまでの間に、ほかの端末がその人へ記録を移したり、まとめたりしていたら、消した人を元に戻す */
+    if (delR.length) {
+      const hi2 = await B.getServerCol(ROOT + '/hist'), ro2 = await B.getServerCol(ROOT + '/roster'), need = new Set();
+      hi2.forEach((h) => { if (h.rid && keepCopy[h.rid]) need.add(h.rid); });
+      ro2.forEach((r) => { if (r.mergedInto && keepCopy[r.mergedInto]) need.add(r.mergedInto); });
+      /* 元に戻した人がまとめ先にしていた人も戻す（変わらなくなるまで） */
+      for (let more = true; more;) { more = false; [...need].forEach((id) => { const m = keepCopy[id].mergedInto; if (m && keepCopy[m] && !need.has(m)) { need.add(m); more = true; } }); }
+      for (const id of need) {
+        const { id: _i, mergedInto, ...rest } = keepCopy[id];
+        await B.commit([{ op: 'set', path: ROOT + '/roster/' + id, data: { ...rest, mergedInto: '' } }]); n--;
+        skipped.push(rest.name || id);
+      }
+      for (const id of need) { const m = keepCopy[id].mergedInto; if (m) await B.commit([{ op: 'update', path: ROOT + '/roster/' + id, data: { mergedInto: m } }]).catch(() => {}); }
+    }
     CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = n + '件を消しました' + (on.has('tm') ? '（いまの回のチーム・試合も空にしました）' : '') + '。' + (skipped.length ? skipped.join('・') + ' さんは、記録の持ち主やまとめ先になっているので消しませんでした。' : '') + '参加者画面も新しい内容に変わります。';
   } catch (e) {
-    /* 途中で止まったときは片付けの時間を閉じない（ほかの端末が片付けている途中かもしれない。15分で自然に閉じる） */
+    /* 途中で止まったときも片付けの時間は閉じない（5分で自然に閉じる） */
     cl.running = false; $('clGo').disabled = false;
     $('clMsg').textContent = (e && e.code) === 'changed' ? '調べたあとに、いまの回で受付や結果が変わったため止めました（' + n + '件は消しました）。もう一度「消すものを調べる」から'
       : (e && e.code) === 'permission-denied' ? '断られました。システムのパスワードを入れ直してから、もう一度「消すものを調べる」から（' + n + '件は消しました）'
@@ -2833,7 +2868,7 @@ $('seedHist').onclick = seedHistory;
 $('impGo').onclick = () => importSheet($('impGo'));
 $('sysGo').onclick = sysGo;
 $('sysPw').onkeydown = (e) => { if (e.key === 'Enter' && $('sysPw2F').hidden) sysGo(); };
-$('sysOut').onclick = () => { try { sessionStorage.removeItem(SYSKEY); } catch (e) {} renderSys(); };
+$('sysOut').onclick = () => { try { sessionStorage.removeItem(SYSKEY); } catch (e) {} dropToken(); renderSys(); }; // 閉じたら、ルールを公開する Google の許可も捨てる
 $('sysPwChange').onclick = () => { sysMode = 'change'; renderSys(); };
 $('clScan').onclick = clScan;
 $('impExp').oninput = renderImport;
@@ -2954,14 +2989,20 @@ function realUid() {
 }
 /* ===== ルールの公開（システムタブのボタン。Firebase の持ち主の Google アカウントでログインして、Firebase Rules API で公開する） =====
    OAuth のクライアントID は conf/deploy に置く（公開して困る値ではない）。ログインの許可（アクセストークン）はこの画面のメモリにだけ持つ */
-const RS = { state: '', at: 0, msg: '', busy: false, token: '', exp: 0, polls: 0, probe: (p) => B.getServer(p) };
+const RS = { state: '', at: 0, msg: '', busy: false, polls: 0, probe: (p) => B.getServer(p) };
+/* Google の許可（アクセストークン）は、この閉じた変数にだけ置く（window.__tk からも見えない）。システムを閉じたら捨てる */
+let GT = { token: '', exp: 0, pick: false };
+function dropToken(pick) { GT = { token: '', exp: 0, pick: !!pick }; }
 const GSI_URL = 'https://accounts.google.com/gsi/client';
 function rulesUid() { return realUid() || (B && B.kind !== 'fire' && window.__RULES_UID) || ''; }
+const denied = (e) => (e && e.code) === 'permission-denied';
 async function checkRules() {
-  if (!rulesUid()) return;
-  try { await RS.probe('rulesVer/' + RULES_VER); RS.state = 'ok'; }
-  catch (e) { RS.state = (e && e.code) === 'permission-denied' ? 'old' : 'err'; }
-  RS.at = now(); renderRules();
+  if (!rulesUid()) return RS.state;
+  try {
+    try { await RS.probe('rulesVer/' + RULES_NO); } catch (e) { RS.state = denied(e) ? 'old' : 'err'; throw 0; }
+    try { await RS.probe('rulesVer/' + (RULES_NO + 1)); RS.state = 'newer'; } catch (e) { RS.state = denied(e) ? 'ok' : 'err'; }
+  } catch (e) {}
+  RS.at = now(); renderRules(); return RS.state;
 }
 let gsiP = null;
 function loadGsi() {
@@ -2974,28 +3015,34 @@ function rulesMsg(m, bad) { RS.msg = m; RS.bad = !!bad; renderRules(); }
 function publishRules() {
   const uid = rulesUid(), cid = deployCid();
   if (!uid) return rulesMsg('本番の運営モードでだけ公開できます', true);
+  if (!sysOk()) return rulesMsg('システムが閉じています。システムのパスワードを入れ直してください', true);
+  if (RS.state === 'newer') return rulesMsg('この画面より新しいルールが公開されています。ページを再読み込みしてください（古いルールに戻さないため、公開しません）', true);
   if (!cid) return rulesMsg('先に「公開ボタンの設定」でクライアントIDを入れてください', true);
   if (RS.busy) return;
-  if (RS.token && RS.exp > Date.now() + 60000) { doPublish(uid); return; }
+  if (GT.token && GT.exp > Date.now() + 60000) { doPublish(uid); return; }
   if (!(window.google && google.accounts && google.accounts.oauth2)) { loadGsi().then(() => rulesMsg('準備ができました。もう一度「ルールを公開」を押してください'), () => rulesMsg('Google のログイン画面を読み込めませんでした。電波を確かめてください', true)); return rulesMsg('Google のログイン画面を読み込んでいます…'); }
-  /* ボタンを押したその場で開く（あとから開くと、スマホではポップアップが止められる） */
+  /* ボタンを押したその場で開く（あとから開くと、スマホではポップアップが止められる）。前に権限のないアカウントを選んでいたら、選び直す画面から */
   const tc = google.accounts.oauth2.initTokenClient({
     client_id: cid, scope: 'https://www.googleapis.com/auth/firebase',
-    callback: (r) => { if (!r || r.error || !r.access_token) { rulesMsg('ログインできませんでした（' + ((r && r.error) || '') + '）', true); return; } RS.token = r.access_token; RS.exp = Date.now() + (num(r.expires_in) || 3600) * 1000; doPublish(uid); },
+    callback: (r) => { if (!r || r.error || !r.access_token) { rulesMsg('ログインできませんでした（' + ((r && r.error) || '') + '）', true); return; } GT = { token: r.access_token, exp: Date.now() + (num(r.expires_in) || 3600) * 1000, pick: false }; doPublish(uid); },
     error_callback: (e) => rulesMsg(e && e.type === 'popup_closed' ? 'ログインの画面が閉じられました' : 'ログインの画面を開けませんでした（' + ((e && e.type) || '') + '）。ポップアップを止める設定になっていないか確かめてください', true),
   });
-  tc.requestAccessToken({ prompt: '' });
+  tc.requestAccessToken({ prompt: GT.pick ? 'select_account' : '' });
 }
 async function doPublish(uid) {
-  RS.busy = true; rulesMsg('公開しています…');
-  const H = { Authorization: 'Bearer ' + RS.token, 'Content-Type': 'application/json' }, base = 'https://firebaserules.googleapis.com/v1/projects/' + FB_PROJECT;
+  RS.busy = true; rulesMsg('本番のルールの版を確かめています…');
+  /* 押す直前にもう一度確かめる（ほかの端末が新しい版を公開したあとなら、古い版で上書きしない） */
+  if (await checkRules() === 'newer') { RS.busy = false; rulesMsg('この画面より新しいルールが公開されています。ページを再読み込みしてください（古いルールに戻さないため、公開しませんでした）', true); return; }
+  if (!sysOk() || !GT.token) { RS.busy = false; rulesMsg('システムが閉じられたので止めました', true); return; }
+  rulesMsg('公開しています…');
+  const H = { Authorization: 'Bearer ' + GT.token, 'Content-Type': 'application/json' }, base = 'https://firebaserules.googleapis.com/v1/projects/' + FB_PROJECT;
   const why = async (r) => { let m = ''; try { m = ((await r.json()).error || {}).message || ''; } catch (e) {} return r.status + (m ? '：' + m.slice(0, 160) : ''); };
   try {
     const r1 = await fetch(base + '/rulesets', { method: 'POST', headers: H, body: JSON.stringify({ source: { files: [{ name: 'firestore.rules', content: RULES.replace('__UID__', uid) }] } }) });
-    if (!r1.ok) { if (r1.status === 401) RS.token = ''; throw new Error((r1.status === 403 ? 'このGoogleアカウントにはルールを公開する権限がありません。Firebase の持ち主のアカウントでログインしてください（' : r1.status === 400 ? 'ルールの書き方に誤りがあります。Claude に知らせてください（' : 'ルールを送れませんでした（') + await why(r1) + '）'); }
+    if (!r1.ok) { if (r1.status === 401 || r1.status === 403) dropToken(true); throw new Error((r1.status === 403 ? 'このGoogleアカウントにはルールを公開する権限がありません。もう一度押して、Firebase の持ち主のアカウントを選び直してください（' : r1.status === 400 ? 'ルールの書き方に誤りがあります。Claude に知らせてください（' : 'ルールを送れませんでした（') + await why(r1) + '）'); }
     const rs = await r1.json();
     const r2 = await fetch(base + '/releases/cloud.firestore', { method: 'PATCH', headers: H, body: JSON.stringify({ release: { name: 'projects/' + FB_PROJECT + '/releases/cloud.firestore', rulesetName: rs.name } }) });
-    if (!r2.ok) { if (r2.status === 401) RS.token = ''; throw new Error('ルールを切り替えられませんでした（' + await why(r2) + '）'); }
+    if (!r2.ok) { if (r2.status === 401 || r2.status === 403) dropToken(true); throw new Error('ルールを切り替えられませんでした（' + await why(r2) + '）'); }
     RS.busy = false; rulesMsg('公開しました（ルールの版 ' + RULES_VER + '）。行き渡るまで1分ほどかかります。「最新です」に変わるまで、この画面で確かめます');
     RS.polls = 0; const poll = () => { if (RS.state === 'ok' || RS.polls++ > 12) return; checkRules().then(() => { if (RS.state !== 'ok') setTimeout(poll, 10000); }); };
     setTimeout(poll, 5000);
@@ -3007,11 +3054,11 @@ function renderRules() {
     const cid = deployCid();
     $('rulesVerH').textContent = 'ルールの版 ' + RULES_VER;
     $('rulesState').hidden = !uid;
-    $('rulesState').className = 'rulestate ' + (RS.state === 'ok' ? 'ok' : RS.state === 'old' ? 'old' : '');
+    $('rulesState').className = 'rulestate ' + (RS.state === 'ok' ? 'ok' : RS.state === 'old' || RS.state === 'newer' ? 'old' : '');
     /* 文節の切れ目（|）でだけ折り返す。keep-all だけだと iPhone の Safari が1行のまま枠を押し広げるので <wbr> を入れる */
-    const st = RS.state === 'ok' ? '✓ |本番の|ルールは|最新です|（ルールの版 ' + RULES_VER + '）' : RS.state === 'old' ? '本番の|ルールが|古いです。|「ルールを公開」を|押してください' : RS.state === 'err' ? '本番の|ルールを|確かめられませんでした。|電波を|確かめてください' : '本番の|ルールを|確かめています…';
+    const st = RS.state === 'ok' ? '✓ |本番の|ルールは|最新です|（ルールの版 ' + RULES_VER + '）' : RS.state === 'newer' ? 'この画面より|新しいルールが|公開されています。|ページを|再読み込みしてください' : RS.state === 'old' ? '本番の|ルールが|古いです。|「ルールを公開」を|押してください' : RS.state === 'err' ? '本番の|ルールを|確かめられませんでした。|電波を|確かめてください' : '本番の|ルールを|確かめています…';
     $('rulesState').innerHTML = st.split('|').map(esc).join('<wbr>');
-    $('rulesPub').hidden = !uid; $('rulesPub').disabled = RS.busy;
+    $('rulesPub').hidden = !uid || RS.state === 'newer'; $('rulesPub').disabled = RS.busy;
     $('rulesPub').className = 'btn wide ' + (RS.state === 'old' ? 'primary' : '');
     $('rulesPubMsg').textContent = RS.msg; $('rulesPubMsg').className = RS.bad ? 'err' : 'muted';
     $('rulesCidBox').hidden = !uid;
@@ -3037,6 +3084,6 @@ $('rulesCopy').onclick = () => {
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
 };
-window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance, BK, saveBackup, haohEligible, importPlan, infoNow, openHaoh, openPerson, RS, checkRules, publishRules, RULES_VER };
+window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance, BK, saveBackup, haohEligible, importPlan, infoNow, openHaoh, openPerson, RS, checkRules, RULES_VER, RULES_NO };
 
 boot();

@@ -101,4 +101,11 @@ function fakeServerCommit(db, writes, now) {
   db.docs = after; db.ver = (db.ver || 0) + 1;
   return { ok: true };
 }
-if (typeof module !== 'undefined') module.exports = { fakeServerCommit, fakeApply };
+/* 読み取りの判定（本物のルールと同じ）：パスワードの置き場所は読めない。rulesVer/N は、サーバーのルールの版（rulesNo。なければ画面と同じ版）以下だけ読める */
+function fakeReadOk(path, st, pageNo) {
+  if (/^staff\/[^/]+\/conf\/(sysKey|sysCheck|cleanup|sys)$/.test(path)) return false;
+  const m = /^rulesVer\/(.+)$/.exec(path);
+  if (m) return /^[0-9]+$/.test(m[1]) && +m[1] <= (st && st.rulesNo != null ? st.rulesNo : pageNo);
+  return true;
+}
+if (typeof module !== 'undefined') module.exports = { fakeServerCommit, fakeApply, fakeReadOk };

@@ -45,7 +45,7 @@ async def main():
         ok(calls[1]['m'] == 'PATCH' and calls[1]['u'].endswith('/releases/cloud.firestore') and calls[1]['b']['release']['rulesetName'].endswith('/rulesets/abc') and calls[1]['a'] == 'Bearer TOK', '送ったルールに切り替える')
         ok(await A.evaluate("window.__cid") == '123-abc.apps.googleusercontent.com' and 'firebase' in await A.evaluate("window.__scope"), '保存したクライアントIDでログインを開く')
         ok('公開しました' in await A.inner_text('#rulesPubMsg'), '公開しましたと出る')
-        await A.evaluate("window.__tk.RS.probe=()=>Promise.resolve(null)"); await A.wait_for_timeout(6000)
+        await A.evaluate("()=>{const n=window.__tk.RULES_NO;window.__tk.RS.probe=(p)=>p.endsWith('/'+(n+1))?Promise.reject({code:'permission-denied'}):Promise.resolve(null)}"); await A.wait_for_timeout(6000)
         ok('最新です' in await A.inner_text('#rulesState'), '行き渡ると「最新です」に変わる')
         # 1時間以内はログインし直さない
         n0 = await A.evaluate("window.__tokens"); await A.click('#rulesPub'); await A.wait_for_timeout(500)

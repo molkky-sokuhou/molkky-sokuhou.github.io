@@ -52,7 +52,7 @@ async def main():
         print('     直後:',s1[:150]); print('     あと:',s2[:150])
         # ② 練習モードではルールを表示・コピーしない
         await A.click('.nb[data-ph=sys]')
-        ok(await A.is_hidden('#rulesBody') and '本番の運営モード' in await A.inner_text('#rulesNote'),'② 練習・試験ではルールの全文を出さない')
+        ok(await A.is_hidden('#rulesBody') and '本番の運営モード' in (await A.locator('#rulesNote').text_content()),'② 練習・試験ではルールの全文を出さない')
         # ① 本番（ここでは自動試験の保存先）で拒否された受付を残し、練習モードに入る
         await ca.set_offline(True); await A.wait_for_timeout(1200)
         await A.click('.nb[data-ph=entry]')
