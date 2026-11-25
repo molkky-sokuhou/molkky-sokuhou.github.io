@@ -295,7 +295,7 @@ th{white-space:nowrap}
   <button data-tab="venue" role="tab">会場・<br>ルール</button>
 </nav>
 <script>
-var VERSION = '11/25-5';
+var VERSION = '11/25-6';
 var SHEET_ID = atob('VWF0TGs1MlVuZ1FVMHp6ek5hNFdReHJ3UlNqWG1lZ0E3UmtLVHhOMVVyNjE=').split('').reverse().join('');
 var AUTO_SEC = 60;
 var store = {
@@ -1029,7 +1029,20 @@ function restore(){
 }
 
 /* ---------- events ---------- */
-document.getElementById('reload').addEventListener('click', function(){ load(true); });
+document.getElementById('reload').addEventListener('click', function(){ checkVersion(true); load(true); });
+/* a page saved to the home screen keeps the old page: look for a newer version and reload into it */
+var verBusy = false;
+function checkVersion(now){
+  if (verBusy || location.protocol === 'file:') return; verBusy = true;
+  fetch('./?v=' + Date.now(), { cache: 'no-store' }).then(function(r){ return r.ok ? r.text() : ''; }).then(function(t){
+    verBusy = false;
+    var m = t.match(/var VERSION = '([^']+)'/);
+    if (m && m[1] !== VERSION){ toast('新しい版（' + m[1] + '）に切り替えます'); setTimeout(function(){ location.replace(location.pathname + '?v=' + encodeURIComponent(m[1]) + location.hash); }, 1200); }
+  }, function(){ verBusy = false; });
+}
+setTimeout(checkVersion, 4000);
+setInterval(function(){ if (document.visibilityState === 'visible') checkVersion(); }, 300000);
+document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') checkVersion(); });
 document.querySelector('.days').addEventListener('click', function(e){
   var b = e.target.closest('button'); if (!b || b.dataset.day === S.day) return;
   S.day = b.dataset.day; store.set('day', S.day); S.round = null; S.court = null; S.info = null; S.picking = false;
