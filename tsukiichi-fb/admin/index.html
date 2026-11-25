@@ -629,10 +629,10 @@ html, body { max-width: 100%; overflow-x: clip; }
     <div>
       <div class="org">泉鋼業(株)モルック部</div>
       <h1 class="title" style="font-size:clamp(2.2rem,11vw,3.4rem)">運営<br>メニュー</h1>
-      <p class="mode-note">受付の試作（新しい仕組みのテスト版）。名簿は架空の24人です。</p>
+      <p class="mode-note">月いちモルックの受付・抽選・試合・記録</p>
     </div>
     <div class="box">
-      <p>運営パスコードを入れると、2台のスマホで同じ受付を使えます。</p>
+      <p>運営パスコードを入れると、運営のスマホどうしで受付・抽選・結果入力をいっしょに使えます。</p>
       <form id="lockForm" style="display:grid;gap:10px">
         <input class="input big-in" id="passIn" type="password" autocomplete="current-password" placeholder="運営パスコード" aria-label="運営パスコード">
         <button class="btn primary wide" id="passBtn" type="submit">運営モードにする</button>
@@ -640,11 +640,11 @@ html, body { max-width: 100%; overflow-x: clip; }
       <div class="err" id="lockErr" aria-live="polite"></div>
     </div>
     <div class="box plain lock-alt">
-      <p style="margin:0">パスコードなしで、この端末の中だけで操作を試すこともできます（ほかの端末とはつながりません）。</p>
+      <p style="margin:0">パスコードなしで、この端末の中だけで操作を練習することもできます（架空の名簿で動き、本番のデータとはつながりません）。</p>
       <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
     </div>
     <p style="text-align:center;margin:8px 0 0"><a class="btn ghost small" href="../../tsukiichi/">参加者の画面へ戻る</a></p>
-    <p class="ver">版 2026.11.25-26</p>
+    <p class="ver">版 2026.11.25-27</p>
   </div>
 
   <div id="app" hidden>
@@ -913,7 +913,7 @@ html, body { max-width: 100%; overflow-x: clip; }
         </div>
         </div>
       </section>
-      <p class="ver">版 2026.11.25-26</p>
+      <p class="ver">版 2026.11.25-27</p>
     </main>
   </div>
 </div>
@@ -1040,7 +1040,7 @@ function fakeServerCommit(db, writes, now) {
 }
 if (typeof module !== 'undefined') module.exports = { fakeServerCommit, fakeApply };
 
-/* ===== 月いちモルック 受付の試作（Firebase） =====
+/* ===== 月いちモルック 運営画面（Firebase） =====
    置き場所（BOX＝staff/proto。本番は別の箱にする）
    - staff/{BOX}                         今の開催回（currentEvent）
    - staff/{BOX}/roster/{rid}            名簿。まとめた人は mergedInto に行き先が入る
@@ -1050,7 +1050,7 @@ if (typeof module !== 'undefined') module.exports = { fakeServerCommit, fakeAppl
    - staff/{BOX}/events/{e}/devices/{d}  各端末の「送信待ち」の件数と最後につながった時刻
    ルール側で：締めた回への書き込み、まとめた人への受付は断る
 */
-const VER = '2026.11.25-26';
+const VER = '2026.11.25-27';
 const FB_VER = '13.2.0';
 const STAFF_EMAIL = 'unei@tsukiichi.example';
 const BOX = 'proto';
@@ -4175,7 +4175,7 @@ function renderMetrics() {
     (m.kind === 'seen' ? '' : sec(num(m.readyMs))) + '</td><td>' + (m.kind === 'seen' ? '' : sec(num(m.saveMs))) + '</td><td>' + (m.kind === 'seen' ? sec(num(m.seenFromTap)) : '') + '</td></tr>').join('')
     || '<tr><td colspan="5" class="muted">まだ記録がありません</td></tr>';
   const head = 'time,device,kind,ok,people,next_ms,save_ms,seen_from_tap_ms,seen_from_save_ms,from,code';
-  $('csv').value = '月いちモルック 受付の試作 計測結果（版 ' + VER + '・' + (S.mode === 'fire' ? 'Firebase' : '練習モード') + '）\n' + head + '\n' +
+  $('csv').value = '月いちモルック 計測結果（版 ' + VER + '・' + (S.mode === 'fire' ? 'Firebase' : '練習モード') + '）\n' + head + '\n' +
     ms.slice().reverse().map((m) => [new Date(num(m.tapAt) || 0).toISOString(), m.devName, m.kind, m.ok === false ? 'NG' : 'OK', num(m.n), num(m.readyMs), num(m.saveMs), num(m.seenFromTap), num(m.seenFromSave), m.from, m.code].map((x) => x == null ? '' : String(x).replace(/[,\n]/g, ' ')).join(',')).join('\n') +
     '\n\n# この端末の操作の記録\n' + S.ops.map((o) => [new Date(o.tapAt).toISOString(), o.devName, o.type, o.state, o.items.map((i) => i.name).join('/'), o.ename, o.reason || ''].join(',')).join('\n');
 }

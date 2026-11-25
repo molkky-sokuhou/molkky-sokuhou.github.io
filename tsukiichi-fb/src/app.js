@@ -1,4 +1,4 @@
-/* ===== 月いちモルック 受付の試作（Firebase） =====
+/* ===== 月いちモルック 運営画面（Firebase） =====
    置き場所（BOX＝staff/proto。本番は別の箱にする）
    - staff/{BOX}                         今の開催回（currentEvent）
    - staff/{BOX}/roster/{rid}            名簿。まとめた人は mergedInto に行き先が入る
@@ -2683,7 +2683,7 @@ function renderMetrics() {
     (m.kind === 'seen' ? '' : sec(num(m.readyMs))) + '</td><td>' + (m.kind === 'seen' ? '' : sec(num(m.saveMs))) + '</td><td>' + (m.kind === 'seen' ? sec(num(m.seenFromTap)) : '') + '</td></tr>').join('')
     || '<tr><td colspan="5" class="muted">まだ記録がありません</td></tr>';
   const head = 'time,device,kind,ok,people,next_ms,save_ms,seen_from_tap_ms,seen_from_save_ms,from,code';
-  $('csv').value = '月いちモルック 受付の試作 計測結果（版 ' + VER + '・' + (S.mode === 'fire' ? 'Firebase' : '練習モード') + '）\n' + head + '\n' +
+  $('csv').value = '月いちモルック 計測結果（版 ' + VER + '・' + (S.mode === 'fire' ? 'Firebase' : '練習モード') + '）\n' + head + '\n' +
     ms.slice().reverse().map((m) => [new Date(num(m.tapAt) || 0).toISOString(), m.devName, m.kind, m.ok === false ? 'NG' : 'OK', num(m.n), num(m.readyMs), num(m.saveMs), num(m.seenFromTap), num(m.seenFromSave), m.from, m.code].map((x) => x == null ? '' : String(x).replace(/[,\n]/g, ' ')).join(',')).join('\n') +
     '\n\n# この端末の操作の記録\n' + S.ops.map((o) => [new Date(o.tapAt).toISOString(), o.devName, o.type, o.state, o.items.map((i) => i.name).join('/'), o.ename, o.reason || ''].join(',')).join('\n');
 }
