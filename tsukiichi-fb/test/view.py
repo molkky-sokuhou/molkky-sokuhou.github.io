@@ -62,7 +62,7 @@ async def main():
         # 行き来
         hrefs=await V.evaluate("[...document.querySelectorAll('a.to-admin')].map(a=>a.getAttribute('href'))")
         ok('admin/' in hrefs,'参加者画面の下に「運営の画面」への入口')
-        ok(await A.locator('a.to-view').count()==1 and await A.locator('a.to-view').get_attribute('href')=='../','運営画面の上に「参加者の画面」への入口')
+        ok(await A.locator('a.to-view').count()==1 and await A.locator('a.to-view').get_attribute('href')=='../../tsukiichi/','運営画面の上に「参加者の画面」への入口')
         print('   sw',await V.evaluate('document.documentElement.scrollWidth'))
         await V.click('#themeSwitch'); await V.wait_for_timeout(200); await V.screenshot(path='view_dark.png')
         print('errs',errs); print('合計',sum(res),'/',len(res)); await b.close()

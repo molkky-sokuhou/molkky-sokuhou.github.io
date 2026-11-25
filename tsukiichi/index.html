@@ -635,7 +635,7 @@ html.bigtext main{zoom:1.16}html.bigtext #tabs button{font-size:18px}
         <details class="faq"><summary>子どもも参加できる？</summary><p>小学生もガンガン投げています。家族での参加も大歓迎です。</p></details>
         <details class="faq"><summary>知り合いと同じチームで出たい</summary><p>受付のときに運営へ伝えてください。</p></details>
         <details class="faq"><summary>途中から来る・途中で帰るときは？</summary><p>早めに帰る予定が分かっている方は、受付のときに伝えてください。抜けても2人以上残るチームに入れます。急に帰ることになったときも運営に伝えてください。大会の途中でも、チームのメンバーやチーム数を組み替えることがあります。そのときは対戦表も新しくなるので、「対戦・結果」で次の相手を確認してください。それまでに取った点数はそのまま残ります。</p></details>
-        <details class="faq"><summary>「覇者」「覇王戦」って？</summary><p>毎月の大会で優勝したチームのメンバーは「覇者」です。ときどき開催される「覇王戦」（個人戦）には、前回の覇王戦より後に優勝した覇者だけが出場できます。今の覇者は「記録」タブで見られます。</p></details>
+        <details class="faq"><summary>「覇者」「覇王戦」って？</summary><p>毎月の大会で優勝したチームのメンバーは「覇者」です。ときどき開催される「覇王戦」（個人戦）には、前回の覇王戦の日以降に優勝した覇者だけが出場できます。今の覇者は「記録」タブで見られます。</p></details>
         <details class="faq"><summary>どうやって申し込むの？</summary><p>インスタグラム <b id="insta">@izumi_molkky</b> にDMをください。県内の方も県外の方もお待ちしています。</p></details>
       </div>
     </section>
@@ -653,7 +653,8 @@ html.bigtext main{zoom:1.16}html.bigtext #tabs button{font-size:18px}
       <p class="muted">記録は、運営がその月の大会を「リセット」したときに、その日の順位と一緒に残ります。</p>
     </details></section>
   </main>
-  <p class="mk-ver" style="margin:28px 16px 20px;text-align:center;font-size:13px;line-height:1.6;color:var(--muted,#777)">版 2026.11.22</p>
+  <p style="margin:28px 16px 0;text-align:center"><a class="to-admin" href="../tsukiichi-fb/admin/">運営の画面</a></p>
+  <p class="mk-ver" style="margin:12px 16px 20px;text-align:center;font-size:13px;line-height:1.6;color:var(--muted,#777)">版 2026.11.25-19</p>
 </div>
 
 <div class="ov" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div></div>
@@ -707,7 +708,7 @@ function mk_haohStatus(rows, haoh, roster) {
   (roster || []).forEach(function (r) { nm[r.id] = r.name; });
   var by = {};
   (rows || []).forEach(function (r) {
-    if (Number(r.rank) !== 1 || !r.date || (mk_normDate(r.date) < MK_SEASON_START || (mk_normDate(cutoff) > MK_SEASON_START && mk_normDate(r.date) <= mk_normDate(cutoff)))) return;
+    if (Number(r.rank) !== 1 || !r.date || (mk_normDate(r.date) < MK_SEASON_START || (mk_normDate(cutoff) > MK_SEASON_START && mk_normDate(r.date) < mk_normDate(cutoff)))) return;
     var key = r.mid || ('n:' + r.name);
     var e = by[key] || (by[key] = { key: key, name: nm[r.mid] || r.name, wins: 0, dates: {}, last: '' });
     if (e.dates[r.date]) return;
@@ -733,7 +734,15 @@ function mk_haohStatus(rows, haoh, roster) {
     sset: function (k, v) { MEM[k] = v; try { sessionStorage.setItem('mk_' + k, v); } catch (e) {} }
   };
   var MEM = {};
-  var sheetId = new URLSearchParams(location.search).get('sheet') || '';
+  /* 読み込み先：Firebase の公開データ（ログインなしで読める public/ の1件）。運営の端末が書き込む */
+  var QS = new URLSearchParams(location.search);
+  var BOX = (QS.get('box') || 'proto').replace(/[^a-zA-Z0-9_-]/g, '');
+  var PUB = 'public/tsukiichi_' + BOX;
+  /* 自動試験のときだけ、試験の中から模擬サーバーを指定する（URLでは指定できない。ほかの場所のデータを速報として見せられないように） */
+  var FAKE = window.__FAKE_URL || '';
+  var DEMO = QS.get('demo') === '1';
+  var FS = 'https://firestore.googleapis.com/v1/projects/tsukiichi-molkky/databases/(default)/documents/' + PUB + '?key=AIzaSyAL3fYkM2kFulsnPhNuuAlyeVpIZy2wdSA';
+  var DATA = null;
 
   var S = null;
   var ui = { tab: 'rules', myTeam: Number(store.get('myTeam', '0')) || 0, filter: 'all', busy: 0, modal: false };
@@ -741,42 +750,65 @@ function mk_haohStatus(rows, haoh, roster) {
 
 
   /* ---------- 通信 ---------- */
-  var archive = {"state":{"players":[],"teams":[],"matches":[],"standings":[],"champions":[],"settings":{"大会名":"月いちモルック","場所":"B&G海洋センター ゲートボールコート","住所":"香川県高松市国分寺町新名2069-1","参加費":"1人200円"},"previousResult":{"date":"2026-11-21","standings":[{"name":"E","total":660,"members":"マルック・kenji","rank":1,"played":"―"},{"name":"F","total":657,"members":"コトリン・イオリちゃん","rank":2,"played":"―"},{"name":"A","total":648,"members":"えだまめ・ヤマップ","rank":3,"played":"―"},{"name":"D","total":591,"members":"てつ・カリヤス・学園長","rank":4,"played":"―"},{"name":"C","total":589,"members":"ナオキックス・マギー","rank":5,"played":"―"},{"name":"H","total":572,"members":"モモ・ランコム・Yosi","rank":6,"played":"―"},{"name":"B","total":490,"members":"リクくん・りくママ・ゆきちゃん・りんごちゃん","rank":7,"played":"―"},{"name":"G","total":434,"members":"あいちゃん・96・ナギ","rank":8,"played":"―"}]},"updatedAt":"2026/11/21"},"records":{"rows":[{"name":"マルック","rank":1,"date":"2026-11-21","team":"E","total":660,"teams":8},{"name":"kenji","rank":1,"date":"2026-11-21","team":"E","total":660,"teams":8},{"name":"コトリン","rank":2,"date":"2026-11-21","team":"F","total":657,"teams":8},{"name":"イオリちゃん","rank":2,"date":"2026-11-21","team":"F","total":657,"teams":8},{"name":"えだまめ","rank":3,"date":"2026-11-21","team":"A","total":648,"teams":8},{"name":"ヤマップ","rank":3,"date":"2026-11-21","team":"A","total":648,"teams":8},{"name":"てつ","rank":4,"date":"2026-11-21","team":"D","total":591,"teams":8},{"name":"カリヤス","rank":4,"date":"2026-11-21","team":"D","total":591,"teams":8},{"name":"学園長","rank":4,"date":"2026-11-21","team":"D","total":591,"teams":8},{"name":"ナオキックス","rank":5,"date":"2026-11-21","team":"C","total":589,"teams":8},{"name":"マギー","rank":5,"date":"2026-11-21","team":"C","total":589,"teams":8},{"name":"モモ","rank":6,"date":"2026-11-21","team":"H","total":572,"teams":8},{"name":"ランコム","rank":6,"date":"2026-11-21","team":"H","total":572,"teams":8},{"name":"Yosi","rank":6,"date":"2026-11-21","team":"H","total":572,"teams":8},{"name":"リクくん","rank":7,"date":"2026-11-21","team":"B","total":490,"teams":8},{"name":"りくママ","rank":7,"date":"2026-11-21","team":"B","total":490,"teams":8},{"name":"ゆきちゃん","rank":7,"date":"2026-11-21","team":"B","total":490,"teams":8},{"name":"りんごちゃん","rank":7,"date":"2026-11-21","team":"B","total":490,"teams":8},{"name":"あいちゃん","rank":8,"date":"2026-11-21","team":"G","total":434,"teams":8},{"name":"96","rank":8,"date":"2026-11-21","team":"G","total":434,"teams":8},{"name":"ナギ","rank":8,"date":"2026-11-21","team":"G","total":434,"teams":8},{"name":"マルック","date":"2025-12-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"つーじー","date":"2025-12-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"学園長","date":"2025-12-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"マルック","date":"2026-02-22","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"つーじー","date":"2026-02-22","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"かおりん","date":"2026-02-22","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"マルック","date":"2026-03-15","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"コトリン","date":"2026-03-15","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"マルック","date":"2026-04-25","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"アンリ","date":"2026-04-25","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"96","date":"2026-04-25","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ねこ","date":"2026-05-16","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"やきとり","date":"2026-05-16","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"アンノリ","date":"2026-06-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ヤマップ","date":"2026-06-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ナオキックス","date":"2026-07-11","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"アンリ","date":"2026-07-11","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"河野くん","date":"2026-07-11","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ナオキックス","date":"2026-08-29","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"とめ","date":"2026-08-29","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ゆかり","date":"2026-08-29","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"クラ","date":"2026-08-29","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"コトリン","date":"2026-09-19","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ランコム","date":"2026-09-19","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"アンノリ","date":"2026-09-19","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"チキン","date":"2026-09-19","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ナオキックス","date":"2026-10-24","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ランコム","date":"2026-10-24","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"きうち","date":"2026-10-24","rank":1,"team":"優勝チーム（過去の記録）","total":null}],"roster":[],"haoh":[{"no":1,"name":"やきとり","date":"2025-11-22"}]}};
+  /* 前の版にあった過去の記録の埋め込みは、Firebase の記録に取り込んだので外した */
   var requests = {};
   function call(action) {
     if (requests[action]) return requests[action];
-    var state = action === 'state', column = state ? 'A' : 'B';
+    var state = action === 'state';
+    if (!state && DATA) return Promise.resolve({ extra: DATA.records });
     setBusy(1);
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, 18000);
     requests[action] = Promise.resolve().then(function () {
-      if (!/^[a-zA-Z0-9_-]{20,120}$/.test(sheetId)) throw new Error('大会の参加者用リンクから開いてください。');
-      var url = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/gviz/tq?headers=0&sheet=' +
-        encodeURIComponent('速報') + '&range=' + column + ':' + column + '&tqx=out:json';
-      return fetch(url,{cache:'no-store',credentials:'omit',signal:controller.signal});
-    }).then(function (response) {
-      if (!response.ok) throw new Error('速報を取得できませんでした。');
-      return response.text();
-    }).then(function (body) {
-      var start = body.indexOf('{'), end = body.lastIndexOf('}');
-      var table = JSON.parse(body.slice(start,end+1)).table;
-      var cells = table.rows.map(function (row) { return row.c[0] ? String(row.c[0].v) : ''; });
-      if (cells.shift() !== (state ? '月いち速報1' : '月いち記録1')) throw new Error('公開データの形式を確認してください。');
-      var data = JSON.parse(cells.filter(Boolean).map(function (chunk) {
-        if (chunk[0] !== 'j') throw new Error('速報の読み込みに失敗しました。');
-        return chunk.slice(1);
-      }).join(''));
-      if (state) { S = data; $('syncStatus').textContent = data.updatedAt + ' 更新'; $('syncRetry').hidden = true; }
-      return state ? {state:data} : {extra:data};
+      if (DEMO) { var db = JSON.parse(localStorage.getItem('tk_fake_server') || '{"docs":{}}'); var d = db.docs[PUB]; return d ? { body: d.body, updatedAt: d.updatedAt } : null; }
+      if (FAKE) return fetch(FAKE + '/state', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (db) { var d = db.docs[PUB]; return d ? { body: d.body, updatedAt: d.updatedAt } : null; });
+      return fetch(FS, { cache: 'no-store', credentials: 'omit', signal: controller.signal }).then(function (response) {
+        if (response.status === 404) return null;
+        if (!response.ok) throw new Error('速報を取得できませんでした。');
+        return response.json().then(function (doc) { var f = doc.fields || {}; return { body: f.body && f.body.stringValue, updatedAt: f.updatedAt && f.updatedAt.stringValue }; });
+      });
+    }).then(function (doc) {
+      if (!doc || !doc.body) throw new Error('まだ大会情報がありません。運営が準備すると、ここに出ます。');
+      var data = clean(JSON.parse(doc.body));
+      data.state.updatedAt = String(doc.updatedAt || '');
+      DATA = data;
+      if (state) { S = data.state; $('syncStatus').textContent = (data.state.updatedAt || '') + ' 更新'; $('syncRetry').hidden = true; }
+      return state ? { state: data.state } : { extra: data.records };
     }).catch(function (error) {
       if (state) {
-        $('syncStatus').textContent = S ? '更新できませんでした。' + S.updatedAt + ' 時点の内容を表示しています。' :
-          (sheetId ? '大会情報を取得できません。通信状況または速報用シートの公開設定をご確認ください。' : '大会の参加者用リンクから開いてください。');
+        $('syncStatus').textContent = S ? '更新できませんでした。' + S.updatedAt + ' 時点の内容を表示しています。' : (error && error.message && /まだ大会情報/.test(error.message) ? error.message : '大会情報を取得できません。電波の良い場所で「再読み込み」を押してください。');
         $('syncRetry').hidden = false;
       }
       throw error;
     }).finally(function () { clearTimeout(timer); delete requests[action]; setBusy(-1); });
     return requests[action];
+  }
+  /* 届いたデータの数字の欄は数字に、文字の欄は文字にそろえる（画面に入れる前に型を確かめる） */
+  function int(v, d) { var n = Number(v); return isFinite(n) ? Math.round(n) : (d === undefined ? 0 : d); }
+  function numOrNull(v) { if (v === null || v === undefined || v === '') return null; var n = Number(v); return isFinite(n) ? n : null; }
+  function str(v) { return v == null ? '' : String(v); }
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  function score(v) { var n = numOrNull(v); return n === null ? '' : n; }
+  function clean(d) {
+    d = d && typeof d === 'object' ? d : {};
+    var st = d.state && typeof d.state === 'object' ? d.state : {}, set = st.settings && typeof st.settings === 'object' ? st.settings : {}, s2 = {};
+    Object.keys(set).forEach(function (k) { s2[k] = str(set[k]); });
+    var state = {
+      settings: s2, courts: int(st.courts, 6),
+      players: arr(st.players).map(function (p) { return { name: str(p && p.name), team: int(p && p.team) }; }),
+      teams: arr(st.teams).map(function (t) { return { no: int(t && t.no), name: str(t && t.name) }; }),
+      matches: arr(st.matches).map(function (m) { m = m || {}; return { id: str(m.id), cycle: int(m.cycle, 1), round: int(m.round, 1), a: int(m.a), b: int(m.b), totalA: score(m.totalA), totalB: score(m.totalB), court: int(m.court, 1), wave: int(m.wave, 1) }; }),
+      standings: arr(st.standings).map(function (x) { x = x || {}; return { no: int(x.no), name: str(x.name), rank: int(x.rank), played: int(x.played), total: int(x.total), avg: numOrNull(x.avg) || 0, members: str(x.members) }; }),
+      champions: arr(st.champions).map(function (c) { c = c || {}; return { date: str(c.date), members: str(c.members), name: str(c.name), total: numOrNull(c.total) }; }),
+      previousResult: st.previousResult && typeof st.previousResult === 'object' ? { date: str(st.previousResult.date), standings: arr(st.previousResult.standings).map(function (r) { r = r || {}; return { name: str(r.name), total: numOrNull(r.total), members: str(r.members), rank: int(r.rank), played: r.played === '―' ? '―' : int(r.played) }; }) } : null
+    };
+    var rc = d.records && typeof d.records === 'object' ? d.records : {};
+    var records = {
+      rows: arr(rc.rows).map(function (r) { r = r || {}; return { name: str(r.name), mid: str(r.mid), rank: int(r.rank), date: str(r.date), team: str(r.team), total: numOrNull(r.total), teams: numOrNull(r.teams) }; }),
+      roster: arr(rc.roster).map(function (r) { r = r || {}; return { id: str(r.id), name: str(r.name) }; }),
+      haoh: arr(rc.haoh).map(function (h) { h = h || {}; return { no: int(h.no), name: str(h.name), date: str(h.date), mid: str(h.mid) }; })
+    };
+    return { state: state, records: records };
   }
   function setBusy(d) { ui.busy = Math.max(0, ui.busy + d); $('loadbar').classList.toggle('on', ui.busy > 0); }
 
@@ -873,22 +905,20 @@ function mk_haohStatus(rows, haoh, roster) {
   /* ---------- 記録・名簿 ---------- */
   var REC = null, recYear = store.get('recPeriod2', 'season'), recLoading = false;
   function loadRecords() {
-    if (!sheetId || recLoading) return;
+    if (recLoading) return;
     recLoading = true;
     call('records').then(function (r) { recLoading = false; REC = r.extra; renderRecords(); })
       .catch(function () { recLoading = false; if (!REC) $('recList').innerHTML = '<div class="box plain empty"><b>記録を読み込めませんでした</b>電波の良い場所で、もう一度「記録」を開いてください。</div>'; });
   }
+  /* 人ごとの数（参加は日付で数える。同じ日に2件あるとき＝まとめた2人が同じ日に出ていたときは、良い方の順位で数える。運営画面と同じ） */
   function memberStats(rows) {
     var by = {};
     rows.forEach(function (r) {
       var key = r.mid || ('n:' + r.name);
       var m = by[key] || (by[key] = { key: key, name: r.name, dates: {}, wins: 0, pod: 0, best: 0, list: [] });
-      if (m.dates[r.date]) return;
-      m.dates[r.date] = 1;
+      var prev = m.dates[r.date];
+      m.dates[r.date] = prev === undefined ? (r.rank || 99) : Math.min(prev, r.rank || 99);
       m.name = r.name;
-      if (r.rank === 1) m.wins++;
-      if (r.rank && r.rank <= 3) m.pod++;
-      if (r.rank && (!m.best || r.rank < m.best)) m.best = r.rank;
       m.list.push(r);
     });
     var rn = {};
@@ -896,8 +926,12 @@ function mk_haohStatus(rows, haoh, roster) {
     return Object.keys(by).map(function (k) {
       var m = by[k];
       if (rn[k]) m.name = rn[k];
-      m.count = Object.keys(m.dates).length;
-      m.list.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+      var ranks = Object.keys(m.dates).map(function (d) { return m.dates[d]; });
+      m.count = ranks.length;
+      m.wins = ranks.filter(function (x) { return x === 1; }).length;
+      m.pod = ranks.filter(function (x) { return x <= 3; }).length;
+      m.best = ranks.length ? Math.min.apply(null, ranks) : 0;
+      m.list.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : a.rank - b.rank; });
       m.last = m.list[0] ? m.list[0].date : '';
       return m;
     });
@@ -957,7 +991,7 @@ function mk_haohStatus(rows, haoh, roster) {
       (kings.length ? '<ul class="kings">' + kings.map(function (h) {
         return '<li><span class="no">第' + h.no + '回</span><span class="kn">' + esc(h.name) + '</span><span class="crown">覇王</span><span class="muted">' + esc(fmtDate(h.date)) + '</span></li>';
       }).join('') + '</ul>' : '') +
-      '<div><b>次の覇王戦に出られる覇者</b> <span class="muted num">' + hs.eligible.length + '人</span>' + (hs.cutoff ? ' <span class="muted" style="white-space:nowrap">（' + esc(fmtDate(hs.cutoff)) + (mk_normDate(hs.cutoff) <= MK_SEASON_START ? '以降' : 'より後') + '）</span>' : '') + '</div>' +
+      '<div><b>次の覇王戦に出られる覇者</b> <span class="muted num">' + hs.eligible.length + '人</span>' + (hs.cutoff ? ' <span class="muted" style="white-space:nowrap">（' + esc(fmtDate(hs.cutoff)) + '以降' + '）</span>' : '') + '</div>' +
       (hs.eligible.length ? '<div class="elig">' + hs.eligible.map(function (e) { return '<span>' + esc(e.name) + (e.wins > 1 ? '<small class="num">×' + e.wins + '</small>' : '') + '</span>'; }).join('') + '</div>'
         : '<p class="muted" style="margin:0">まだいません。次の大会で優勝すると、ここに名前が入ります。</p>');
   }
@@ -1069,7 +1103,7 @@ function mk_boardOrder(group, teamNos, courts) {
     } else if (resultAvailable()) {
       $('rankBody').insertAdjacentHTML('afterbegin','<h3>大会結果　'+esc(fmtDate(S.settings['開催日']))+'</h3>');
     }
-    $('champBox').innerHTML=(S.champions||[]).length?'<h3>これまでの優勝チーム</h3><ul class="plan">'+S.champions.map(function(c){return '<li>'+esc(fmtDate(c.date))+'　'+esc(c.members || c.name)+'　'+Number(c.total)+'点</li>';}).join('')+'</ul>':'';
+    $('champBox').innerHTML=(S.champions||[]).length?'<h3>これまでの優勝チーム</h3><ul class="plan">'+S.champions.map(function(c){return '<li>'+esc(fmtDate(c.date))+'　'+esc(c.members || c.name)+(c.total!=null?'　'+Number(c.total)+'点':'')+'</li>';}).join('')+'</ul>':'';
   }
   function resultAvailable() {
     return S && ((!S.teams.length && S.previousResult) || (S.matches.length && S.matches.every(mk_hasResult)));
@@ -1108,7 +1142,7 @@ function mk_boardOrder(group, teamNos, courts) {
   if(savedTheme)document.documentElement.setAttribute('data-theme',savedTheme);
   document.documentElement.classList.toggle('bigtext',store.get('scoreBig','0')==='1');
   paintDisplayButtons();
-  $('headReload').onclick=function(){if(!sheetId){$('syncRetry').click();return;}refresh(false);if(ui.tab==='rank' && $('recordsPanel').open)loadRecords();};
+  $('headReload').onclick=function(){refresh(false).then(function(){if(ui.tab==='rank' && $('recordsPanel').open)loadRecords();});};
   function renderAll() {
     if (!S) return;
     if(ui.myTeam && !S.teams.some(function(t){return t.no===ui.myTeam;})) {ui.myTeam=0;store.set('myTeam','0');}
@@ -1127,28 +1161,10 @@ function mk_boardOrder(group, teamNos, courts) {
     var requested = new URLSearchParams(location.search).get('tab') || location.hash.slice(1);
     var initial = tabs.indexOf(requested) >= 0 ? requested : 'team';
 
-    if (!sheetId) {
-      S = archive.state;
-      REC = archive.records;
-      renderAll();
-      renderRecords();
-      if (!requested) initial = 'rank';
-    }
     showTab(initial);
-    var first = true, touched = false, resolving = false;
+    var first = true, touched = false;
     document.getElementById('tabs').addEventListener('click',function () { touched = true; });
     async function update() {
-      if (!sheetId) {
-        if (resolving) return;
-        resolving = true;
-        $('syncStatus').textContent = '2026年11月21日大会の確定結果';
-        try {
-          var response = await fetch('https://script.google.com/macros/s/AKfycbxNSXkTdeHkwgQlLBYezgAdjcoC0ufmjeYeEYd4h6xBFtSJ5mTS9C41bgg_RglZYzvT9w/exec?feed=viewer',{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(12000)});
-          var info = await response.json();
-          if (/^[a-zA-Z0-9_-]{20,120}$/.test(info.sheet || '')) sheetId = info.sheet;
-        } catch (err) {} finally { resolving = false; }
-        if (!sheetId) { $('syncRetry').hidden = false; return; }
-      }
       if (await refresh(true)) {
         if (first && !requested && !touched) showTab(resultAvailable() ? 'rank' : 'team');
         first = false;

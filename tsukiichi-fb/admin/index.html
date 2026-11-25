@@ -566,6 +566,10 @@ ul.cl-list input { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; }
 ul.cl-list span { min-width: 0; overflow-wrap: anywhere; }
 .bnav-in { grid-template-columns: repeat(6, 1fr); }
 .nb { font-size: .74rem; white-space: nowrap; }
+/* iPhone の日付の入力欄が枠からはみ出さないように */
+input[type="date"].input { -webkit-appearance: none; appearance: none; display: block; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; text-align: left; }
+input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
+.field { min-width: 0; }
 
 </style>
 </head>
@@ -629,14 +633,14 @@ ul.cl-list span { min-width: 0; overflow-wrap: anywhere; }
       <p style="margin:0">パスコードなしで、この端末の中だけで操作を試すこともできます（ほかの端末とはつながりません）。</p>
       <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
     </div>
-    <p style="text-align:center;margin:8px 0 0"><a class="btn ghost small" href="../">参加者の画面へ戻る</a></p>
-    <p class="ver">版 2026.11.25-18</p>
+    <p style="text-align:center;margin:8px 0 0"><a class="btn ghost small" href="../../tsukiichi/">参加者の画面へ戻る</a></p>
+    <p class="ver">版 2026.11.25-19</p>
   </div>
 
   <div id="app" hidden>
     <header class="abar">
       <div class="abar-in">
-        <div class="abar-top"><h1 class="abrand"><small>泉鋼業(株)モルック部</small>月いちモルック 運営</h1><a class="to-view" href="../">参加者の画面</a><div class="viewctl" role="group" aria-label="画面の表示">
+        <div class="abar-top"><h1 class="abrand"><small>泉鋼業(株)モルック部</small>月いちモルック 運営</h1><a class="to-view" href="../../tsukiichi/">参加者の画面</a><div class="viewctl" role="group" aria-label="画面の表示">
 <button type="button" class="vc-btn" data-vc="theme" aria-label="暗い画面にする"></button>
 <button type="button" class="vc-btn" data-vc="font" aria-haspopup="true" aria-expanded="false" aria-label="文字の大きさを変える" title="文字の大きさ"><span class="vc-a" aria-hidden="true"><span class="s">あ</span><span class="b">あ</span></span></button>
 <div class="vc-pop" hidden><b>文字の大きさ</b><div class="vc-opts"><button type="button" data-fs-set="m">標準</button><button type="button" data-fs-set="l">大きめ</button><button type="button" data-fs-set="xl">特大</button></div><small>この端末で覚えておきます</small></div>
@@ -801,7 +805,7 @@ ul.cl-list span { min-width: 0; overflow-wrap: anywhere; }
           <ul class="mini-list" id="evList"></ul>
         </div>
         <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
-        <a class="btn ghost" href="../" style="margin-left:8px">参加者の画面</a>
+        <a class="btn ghost" href="../../tsukiichi/" style="margin-left:8px">参加者の画面</a>
       </section>
       <!-- ===== システム（運営の中でも、もう1段階のパスワードで入る） ===== -->
       <section class="panel" id="ph-sys" hidden>
@@ -888,7 +892,7 @@ ul.cl-list span { min-width: 0; overflow-wrap: anywhere; }
         </div>
         </div>
       </section>
-      <p class="ver">版 2026.11.25-18</p>
+      <p class="ver">版 2026.11.25-19</p>
     </main>
   </div>
 </div>
@@ -1016,7 +1020,7 @@ if (typeof module !== 'undefined') module.exports = { fakeServerCommit, fakeAppl
    - staff/{BOX}/events/{e}/devices/{d}  各端末の「送信待ち」の件数と最後につながった時刻
    ルール側で：締めた回への書き込み、まとめた人への受付は断る
 */
-const VER = '2026.11.25-18';
+const VER = '2026.11.25-19';
 const FB_VER = '13.2.0';
 const STAFF_EMAIL = 'unei@tsukiichi.example';
 const BOX = 'proto';
@@ -2609,7 +2613,7 @@ function saveTeams() {
   const op = { id: rid('o'), type: 'draw', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: T.preview.map((t) => ({ id: t.name, name: t.name + '（' + t.members.length + '人）' })), tapAt: now(), guard: true };
   /* 抽選と同時に総当たりの対戦表を作る（11/22版と同じ）。やり直しのときは前の対戦表と結果を置き換える */
   const mt = {}; buildMatches(T.preview.map((t, i) => i + 1), 1).forEach((m) => { const { id, ...d } = m; mt[id] = d; });
-  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, mt, teams: null, shown: false, drawId: op.id, drawnAt: TS, drawBy: devName, drawCount: T.preview.length, chk: { base: T.base, op: op.id } } }]);
+  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, mt, teams: null, shown: false, drawId: op.id, date: jstDate(srvNow()), drawnAt: TS, drawBy: devName, drawCount: T.preview.length, chk: { base: T.base, op: op.id } } }]);
   const bad = checkTeams(T.preview, ps).filter((c) => c[2] === 'warn' && !c[0]).map((c) => c[1]);
   T.preview = null; T.msg = ''; T.rm = 0;
   renderTeam();

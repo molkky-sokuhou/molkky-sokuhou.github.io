@@ -1601,7 +1601,7 @@ function saveTeams() {
   const op = { id: rid('o'), type: 'draw', eid: S.cur, ename: (S.events[S.cur] || {}).name || '', items: T.preview.map((t) => ({ id: t.name, name: t.name + '（' + t.members.length + '人）' })), tapAt: now(), guard: true };
   /* 抽選と同時に総当たりの対戦表を作る（11/22版と同じ）。やり直しのときは前の対戦表と結果を置き換える */
   const mt = {}; buildMatches(T.preview.map((t, i) => i + 1), 1).forEach((m) => { const { id, ...d } = m; mt[id] = d; });
-  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, mt, teams: null, shown: false, drawId: op.id, drawnAt: TS, drawBy: devName, drawCount: T.preview.length, chk: { base: T.base, op: op.id } } }]);
+  runOp(op, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm, assign, mt, teams: null, shown: false, drawId: op.id, date: jstDate(srvNow()), drawnAt: TS, drawBy: devName, drawCount: T.preview.length, chk: { base: T.base, op: op.id } } }]);
   const bad = checkTeams(T.preview, ps).filter((c) => c[2] === 'warn' && !c[0]).map((c) => c[1]);
   T.preview = null; T.msg = ''; T.rm = 0;
   renderTeam();

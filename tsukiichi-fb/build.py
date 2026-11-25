@@ -40,4 +40,8 @@ base = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else S.parent)
 (base / 'admin').mkdir(exist_ok=True)
 (base / 'admin' / 'index.html').write_text(html, encoding='utf8')
 (base / 'index.html').write_text(r('view.html').replace('@@VER@@', VER), encoding='utf8')
+# 参加者に配るリンク（https://molkky-sokuhou.github.io/tsukiichi/）にも同じ参加者画面を置く。運営の画面へのリンクだけ tsukiichi-fb/admin/ を指す
+short = base.parent / 'tsukiichi'
+if short.is_dir():
+    (short / 'index.html').write_text(r('view.html').replace('@@VER@@', VER).replace('href="admin/"', 'href="../tsukiichi-fb/admin/"'), encoding='utf8')
 print(base, len(html))

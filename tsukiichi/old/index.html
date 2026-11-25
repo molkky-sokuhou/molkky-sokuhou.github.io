@@ -1,0 +1,1167 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><title>月いちモルック</title>
+<style>
+/* Layout: ポスターの砂利コートを地に、赤い極太見出し・水色の白フチ文字・黄色の雲バッジを引き継ぐ1カラムのスマホ向けアプリ */
+:root {
+  --bg: #ece2cd;
+  --grit-a: rgba(110, 92, 62, .22);
+  --grit-b: rgba(255, 255, 255, .55);
+  --panel: #fffdf6;
+  --panel-2: #f6efe0;
+  --ink: #1d2230;
+  --muted: #5d6170;
+  --line: #cfc3a8;
+  --frame: #6b6440;
+  --red: #e2141c;
+  --red-deep: #a90e14;
+  --title-shadow: #1c2a4e;
+  --cyan: #1687c4;
+  --cyan-soft: #def1fa;
+  --halo: #ffffff;
+  --yellow: #f7c614;
+  --yellow-ink: #3b2f00;
+  --good: #1d7f48;
+  --good-soft: #dff3e6;
+  --warn-soft: #fff1c9;
+  --danger-soft: #fde3e3;
+  --f-display: "Dela Gothic One", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --f-body: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #221f1a; --grit-a: rgba(255, 240, 210, .07); --grit-b: rgba(0, 0, 0, .35);
+    --panel: #2d2923; --panel-2: #36312a; --ink: #f4efe4; --muted: #bdb4a4; --line: #4b4439; --frame: #8f8758;
+    --red: #ff4a50; --red-deep: #ff7b7f; --title-shadow: #000000; --cyan: #5cc4f2; --cyan-soft: #1c3542; --halo: #10202a;
+    --yellow: #f7c614; --yellow-ink: #3b2f00; --good: #5fd18f; --good-soft: #1d3527; --warn-soft: #3c3317; --danger-soft: #45201f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #221f1a; --grit-a: rgba(255, 240, 210, .07); --grit-b: rgba(0, 0, 0, .35);
+  --panel: #2d2923; --panel-2: #36312a; --ink: #f4efe4; --muted: #bdb4a4; --line: #4b4439; --frame: #8f8758;
+  --red: #ff4a50; --red-deep: #ff7b7f; --title-shadow: #000000; --cyan: #5cc4f2; --cyan-soft: #1c3542; --halo: #10202a;
+  --yellow: #f7c614; --yellow-ink: #3b2f00; --good: #5fd18f; --good-soft: #1d3527; --warn-soft: #3c3317; --danger-soft: #45201f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: var(--f-body);
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 20% 30%, var(--grit-a) 0 1.2px, transparent 1.6px),
+    radial-gradient(circle at 70% 80%, var(--grit-a) 0 1.6px, transparent 2px),
+    radial-gradient(circle at 45% 60%, var(--grit-b) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 85% 15%, var(--grit-a) 0 1px, transparent 1.4px);
+  background-size: 11px 13px, 17px 19px, 9px 7px, 23px 21px;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 16px; }
+
+/* ---------- hero ---------- */
+.hero { padding-block: 18px 8px; display: grid; gap: 6px; }
+.org { font-weight: 900; font-size: .85rem; letter-spacing: .08em; color: var(--muted); }
+.title {
+  margin: 0; font-family: var(--f-display); font-weight: 400;
+  font-size: clamp(2.6rem, 13vw, 4.4rem); line-height: 1.02; letter-spacing: .01em;
+  color: var(--red); text-shadow: 3px 4px 0 var(--title-shadow);
+  text-wrap: balance;
+}
+.title .kaisai { font-size: .42em; color: var(--ink); text-shadow: 2px 2px 0 var(--halo); margin-left: .3em; vertical-align: .15em; }
+.hero-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 6px; }
+.facts { display: grid; gap: 4px; min-width: 0; }
+.when { font-family: var(--f-display); color: var(--red); font-size: clamp(1.3rem, 6vw, 1.75rem); line-height: 1.25; text-shadow: 2px 2px 0 var(--title-shadow); }
+.where { font-weight: 900; color: var(--cyan); font-size: 1.02rem; line-height: 1.45;
+  text-shadow: -1.5px -1.5px 0 var(--halo), 1.5px -1.5px 0 var(--halo), -1.5px 1.5px 0 var(--halo), 1.5px 1.5px 0 var(--halo); }
+.where small { display: block; font-size: .85rem; }
+.photo { position: relative; justify-self: center; width: min(100%, 290px); }
+@media (min-width: 620px) { .photo { width: min(100%, 360px); } }
+.photo img { display: block; width: 100%; height: auto; border-radius: 50% 50% 18px 18px / 30% 30% 18px 18px; }
+.cloud {
+  position: absolute; right: -6px; bottom: -10px; background: var(--yellow); color: var(--yellow-ink);
+  padding: 10px 18px 10px; border-radius: 48% 52% 46% 54% / 60% 55% 45% 40%;
+  box-shadow: 0 0 0 3px #fff8d6, 4px 5px 0 rgba(0,0,0,.18); text-align: center; line-height: 1.15;
+  font-weight: 900; transform: rotate(-4deg);
+}
+.cloud b { display: block; font-family: var(--f-display); font-weight: 400; font-size: 1.35rem; }
+@media (min-width: 620px) {
+  .hero-grid { grid-template-columns: 1.2fr 1fr; align-items: center; }
+}
+.org-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.to-admin { flex: 0 0 auto; border: 2px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 4px 12px; font-weight: 900; font-size: .8rem; text-decoration: none; white-space: nowrap; }
+.to-admin:hover { border-color: var(--ink); color: var(--ink); }
+.demo-bar { margin-top: 10px; background: var(--warn-soft); border: 2px dashed var(--frame); border-radius: 10px; padding: 8px 12px; font-size: .88rem; }
+
+/* ---------- tabs ---------- */
+.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); padding-block: 8px; margin-top: 10px; }
+.tabs-in { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.tabs-in::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 0 0 auto; border: 2.5px solid var(--ink); background: var(--panel); color: var(--ink);
+  border-radius: 999px; padding: 6px 16px; font-weight: 900; font-size: .98rem; white-space: nowrap;
+}
+.tab[aria-selected="true"] { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 2px 3px 0 var(--title-shadow); }
+.loadbar { height: 3px; margin-top: 6px; background: linear-gradient(90deg, var(--cyan) 0 40%, transparent 40%); background-size: 200% 100%; opacity: 0; transition: opacity .2s; }
+.loadbar.on { opacity: 1; animation: slide 1s linear infinite; }
+@keyframes slide { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* ---------- panels ---------- */
+main { padding-block: 6px 60px; }
+.panel { display: grid; gap: 16px; }
+.box {
+  background: var(--panel); border: 3px solid var(--frame); border-radius: var(--r);
+  padding: 16px; min-width: 0;
+}
+.box.plain { border-width: 2px; border-color: var(--line); }
+h2.h { margin: 0 0 10px; font-family: var(--f-display); font-weight: 400; font-size: 1.35rem; line-height: 1.3; color: var(--cyan);
+  text-shadow: -1.5px -1.5px 0 var(--halo), 1.5px -1.5px 0 var(--halo), -1.5px 1.5px 0 var(--halo), 1.5px 1.5px 0 var(--halo), 2px 3px 0 rgba(0,0,0,.12); text-wrap: balance; }
+h3.s { margin: 14px 0 6px; font-size: 1.05rem; font-weight: 900; }
+p { margin: 0 0 8px; }
+.muted { color: var(--muted); font-size: .9rem; }
+.big { font-family: var(--f-display); font-weight: 400; }
+.num { font-variant-numeric: tabular-nums; }
+.chiprow { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 2px solid var(--line); background: var(--panel); border-radius: 999px; padding: 3px 12px; font-weight: 700; font-size: .9rem; }
+.chip[aria-pressed="true"] { border-color: var(--cyan); background: var(--cyan); color: #fff; }
+.tag { display: inline-block; white-space: nowrap; font-size: .72rem; font-weight: 900; padding: 1px 7px; border-radius: 6px; background: var(--yellow); color: var(--yellow-ink); vertical-align: .1em; }
+.tag.cy { background: var(--cyan-soft); color: var(--cyan); }
+.tag.early { background: var(--danger-soft); color: var(--red); }
+.tag.pod { background: var(--ink); color: var(--panel); }
+.warnline { color: var(--red); font-weight: 900; }
+/* ---------- records / roster ---------- */
+.haoh { display: grid; gap: 10px; }
+.kings { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.kings li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; background: var(--panel-2); border-radius: 10px; padding: 8px 12px; }
+.kings .no { font-family: var(--f-display); color: var(--red); }
+.kings .kn { font-weight: 900; font-size: 1.05rem; }
+.crown { display: inline-block; font-size: .72rem; font-weight: 900; background: var(--title-shadow); color: var(--yellow); border-radius: 6px; padding: 1px 8px; white-space: nowrap; }
+.elig { display: flex; flex-wrap: wrap; gap: 6px; }
+.elig span { border: 2px solid var(--yellow); background: var(--warn-soft); border-radius: 999px; padding: 3px 12px; font-weight: 700; white-space: nowrap; }
+.elig small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.subbox { background: var(--panel-2); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.recsum { display: flex; flex-wrap: wrap; gap: 6px 16px; font-weight: 700; }
+.recsum b { font-family: var(--f-display); font-weight: 400; font-size: 1.3rem; color: var(--red); }
+.reclist { display: grid; gap: 8px; }
+details.rec { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; }
+details.rec[open] { border-color: var(--cyan); }
+details.rec summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; }
+details.rec summary::-webkit-details-marker { display: none; }
+details.rec .nm { font-weight: 900; min-width: 0; overflow-wrap: anywhere; }
+details.rec .stats { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.stat { font-size: .78rem; font-weight: 900; background: var(--panel-2); border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
+.stat.win { background: var(--red); color: #fff; }
+.stat.pod { background: var(--yellow); color: var(--yellow-ink); }
+.rechist { padding: 0 12px 12px; overflow-x: auto; }
+.rechist table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.rechist th, .rechist td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.rechist td.r1 { color: var(--red); font-weight: 900; }
+.quick { display: grid; gap: 8px; background: var(--panel-2); border-radius: 12px; padding: 12px; }
+.qlist { display: flex; flex-wrap: wrap; gap: 6px; max-height: 260px; overflow-y: auto; padding: 2px; }
+.qitem { position: relative; }
+.qitem input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.qitem span { display: inline-flex; align-items: center; gap: 4px; border: 2px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.qitem input:checked + span { background: var(--good); border-color: var(--good); color: #fff; }
+.qitem input:focus-visible + span { outline: 3px solid var(--cyan); outline-offset: 2px; }
+.qitem small { font-weight: 500; opacity: .8; font-size: .75rem; }
+.callout { background: var(--yellow); color: var(--yellow-ink); border-radius: var(--r); padding: 12px 16px; font-weight: 900; box-shadow: 3px 4px 0 rgba(0,0,0,.15); }
+
+.btn { border: 2.5px solid var(--ink); background: var(--panel); color: var(--ink); border-radius: 12px; padding: 9px 16px; font-weight: 900; line-height: 1.3; }
+.btn.primary { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 2px 3px 0 var(--title-shadow); }
+.btn.cyan { background: var(--cyan); border-color: var(--cyan); color: #fff; }
+.btn.small { padding: 4px 10px; font-size: .88rem; border-width: 2px; border-radius: 9px; }
+.btn.ghost { border-color: var(--line); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.wide { width: 100%; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.field { display: grid; gap: 4px; }
+.field label { font-weight: 700; font-size: .9rem; }
+.input { width: 100%; border: 2px solid var(--line); background: var(--panel); border-radius: 10px; padding: 9px 12px; min-width: 0; }
+.input:focus { border-color: var(--cyan); outline: none; }
+.switch { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; cursor: pointer; user-select: none; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch .tr { width: 48px; height: 28px; border-radius: 99px; background: var(--line); position: relative; transition: background .15s; flex: 0 0 auto; }
+.switch .tr::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.switch input:checked + .tr { background: var(--good); }
+.switch input:checked + .tr::after { transform: translateX(20px); }
+.switch input:focus-visible + .tr { outline: 3px solid var(--cyan); outline-offset: 2px; }
+
+/* ---------- rules ---------- */
+.toc { display: flex; flex-wrap: wrap; gap: 6px; }
+.toc a { text-decoration: none; color: var(--ink); border-bottom: 2px solid var(--yellow); font-weight: 700; font-size: .92rem; }
+.flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: f; }
+.flow li { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: start; counter-increment: f; }
+.flow li::before { content: counter(f); width: 40px; height: 40px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; font-family: var(--f-display); font-size: 1.2rem; box-shadow: 2px 2px 0 var(--title-shadow); }
+.flow b { display: block; font-weight: 900; }
+.calc { display: grid; gap: 10px; background: var(--panel-2); border-radius: 12px; padding: 12px; }
+.calc input[type=range] { width: 100%; accent-color: var(--red); }
+.calc-out { font-weight: 900; font-size: 1.05rem; }
+.ex { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; text-align: center; background: var(--panel-2); border-radius: 12px; padding: 12px; }
+.ex .vs { font-family: var(--f-display); color: var(--red); }
+.ex .tm { font-weight: 900; }
+.ex .calcline { font-family: var(--f-display); font-size: 1.15rem; }
+.rules { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.rules li { background: var(--panel-2); border-radius: 10px; padding: 8px 12px; }
+.sim { display: grid; gap: 10px; justify-items: center; background: var(--panel-2); border-radius: 12px; padding: 14px 10px; }
+.pins { display: grid; gap: 6px; justify-items: center; }
+.pins .row { display: flex; gap: 6px; }
+.pin { width: 46px; height: 46px; border-radius: 50%; border: 2px solid #b8925a; background: radial-gradient(circle at 40% 35%, #f6e2bd, #ddb77c); color: #5a2e0e; font-family: var(--f-display); font-size: 1.05rem; display: grid; place-items: center; transition: transform .12s, opacity .12s; }
+.pin[aria-pressed="true"] { transform: rotate(-70deg) scale(.86); opacity: .55; border-color: var(--red); }
+.sim-score { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; justify-content: center; }
+.sim-score .big { font-size: 2rem; color: var(--red); }
+.sim-msg { min-height: 1.6em; font-weight: 700; text-align: center; }
+details.faq { border-bottom: 2px dashed var(--line); padding-block: 8px; }
+details.faq summary { font-weight: 900; cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
+details.faq summary::after { content: "＋"; color: var(--red); }
+details.faq[open] summary::after { content: "－"; }
+details.faq p { margin-top: 6px; }
+
+/* ---------- standings ---------- */
+.prog { display: grid; gap: 6px; }
+.prog .bar { height: 12px; border-radius: 99px; background: var(--panel-2); border: 2px solid var(--line); overflow: hidden; }
+.prog .bar i { display: block; height: 100%; background: var(--good); width: 0; transition: width .4s; }
+.stand { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.st { display: grid; grid-template-columns: 46px 1fr auto; gap: 10px; align-items: center; background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.st.mine { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan) inset; }
+.st .rk { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-size: 1.15rem; background: var(--panel-2); color: var(--ink); }
+.st.r1 .rk { background: var(--red); color: #fff; box-shadow: 2px 2px 0 var(--title-shadow); }
+.st.r2 .rk { background: var(--cyan); color: #fff; }
+.st.r3 .rk { background: var(--yellow); color: var(--yellow-ink); }
+.st .nm { font-weight: 900; min-width: 0; }
+.st .mem { font-size: .82rem; color: var(--muted); font-weight: 500; overflow-wrap: anywhere; }
+.st .pts { text-align: right; line-height: 1.15; }
+.st .pts .big { font-size: 1.6rem; color: var(--red); }
+.st .pts small { display: block; font-size: .75rem; color: var(--muted); }
+.empty { text-align: center; padding: 22px 12px; color: var(--muted); }
+.empty b { display: block; color: var(--ink); font-size: 1.05rem; margin-bottom: 4px; }
+
+/* ---------- matches ---------- */
+.round { display: grid; gap: 8px; }
+.round-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.round-h h3 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 1.1rem; }
+.bye { font-size: .85rem; color: var(--muted); }
+.mt { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; width: 100%; }
+.mt.done { border-color: var(--good); }
+.mt.mine { box-shadow: 0 0 0 2px var(--cyan) inset; border-color: var(--cyan); }
+.mt .t { font-weight: 900; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+.mt .t small { display: block; font-weight: 700; color: var(--muted); font-size: .78rem; }
+.mt .t .tot { font-family: var(--f-display); font-size: 1.5rem; color: var(--ink); display: block; }
+.mt .t.win .tot { color: var(--red); }
+.mt .mid { display: grid; gap: 4px; justify-items: center; }
+.mt .mid .vs { font-family: var(--f-display); color: var(--red); }
+.court { font-family: var(--f-display); font-size: .82rem; line-height: 1.2; background: var(--ink); color: var(--panel); border-radius: 8px; padding: 3px 8px; white-space: nowrap; }
+.court small { display: block; font-family: var(--f-body); font-weight: 900; font-size: .66rem; }
+.state { font-size: .72rem; font-weight: 900; padding: 1px 8px; border-radius: 99px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
+.done .state { background: var(--good-soft); color: var(--good); }
+
+/* ---------- teams ---------- */
+.teamgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px; }
+.tc { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+.tc.mine { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan) inset; }
+.tc h3 { margin: 0 0 6px; font-family: var(--f-display); font-weight: 400; font-size: 1.15rem; color: var(--red); }
+.tc ul { margin: 0; padding-left: 1.1em; }
+.tc .foot { margin-top: 8px; font-size: .82rem; color: var(--muted); }
+
+/* ---------- admin ---------- */
+.plist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pl { display: grid; gap: 6px; background: var(--panel-2); border-radius: 10px; padding: 8px 10px; }
+.pl .who { min-width: 0; font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.pl .who .pname { font-size: 1.02rem; word-break: keep-all; overflow-wrap: anywhere; }
+.pl .who .muted { white-space: nowrap; }
+.pl .ops { display: flex; gap: 6px; flex-wrap: wrap; }
+.rowform { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 560px) { .rowform { grid-template-columns: 1fr 1fr; } }
+.stepper { display: inline-flex; align-items: center; gap: 8px; }
+.stepper .big { font-size: 1.8rem; min-width: 2ch; text-align: center; }
+.sizes { font-weight: 700; }
+.danger { background: var(--danger-soft); border-color: var(--red); }
+.adjust { display: grid; gap: 10px; }
+.adj-team { background: var(--panel-2); border-radius: 10px; padding: 10px; display: grid; gap: 6px; }
+.adj-mem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.adj-mem > span { word-break: keep-all; overflow-wrap: anywhere; }
+
+/* ---------- modal / toast ---------- */
+.ov { position: fixed; inset: 0; background: rgba(10, 14, 24, .55); z-index: 50; display: grid; align-items: end; justify-items: center; }
+.sheet { width: min(100%, 560px); max-height: 92vh; overflow-y: auto; background: var(--panel); border-radius: 20px 20px 0 0; border: 3px solid var(--frame); border-bottom: 0;
+  padding: 16px 16px calc(18px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 12px; }
+@media (min-width: 600px) { .ov { align-items: center; } .sheet { border-radius: 20px; border-bottom: 3px solid var(--frame); } }
+.sheet h2 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 1.25rem; }
+.sgrid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; align-items: center; }
+.sgrid .hd { font-weight: 900; text-align: center; overflow-wrap: anywhere; line-height: 1.3; }
+.sgrid .lb { font-weight: 700; font-size: .9rem; white-space: nowrap; }
+.sc { display: flex; gap: 4px; min-width: 0; }
+.sc input { width: 100%; min-width: 0; text-align: center; font-family: var(--f-display); font-size: 1.4rem; border: 2px solid var(--line); border-radius: 10px; padding: 6px 2px; background: var(--panel); }
+.sc input:focus { border-color: var(--cyan); outline: none; }
+.sc input.bad { border-color: var(--red); background: var(--danger-soft); }
+.sc button { flex: 0 0 auto; border: 2px solid var(--line); background: var(--panel-2); border-radius: 8px; font-weight: 900; font-size: .78rem; padding: 0 6px; }
+.sgrid .tot { text-align: center; font-family: var(--f-display); font-size: 1.7rem; color: var(--red); }
+.err { color: var(--red); font-weight: 700; min-height: 1.4em; font-size: .92rem; }
+.reveal { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 50vh; overflow-y: auto; }
+.reveal li { display: flex; justify-content: space-between; gap: 8px; background: var(--panel-2); border-radius: 8px; padding: 4px 10px; animation: pop .25s ease-out; }
+.reveal li.ph { background: transparent; font-weight: 900; color: var(--cyan); padding-inline: 0; }
+@keyframes pop { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 60; background: var(--ink); color: var(--panel); padding: 10px 18px; border-radius: 99px; font-weight: 700; max-width: calc(100% - 32px); text-align: center; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.toast.bad { background: var(--red); color: #fff; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ===== 表示の切り替え（明るい・暗い／文字の大きさ）。選んだ表示はこの端末で覚える ===== */
+:root[data-fs="l"] { font-size: 112.5%; }
+:root[data-fs="xl"] { font-size: 125%; }
+.viewctl { position: relative; display: flex; gap: 6px; align-items: center; flex: 0 0 auto; }
+.vc-btn { display: inline-grid; place-items: center; min-width: 44px; height: 44px; padding: 0 8px; border: 2px solid var(--line, var(--box, #c9c9c9)); background: var(--panel, var(--paper, #fff)); color: var(--ink, #222); border-radius: 12px; cursor: pointer; font: inherit; font-weight: 900; line-height: 1; }
+.vc-btn:hover { border-color: var(--ink, #222); }
+.vc-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.vc-a { display: inline-flex; align-items: baseline; gap: 1px; }
+.vc-a .s { font-size: 13px; } .vc-a .b { font-size: 19px; }
+.vc-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 70; width: min(250px, calc(100vw - 32px)); background: var(--panel, var(--paper, #fff)); color: var(--ink, #222); border: 2px solid var(--line, var(--box, #c9c9c9)); border-radius: 14px; padding: 12px; display: grid; gap: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.22); text-align: left; }
+.vc-pop[hidden] { display: none !important; }
+.vc-pop b { font-size: .95rem; }
+.vc-pop small { font-size: .82rem; color: var(--muted, inherit); }
+.vc-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.vc-opts button { min-height: 48px; border: 2px solid var(--line, var(--box, #c9c9c9)); background: transparent; color: inherit; border-radius: 10px; font-family: inherit; font-weight: 900; cursor: pointer; padding: 4px 2px; line-height: 1.2; }
+.vc-opts [data-fs-set="m"] { font-size: 15px; } .vc-opts [data-fs-set="l"] { font-size: 17px; } .vc-opts [data-fs-set="xl"] { font-size: 19px; }
+.vc-opts button[aria-pressed="true"] { background: var(--ink, #222); color: var(--panel, var(--paper, #fff)); border-color: var(--ink, #222); }
+.vc-row { display: flex; justify-content: flex-end; padding-top: 10px; }
+.tabs-row { display: flex; gap: 8px; align-items: center; }
+.tabs-row .tabs-in { flex: 1 1 auto; min-width: 0; }
+.toast { width: max-content; word-break: keep-all; overflow-wrap: anywhere; }
+.mt .t small { word-break: keep-all; overflow-wrap: anywhere; }
+.netbar { margin: 4px 0 10px; padding: 6px 12px; border-radius: 10px; background: var(--panel-2); border: 2px dashed var(--muted); font-weight: 900; font-size: .9rem; }
+.pendbar { margin: 4px 0 12px; padding: 12px 14px; border-radius: 12px; background: var(--danger-soft); border: 3px solid var(--red); display: grid; gap: 8px; }
+.pendbar b { color: var(--red); }
+.pendbar ul { margin: 0; padding-left: 1.2em; }
+.sendbox { border-radius: 12px; padding: 12px 14px; font-weight: 900; display: grid; gap: 6px; }
+.sendbox.sending { background: var(--cyan-soft); border: 2px solid var(--cyan); }
+.sendbox.held { background: var(--danger-soft); border: 3px solid var(--red); }
+.sendbox.done { background: var(--good-soft); border: 2px solid var(--good); }
+.mt .state.held { background: var(--danger-soft); color: var(--red); }
+
+:root{
+  --paper:#f4f4ef; --card:#ffffff; --ink:#1c1c1a; --sub:#55554f; --soft:#d6d6ce;
+  --red:#cf1f29; --blue:#1e4fd6; --court:#e2eaf5; --mark:#ffe95c; --ok:#17733a; --warn:#b54a00;
+}
+:root[data-theme="dark"]{ --paper:#121314; --card:#1b1c1e; --ink:#eeeee8; --sub:#a8a8a1; --soft:#3a3b3e;
+    --red:#ff5d64; --blue:#8aa8ff; --court:#24303f; --mark:#6d5f00; --ok:#5fd28c; --warn:#ffad6b; }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --paper:#121314; --card:#1b1c1e; --ink:#eeeee8; --sub:#a8a8a1; --soft:#3a3b3e;
+    --red:#ff5d64; --blue:#8aa8ff; --court:#24303f; --mark:#6d5f00; --ok:#5fd28c; --warn:#ffad6b; }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:16px/1.7 system-ui,-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+  word-break:keep-all;overflow-wrap:anywhere;padding-bottom:calc(130px + env(safe-area-inset-bottom))}
+button{font:inherit;color:inherit}
+a{color:var(--blue)}
+
+#demo{background:var(--ink);color:var(--paper);font-size:14px;line-height:1.6;padding:8px 14px}
+
+header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:3px solid var(--ink);padding:10px 14px 8px}
+.pre{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--sub);line-height:1.6;margin-bottom:2px}
+.ttl{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ttl h1{margin:0;font-size:18px;line-height:1.35;letter-spacing:.01em}
+.ttl h1 small{display:block;font-size:14px;font-weight:600;color:var(--sub);letter-spacing:0}
+#reload{flex:none;min-height:44px;padding:0 14px;border:2px solid var(--ink);background:var(--card);font-weight:700;font-size:15px;border-radius:6px}
+#reload:active{transform:translateY(1px)}
+#reload[disabled]{opacity:.55}
+.sub2{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px}
+.stamp{font-size:14px;color:var(--sub);line-height:1.5}
+.thm2{position:relative;flex:none;height:32px;padding:0 10px;border:1.5px solid var(--ink);background:var(--card);color:var(--ink);border-radius:16px;font:inherit;font-size:14px;font-weight:700}
+.thm2::after{content:"";position:absolute;left:0;right:0;top:-6px;bottom:-6px}
+.thm{flex:none;min-height:44px;padding:0 10px;border:1.5px solid var(--sub);background:transparent;border-radius:6px;font-size:14px;font-weight:700;color:var(--sub)}
+.stamp.bad{color:var(--warn);font-weight:700}
+.unoff{display:inline-block;font-size:14px;font-weight:800;border:1.5px solid currentColor;border-radius:3px;padding:0 6px;margin-left:6px;vertical-align:2px;color:var(--sub);line-height:1.6}
+.broken{margin:12px 0 4px;padding:12px 14px;border:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--card));border-radius:4px}
+.broken b{display:block;font-size:17px;color:var(--warn);line-height:1.5}
+.broken p{margin:6px 0 0;font-size:15px;line-height:1.6}
+.broken a{font-weight:700}
+.footrow{display:flex;justify-content:flex-end;margin:22px 0 0}
+tr.mine td{background:color-mix(in srgb,var(--mark) 30%,transparent)}
+.mlist li.mine{background:color-mix(in srgb,var(--mark) 22%,transparent);box-shadow:inset 5px 0 0 var(--red);padding-left:12px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(130px + env(safe-area-inset-bottom));z-index:7;background:var(--ink);color:var(--paper);font-size:15px;font-weight:700;padding:10px 16px;border-radius:6px;width:max-content;max-width:92vw;text-align:center;line-height:1.5}
+.foot{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--soft);font-size:14px;color:var(--sub);line-height:1.6}
+
+main{padding:4px 14px 24px;max-width:640px;margin:0 auto}
+h2{font-size:19px;margin:22px 0 8px;line-height:1.4}
+h3{font-size:17px;margin:18px 0 6px;line-height:1.4}
+.lead{color:var(--sub);font-size:15px;margin:0 0 10px}
+.note{font-size:15px;color:var(--sub);margin:6px 0}
+
+/* court number: red circle like the venue map */
+.cn{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;border:2.5px solid var(--red);border-radius:50%;
+  color:var(--red);font-weight:800;font-size:18px;line-height:1;font-variant-numeric:tabular-nums;background:var(--card)}
+.cn.big{width:84px;height:84px;border-width:4px;font-size:44px}
+.cn.none{border-style:dashed;border-color:var(--sub);color:var(--sub);font-size:14px}
+.me{background:linear-gradient(transparent 52%,var(--mark) 52%);font-weight:800}
+
+/* next match */
+.next{border:2.5px solid var(--ink);background:var(--card);border-radius:4px;padding:14px;margin:12px 0 6px}
+.next .lbl{font-size:15px;font-weight:700;color:var(--sub)}
+.next .row{display:flex;gap:14px;align-items:center;margin-top:6px}
+.next .when{font-size:24px;font-weight:800;line-height:1.3}
+.next .what{font-size:16px;line-height:1.5}
+.next .vs{margin-top:10px;font-size:17px;line-height:1.6}
+.next .vs b{font-size:18px}
+.tag{display:inline-block;font-size:14px;font-weight:800;padding:1px 8px;border-radius:3px;line-height:1.6;vertical-align:2px}
+.tag.now{background:var(--red);color:#fff}
+.tag.done{background:var(--soft);color:var(--ink)}
+.tag.if{border:1.5px solid var(--sub);color:var(--sub)}
+
+.myhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-top:14px}
+.myhead .nm{font-size:22px;font-weight:800;line-height:1.35}
+.myhead .meta{font-size:15px;color:var(--sub)}
+.btn{min-height:44px;padding:0 14px;border:2px solid var(--ink);background:var(--card);border-radius:6px;font-weight:700;font-size:15px;flex:none}
+
+/* day plan */
+.plan{list-style:none;margin:8px 0 0;padding:0;border-top:2px solid var(--ink)}
+.plan li{display:flex;gap:12px;padding:12px 2px;border-bottom:1px solid var(--soft)}
+.plan li.cur{background:color-mix(in srgb,var(--mark) 28%,transparent)}
+.plan .t{font-weight:800;font-size:16px;line-height:1.4}
+.plan .s{font-size:15px;color:var(--sub);line-height:1.5}
+.plan .o{font-size:16px;line-height:1.55;margin-top:2px}
+.plan li.later{opacity:.75}
+
+/* match lists */
+.chips{margin:10px 0 4px}
+.chips .g{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0}
+.chips .gl{width:2.6em;font-weight:800;font-size:15px}
+.chips .gl.u{color:var(--red)} .chips .gl.l{color:var(--blue)}
+.chip{min-height:44px;padding:0 12px;border:1.5px solid var(--ink);border-radius:22px;background:var(--card);font-size:15px;font-weight:600}
+.chip.on{background:var(--ink);color:var(--paper)}
+.rhead{margin:14px 0 4px;padding:8px 0;border-bottom:2px solid var(--ink)}
+.rhead .t{font-size:19px;font-weight:800}
+.rhead .s{font-size:15px;color:var(--sub);line-height:1.6;word-break:normal;line-break:strict}
+.mlist{list-style:none;margin:0;padding:0}
+.mlist li{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--soft);align-items:flex-start}
+.mlist .teams{flex:1;min-width:0}
+.tm{display:flex;justify-content:space-between;gap:8px;line-height:1.5;padding:1px 0}
+.tm .nm{min-width:0}
+.tm .lot{color:var(--sub);font-size:14px;margin-right:4px;font-variant-numeric:tabular-nums}
+.tm .sc{flex:none;font-variant-numeric:tabular-nums;font-weight:700}
+.tm.win .nm{font-weight:800}
+.tm.win .sc::after{content:" 勝";color:var(--ok);font-size:14px}
+.tm.ph .nm{color:var(--sub)}
+.mlist .blk{font-size:14px;font-weight:800;color:var(--sub)}
+
+/* standings */
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:14px;color:var(--sub);font-weight:700;text-align:right;padding:6px 4px;border-bottom:2px solid var(--ink)}
+th:nth-child(2){text-align:left}
+td{padding:8px 4px;border-bottom:1px solid var(--soft);text-align:right;font-size:16px;line-height:1.45}
+td:nth-child(2){text-align:left}
+td.rk{font-weight:800;width:2.4em}
+td.tot{font-weight:800}
+.pf{display:block;font-size:14px;color:var(--sub);font-weight:400}
+td.n{white-space:nowrap;width:1.85em;font-size:15px}
+td.tot{white-space:nowrap;width:2.6em}
+th.n{width:1.85em}
+tr.cut td{border-bottom:3px double var(--red)}
+.cutnote{font-size:15px;color:var(--red);font-weight:700;margin:6px 0 0}
+.awards{border:2.5px solid var(--ink);background:var(--card);padding:10px 14px;margin:10px 0}
+.awards div{display:flex;gap:12px;padding:4px 0;font-size:17px}
+.awards b{width:4em;flex:none}
+
+.side-u{color:var(--red)} .side-l{color:var(--blue)}
+
+.pick{list-style:none;margin:8px 0;padding:0;border-top:2px solid var(--ink)}
+.memberline{display:block;margin-top:2px;color:var(--sub);font-size:.8rem;font-weight:400;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+.teamlabel{display:inline-block;max-width:100%;vertical-align:top}
+.pickname{min-width:0}
+.pick button{width:100%;min-height:52px;text-align:left;border:0;border-bottom:1px solid var(--soft);background:transparent;padding:8px 4px;display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:17px}
+.pick button > span:last-child{font-size:14px;color:var(--sub);flex:none}
+.empty{padding:20px 0;color:var(--sub)}
+
+#tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(4,1fr);background:var(--paper);
+  border-top:2.5px solid var(--ink);padding-bottom:env(safe-area-inset-bottom)}
+#tabs button{min-height:62px;border:0;background:transparent;font-size:15px;font-weight:700;line-height:1.3;padding:6px 2px}
+#tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.favs{list-style:none;margin:8px 0;padding:0;border-top:2px solid var(--blue)}
+.favs li{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--soft)}
+.favs .fx{flex:none;min-height:44px;min-width:44px;border:1.5px solid var(--sub);border-radius:6px;background:transparent;color:var(--sub);font-size:14px;font-weight:700}
+.addfav{display:block;width:100%;min-height:48px;margin:8px 0;border:2px dashed var(--blue);border-radius:6px;background:transparent;color:var(--blue);font-weight:800;font-size:16px}
+
+body{background:var(--paper);background-image:none;color:var(--ink);padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0}.wrap{max-width:none;width:auto;padding:0;margin:0}
+header .headin{max-width:640px;margin:auto}.pre{flex-wrap:wrap}.ttl{margin:3px 0}
+#headReload,.headtools button,.courtFilter select,#teamQuery{font:inherit;color:var(--ink);background:var(--card);border:1.5px solid var(--ink);border-radius:6px;padding:5px 10px}
+#headReload{font-weight:700;min-height:44px}.headtools{display:flex;gap:6px}.headtools button{font-size:14px;font-weight:700;min-height:36px}
+#tabs{width:100%;margin:0}#tabs button{border-radius:0;font-size:16px;font-family:inherit}
+main{width:min(100%,660px);margin:auto;padding:0 14px 24px}.panel{display:block}.panel[hidden]{display:none}
+body,.btn,.box .h,h1,h2,h3,.chip,.num{font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic",sans-serif}
+#progressLine{background:var(--ink);color:var(--paper);padding:3px 10px;margin-top:4px;font-weight:700}
+#teamQuery{display:block;width:100%;min-height:46px;margin:5px 0}.headtools{margin-left:auto}
+.pick,.plan,.mlist,.favs{padding-left:0}.pick button{color:var(--ink)}.memberline{font-size:14px}.cn{margin-top:3px}.next .row{display:flex}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.teamlabel b{font-size:17px}.courtFilter{display:flex;align-items:center;gap:8px;margin:10px 0}.courtFilter select{min-height:44px}.mlist li.mine{background:color-mix(in srgb,var(--mark) 30%,transparent);border-left:4px solid var(--red);padding-left:8px}
+#pickBox,#mineBody,#gamesBody{min-width:0}h2{border:0;padding:0}#p-rules .box,#p-rank .box{background:var(--card);color:var(--ink);box-shadow:none;border:1px solid var(--soft);margin:12px 0;padding:12px}
+#p-rules details,#recordsPanel{margin:12px 0}#recordsPanel>summary,.favs~details>summary{padding:10px 0;font-weight:700;color:var(--blue)}
+#sampleBanner,#demoBar{background:var(--ink);color:var(--paper);text-align:center;padding:5px 12px;font-weight:700}
+#sampleDemo{color:var(--blue);margin-left:8px}#fee,.stamp{font-size:14px}.whereLine{margin:8px 0}.ttl h1{font-size:20px}
+html.bigtext main{zoom:1.16}html.bigtext #tabs button{font-size:18px}
+</style></head><body>
+<script>
+/* 表示の切り替え：明るい・暗い／文字の大きさ。最初は端末の設定に合わせ、選んだらこの端末で覚える */
+(function () {
+  var R = document.documentElement, P = 'mk_view_';
+  function g(k) { try { return localStorage.getItem(P + k); } catch (e) { return null; } }
+  function s(k, v) { try { localStorage.setItem(P + k, v); } catch (e) {} }
+  var t = g('theme'); if (t === 'light' || t === 'dark') R.setAttribute('data-theme', t);
+  var f = g('fs'); if (f === 'l' || f === 'xl') R.setAttribute('data-fs', f);
+  var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function isDark() { var a = R.getAttribute('data-theme'); return a ? a === 'dark' : !!(mq && mq.matches); }
+  var MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+  var SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  function all(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+  function paint() {
+    var d = isDark(), fs = R.getAttribute('data-fs') || 'm';
+    all('[data-vc="theme"]').forEach(function (b) { b.innerHTML = d ? SUN : MOON; var l = d ? '明るい画面にする' : '暗い画面にする'; b.setAttribute('aria-label', l); b.title = l; });
+    all('[data-fs-set]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-fs-set') === fs ? 'true' : 'false'); });
+  }
+  function closeAll() { all('.vc-pop').forEach(function (p) { p.hidden = true; }); all('[data-vc="font"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); }); }
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest ? e.target : null;
+    var b = el && el.closest('[data-vc],[data-fs-set]');
+    if (!b) { if (!(el && el.closest('.vc-pop'))) closeAll(); return; }
+    var vc = b.getAttribute('data-vc');
+    if (vc === 'theme') { var n = isDark() ? 'light' : 'dark'; R.setAttribute('data-theme', n); s('theme', n); closeAll(); paint(); }
+    else if (vc === 'font') { var pop = b.parentNode.querySelector('.vc-pop'), open = pop.hidden; closeAll(); pop.hidden = !open; b.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+    else { var v = b.getAttribute('data-fs-set'); if (v === 'm') R.removeAttribute('data-fs'); else R.setAttribute('data-fs', v); s('fs', v); paint(); }
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(); });
+  if (mq && mq.addEventListener) mq.addEventListener('change', paint);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint); else paint();
+})();
+</script>
+
+<div class="wrap">
+  <header><div class="headin"><div class="pre"><span id="when">月いちモルック</span><div class="headtools"><button type="button" id="fontSwitch">大きい文字</button><button type="button" id="themeSwitch">暗くする</button></div></div><div class="ttl"><h1 id="title">月いちモルック</h1><button type="button" id="headReload">最新にする</button></div><div class="stamp"><span id="syncStatus" role="status">読み込み中…</span><button id="syncRetry" hidden>再読み込み</button></div><div id="progressLine" role="status"></div><div class="loadbar" id="loadbar"></div></div></header>
+<nav id="tabs" role="tablist" aria-label="速報のページ"><button data-tab="team" id="t-team" role="tab">自分の<br>試合</button><button data-tab="match" id="t-match" role="tab">試合・<br>コート</button><button data-tab="rank" id="t-rank" role="tab">順位・<br>記録</button><button data-tab="rules" id="t-rules" role="tab">会場・<br>ルール</button></nav>
+  <main>
+    <div id="netBar" class="netbar" hidden role="status"></div>
+    <div id="pendBar" class="pendbar" hidden role="alert"></div>
+    <!-- ===== ルール ===== -->
+    <section class="panel" id="p-rules" role="tabpanel" aria-labelledby="t-rules">
+      <h2>会場・ルール</h2><div class="whereLine" id="where"></div><div>参加費　<span id="fee"></span></div><div class="callout" id="notice">指導員6名在籍なので初心者の方も大歓迎！</div>
+      <nav class="toc" aria-label="ルールの目次">
+        <a href="#r-flow">大会のながれ</a><a href="#r-team">チームの決め方</a><a href="#r-score">試合と得点</a><a href="#r-basic">モルックの基本</a><a href="#r-input">対戦と結果の見方</a><a href="#r-faq">よくある質問</a>
+      </nav>
+
+      <div class="box" id="r-flow">
+        <h2 class="h">大会のながれ</h2>
+        <ol class="flow">
+          <li><div><b>受付（ひとりずつエントリー）</b>参加費 <span id="fee2">1人200円</span>。友だち同士でも、まずは1人ずつ受付します。</div></li>
+          <li><div><b>チーム抽選</b>その日の参加者で、抽選で3人ずつのチームを作ります。お休みのチームが出ないよう、チーム数は偶数にします。</div></li>
+          <li><div><b>総当たり戦</b>2チームで対戦。時間の許す限り、いろいろなチームと当たります。対戦表に出る<b>コート番号</b>を見て移動してください。</div></li>
+          <li><div><b>順位発表</b>全試合の合計点がいちばん高いチームが優勝です。</div></li>
+        </ol>
+      </div>
+
+      <div class="box" id="r-team">
+        <h2 class="h">チームの決め方</h2>
+        <p>チームは基本<b>3人</b>。参加人数によって<b>2〜4人</b>のチームもできます。チーム数はだいたい<b>6〜12チーム</b>で、お休みが出ないよう必ず<b>偶数</b>にします。</p>
+        <h3 class="s">抽選は2段階</h3>
+        <ol class="rules">
+          <li><b>① 経験豊富な人</b>を先に抽選して、各チームに1人ずつ入れます。</li>
+          <li><b>② 残りの人</b>を抽選して、人数がそろうように振り分けます。</li>
+        </ol>
+        <p class="muted" style="margin-top:8px">経験者が各チームにいるので、はじめての人も安心して投げられます。これまでの大会で上位に入ることが多い人どうしも、なるべく別のチームになるように抽選します。</p>
+        <div class="calc" aria-live="polite">
+          <label for="calcN"><b>参加人数でチーム数を見てみる</b></label>
+          <input type="range" id="calcN" min="6" max="40" value="21">
+          <div class="calc-out" id="calcOut"></div>
+        </div>
+      </div>
+
+      <div class="box" id="r-score">
+        <h2 class="h">試合と得点</h2>
+        <ul class="rules">
+          <li><b>2チームで対戦</b>します。</li>
+          <li>1試合は<b>2セット</b>。2セットの得点を<b>足した数</b>が、その試合のチームの得点です。</li>
+          <li>勝ち負けではなく、<b>取った点数がそのまま積み上がります</b>。負けたセットの点も大事です。</li>
+          <li>大会の順位は<b>全試合の合計点</b>が高い順。</li>
+        </ul>
+        <h3 class="s">例えば</h3>
+        <div class="ex">
+          <div><div class="tm">チーム1</div><div class="calcline num">50＋32</div><div class="big num" style="font-size:1.5rem">82点</div></div>
+          <div class="vs">VS</div>
+          <div><div class="tm">チーム2</div><div class="calcline num">41＋50</div><div class="big num" style="font-size:1.5rem">91点</div></div>
+        </div>
+        <p class="muted" style="margin-top:8px">この試合で、チーム1の合計に82点、チーム2の合計に91点が加わります。</p>
+      </div>
+
+      <div class="box" id="r-basic">
+        <h2 class="h">モルックの基本（はじめての方へ）</h2>
+        <ul class="rules">
+          <li>木の棒「モルック」を<b>下手投げ</b>でピンに向かって投げます。チーム内で順番に1投ずつ。</li>
+          <li><b>1本だけ</b>倒れたら、そのピンの<b>数字</b>が得点。</li>
+          <li><b>2本以上</b>倒れたら、倒れた<b>本数</b>が得点。</li>
+          <li><b>ぴったり50点</b>で上がり。50点を超えたら<b>25点</b>に戻ります。</li>
+          <li>倒れたピンは、倒れた場所で立てて次の投てきへ。</li>
+          <li>1本も倒せない投てきが<b>3回連続</b>すると、<b>そのセットは0点</b>になります。</li>
+        </ul>
+        <h3 class="s">ピンをタップして体験</h3>
+        <div class="sim">
+          <div class="pins" id="pins" aria-label="ピンの並び"></div>
+          <div class="sim-score"><span>今回 <b class="big num" id="simNow">0</b> 点</span><span>合計 <b class="big num" id="simTot">0</b> 点</span></div>
+          <div class="sim-msg" id="simMsg" aria-live="polite">倒したいピンをタップして「投げる」</div>
+          <div class="actions"><button class="btn primary" id="simThrow">投げる</button><button class="btn ghost" id="simReset">最初から</button></div>
+        </div>
+        <p class="muted" style="margin-top:8px">細かいルールは当日、指導員がやさしく教えてくれます。</p>
+      </div>
+
+      <div class="box" id="r-input">
+        <h2 class="h">対戦と結果の見方</h2>
+        <ol class="flow">
+          <li><div><b>「対戦・結果」を開く</b>自分のチームを選ぶと、自分の試合だけ見やすくなります。</div></li>
+          <li><div><b>自分のコートで試合</b>試合が終わったら、各チームの2セット合計点を運営へ伝えてください。</div></li>
+          <li><div><b>「順位」で確認</b>運営が登録すると合計点と順位に反映されます。訂正は運営へお知らせください。</div></li>
+        </ol>
+        <div class="actions" style="margin-top:10px"><button class="btn cyan" data-go="match">対戦・結果へ</button><button class="btn" data-go="rank">順位を見る</button></div>
+      </div>
+
+      <div class="box" id="r-faq">
+        <h2 class="h">よくある質問</h2>
+        <details class="faq"><summary>モルックをやったことがなくても大丈夫？</summary><p>大丈夫です。指導員が6名在籍しています。各チームに経験者が入るように抽選するので、投げ方もその場で教われます。</p></details>
+        <details class="faq"><summary>ひとりで参加してもいい？</summary><p>もちろんです。個人エントリーなので、ひとりで来た方も抽選でチームに入ります。</p></details>
+        <details class="faq"><summary>子どもも参加できる？</summary><p>小学生もガンガン投げています。家族での参加も大歓迎です。</p></details>
+        <details class="faq"><summary>知り合いと同じチームで出たい</summary><p>受付のときに運営へ伝えてください。</p></details>
+        <details class="faq"><summary>途中から来る・途中で帰るときは？</summary><p>早めに帰る予定が分かっている方は、受付のときに伝えてください。抜けても2人以上残るチームに入れます。急に帰ることになったときも運営に伝えてください。大会の途中でも、チームのメンバーやチーム数を組み替えることがあります。そのときは対戦表も新しくなるので、「対戦・結果」で次の相手を確認してください。それまでに取った点数はそのまま残ります。</p></details>
+        <details class="faq"><summary>「覇者」「覇王戦」って？</summary><p>毎月の大会で優勝したチームのメンバーは「覇者」です。ときどき開催される「覇王戦」（個人戦）には、前回の覇王戦より後に優勝した覇者だけが出場できます。今の覇者は「記録」タブで見られます。</p></details>
+        <details class="faq"><summary>どうやって申し込むの？</summary><p>インスタグラム <b id="insta">@izumi_molkky</b> にDMをください。県内の方も県外の方もお待ちしています。</p></details>
+      </div>
+    </section>
+
+<section id="p-team" role="tabpanel" aria-labelledby="t-team"><div id="pickBox"><h2>自分のチームを選ぶ</h2><label for="teamQuery">チーム名・メンバー名で探す</label><input id="teamQuery" type="search" placeholder="名前を入力" autocomplete="off"><ul class="pick" id="teamPickList"></ul></div><div id="mineBody"></div></section>
+<section id="p-match" role="tabpanel" aria-labelledby="t-match" hidden><div id="gamesBody"></div></section>
+<section id="p-rank" role="tabpanel" aria-labelledby="t-rank" hidden><h2>順位・記録</h2><div id="rankBody"></div><div id="champBox"></div><details id="recordsPanel"><summary>過去の個人成績・覇王戦を見る</summary>
+      <div class="box plain" style="display:grid;gap:10px">
+        <div class="recsum" id="recSum"></div>
+        <div class="chiprow" id="recYears"></div>
+        <input class="input" id="recSearch" type="search" autocomplete="off" placeholder="名前で探す" aria-label="名前で探す">
+      </div>
+      <div class="box haoh" id="haohBox" hidden></div>
+      <div class="reclist" id="recList"><div class="box plain empty"><b>記録を読み込んでいます</b></div></div>
+      <p class="muted">記録は、運営がその月の大会を「リセット」したときに、その日の順位と一緒に残ります。</p>
+    </details></section>
+  </main>
+  <p class="mk-ver" style="margin:28px 16px 20px;text-align:center;font-size:13px;line-height:1.6;color:var(--muted,#777)">版 2026.11.22</p>
+</div>
+
+<div class="ov" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+/* 版番号：コードを直したら3ファイル（Code.gs・Index・Admin）とも同じ日付に変える。運営画面の下に出る */
+function mk_suggestTeams(n) {
+  /* 休みが出ないよう偶数チーム。1チーム3人に近くなる数を選ぶ */
+  if (n < 4) return 2;
+  var best = 2, bestD = Infinity;
+  for (var t = 2; t <= n / 2; t += 2) {
+    var d = Math.abs(n / t - 3);
+    if (d < bestD - 1e-9) { best = t; bestD = d; }
+  }
+  return best;
+}
+
+/* チーム抽選：経験豊富者 → 各チームへ1人ずつ、残り → 人数の少ないチームへ。固定ペアはまとめて1つの単位として扱う。
+   早めに帰る人がいるときは、その人が抜けても2人以上残るチーム（または全員が早帰りで丸ごと解散できるチーム）になるよう入れ替える */
+function mk_num(v) { return v === '' || v === null || v === undefined ? null : Number(v); }
+function mk_total(m, side) {
+  var first = mk_num(m[side + '1']), second = mk_num(m[side + '2']);
+  if (first !== null && second !== null) return first + second;
+  return mk_num(m[side === 'a' ? 'totalA' : 'totalB']);
+}
+function mk_hasResult(m) {
+  return ['a','b'].every(function (side) {
+    var total = mk_total(m, side);
+    return total !== null && Number.isInteger(total) && total >= 0 && total <= 100;
+  });
+}
+function mk_normDate(s) {
+  var m = /^\s*(\d{4})[-\/.年](\d{1,2})[-\/.月](\d{1,2})日?\s*$/.exec(String(s || ''));
+  if (!m) return '';
+  var p = function (n) { return (Number(n) < 10 ? '0' : '') + Number(n); };
+  return m[1] + '-' + p(m[2]) + '-' + p(m[3]);
+}
+function mk_teamLabel(no) {
+  var label = '';
+  for (var n = Math.floor(Number(no)); Number.isFinite(n) && n > 0; n = Math.floor((n - 1) / 26)) {
+    label = String.fromCharCode(65 + (n - 1) % 26) + label;
+  }
+  return label;
+}
+var MK_SEASON_START = '2025-11-22';
+function mk_haohStatus(rows, haoh, roster) {
+  var last = (haoh || []).reduce(function (a, h) { return !a || h.date > a.date ? h : a; }, null);
+  var cutoff = last ? last.date : '';
+  var nm = {};
+  (roster || []).forEach(function (r) { nm[r.id] = r.name; });
+  var by = {};
+  (rows || []).forEach(function (r) {
+    if (Number(r.rank) !== 1 || !r.date || (mk_normDate(r.date) < MK_SEASON_START || (mk_normDate(cutoff) > MK_SEASON_START && mk_normDate(r.date) <= mk_normDate(cutoff)))) return;
+    var key = r.mid || ('n:' + r.name);
+    var e = by[key] || (by[key] = { key: key, name: nm[r.mid] || r.name, wins: 0, dates: {}, last: '' });
+    if (e.dates[r.date]) return;
+    e.dates[r.date] = 1; e.wins++;
+    if (r.date > e.last) e.last = r.date;
+  });
+  var list = Object.keys(by).map(function (k) { var e = by[k]; delete e.dates; return e; })
+    .sort(function (a, b) { return b.wins - a.wins || (a.last < b.last ? -1 : a.last > b.last ? 1 : 0); });
+  return { last: last, cutoff: cutoff, nextNo: (haoh || []).reduce(function (mx, h) { return Math.max(mx, h.no || 0); }, 0) + 1, eligible: list };
+}
+
+/* mk: true は「ルールで受け付けなかった」印。これがないエラー（混雑・シートの一時的な失敗）は、画面側で送り直してよい */
+</script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem('mk_' + k); return v === null ? d : v; } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem('mk_' + k, v); } catch (e) {} },
+    sget: function (k) { try { return sessionStorage.getItem('mk_' + k) || ''; } catch (e) { return MEM[k] || ''; } },
+    sset: function (k, v) { MEM[k] = v; try { sessionStorage.setItem('mk_' + k, v); } catch (e) {} }
+  };
+  var MEM = {};
+  var sheetId = new URLSearchParams(location.search).get('sheet') || '';
+
+  var S = null;
+  var ui = { tab: 'rules', myTeam: Number(store.get('myTeam', '0')) || 0, filter: 'all', busy: 0, modal: false };
+
+
+
+  /* ---------- 通信 ---------- */
+  var archive = {"state":{"players":[],"teams":[],"matches":[],"standings":[],"champions":[],"settings":{"大会名":"月いちモルック","場所":"B&G海洋センター ゲートボールコート","住所":"香川県高松市国分寺町新名2069-1","参加費":"1人200円"},"previousResult":{"date":"2026-11-21","standings":[{"name":"E","total":660,"members":"マルック・kenji","rank":1,"played":"―"},{"name":"F","total":657,"members":"コトリン・イオリちゃん","rank":2,"played":"―"},{"name":"A","total":648,"members":"えだまめ・ヤマップ","rank":3,"played":"―"},{"name":"D","total":591,"members":"てつ・カリヤス・学園長","rank":4,"played":"―"},{"name":"C","total":589,"members":"ナオキックス・マギー","rank":5,"played":"―"},{"name":"H","total":572,"members":"モモ・ランコム・Yosi","rank":6,"played":"―"},{"name":"B","total":490,"members":"リクくん・りくママ・ゆきちゃん・りんごちゃん","rank":7,"played":"―"},{"name":"G","total":434,"members":"あいちゃん・96・ナギ","rank":8,"played":"―"}]},"updatedAt":"2026/11/21"},"records":{"rows":[{"name":"マルック","rank":1,"date":"2026-11-21","team":"E","total":660,"teams":8},{"name":"kenji","rank":1,"date":"2026-11-21","team":"E","total":660,"teams":8},{"name":"コトリン","rank":2,"date":"2026-11-21","team":"F","total":657,"teams":8},{"name":"イオリちゃん","rank":2,"date":"2026-11-21","team":"F","total":657,"teams":8},{"name":"えだまめ","rank":3,"date":"2026-11-21","team":"A","total":648,"teams":8},{"name":"ヤマップ","rank":3,"date":"2026-11-21","team":"A","total":648,"teams":8},{"name":"てつ","rank":4,"date":"2026-11-21","team":"D","total":591,"teams":8},{"name":"カリヤス","rank":4,"date":"2026-11-21","team":"D","total":591,"teams":8},{"name":"学園長","rank":4,"date":"2026-11-21","team":"D","total":591,"teams":8},{"name":"ナオキックス","rank":5,"date":"2026-11-21","team":"C","total":589,"teams":8},{"name":"マギー","rank":5,"date":"2026-11-21","team":"C","total":589,"teams":8},{"name":"モモ","rank":6,"date":"2026-11-21","team":"H","total":572,"teams":8},{"name":"ランコム","rank":6,"date":"2026-11-21","team":"H","total":572,"teams":8},{"name":"Yosi","rank":6,"date":"2026-11-21","team":"H","total":572,"teams":8},{"name":"リクくん","rank":7,"date":"2026-11-21","team":"B","total":490,"teams":8},{"name":"りくママ","rank":7,"date":"2026-11-21","team":"B","total":490,"teams":8},{"name":"ゆきちゃん","rank":7,"date":"2026-11-21","team":"B","total":490,"teams":8},{"name":"りんごちゃん","rank":7,"date":"2026-11-21","team":"B","total":490,"teams":8},{"name":"あいちゃん","rank":8,"date":"2026-11-21","team":"G","total":434,"teams":8},{"name":"96","rank":8,"date":"2026-11-21","team":"G","total":434,"teams":8},{"name":"ナギ","rank":8,"date":"2026-11-21","team":"G","total":434,"teams":8},{"name":"マルック","date":"2025-12-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"つーじー","date":"2025-12-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"学園長","date":"2025-12-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"マルック","date":"2026-02-22","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"つーじー","date":"2026-02-22","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"かおりん","date":"2026-02-22","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"マルック","date":"2026-03-15","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"コトリン","date":"2026-03-15","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"マルック","date":"2026-04-25","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"アンリ","date":"2026-04-25","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"96","date":"2026-04-25","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ねこ","date":"2026-05-16","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"やきとり","date":"2026-05-16","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"アンノリ","date":"2026-06-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ヤマップ","date":"2026-06-20","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ナオキックス","date":"2026-07-11","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"アンリ","date":"2026-07-11","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"河野くん","date":"2026-07-11","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ナオキックス","date":"2026-08-29","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"とめ","date":"2026-08-29","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ゆかり","date":"2026-08-29","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"クラ","date":"2026-08-29","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"コトリン","date":"2026-09-19","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ランコム","date":"2026-09-19","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"アンノリ","date":"2026-09-19","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"チキン","date":"2026-09-19","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ナオキックス","date":"2026-10-24","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"ランコム","date":"2026-10-24","rank":1,"team":"優勝チーム（過去の記録）","total":null},{"name":"きうち","date":"2026-10-24","rank":1,"team":"優勝チーム（過去の記録）","total":null}],"roster":[],"haoh":[{"no":1,"name":"やきとり","date":"2025-11-22"}]}};
+  var requests = {};
+  function call(action) {
+    if (requests[action]) return requests[action];
+    var state = action === 'state', column = state ? 'A' : 'B';
+    setBusy(1);
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 18000);
+    requests[action] = Promise.resolve().then(function () {
+      if (!/^[a-zA-Z0-9_-]{20,120}$/.test(sheetId)) throw new Error('大会の参加者用リンクから開いてください。');
+      var url = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/gviz/tq?headers=0&sheet=' +
+        encodeURIComponent('速報') + '&range=' + column + ':' + column + '&tqx=out:json';
+      return fetch(url,{cache:'no-store',credentials:'omit',signal:controller.signal});
+    }).then(function (response) {
+      if (!response.ok) throw new Error('速報を取得できませんでした。');
+      return response.text();
+    }).then(function (body) {
+      var start = body.indexOf('{'), end = body.lastIndexOf('}');
+      var table = JSON.parse(body.slice(start,end+1)).table;
+      var cells = table.rows.map(function (row) { return row.c[0] ? String(row.c[0].v) : ''; });
+      if (cells.shift() !== (state ? '月いち速報1' : '月いち記録1')) throw new Error('公開データの形式を確認してください。');
+      var data = JSON.parse(cells.filter(Boolean).map(function (chunk) {
+        if (chunk[0] !== 'j') throw new Error('速報の読み込みに失敗しました。');
+        return chunk.slice(1);
+      }).join(''));
+      if (state) { S = data; $('syncStatus').textContent = data.updatedAt + ' 更新'; $('syncRetry').hidden = true; }
+      return state ? {state:data} : {extra:data};
+    }).catch(function (error) {
+      if (state) {
+        $('syncStatus').textContent = S ? '更新できませんでした。' + S.updatedAt + ' 時点の内容を表示しています。' :
+          (sheetId ? '大会情報を取得できません。通信状況または速報用シートの公開設定をご確認ください。' : '大会の参加者用リンクから開いてください。');
+        $('syncRetry').hidden = false;
+      }
+      throw error;
+    }).finally(function () { clearTimeout(timer); delete requests[action]; setBusy(-1); });
+    return requests[action];
+  }
+  function setBusy(d) { ui.busy = Math.max(0, ui.busy + d); $('loadbar').classList.toggle('on', ui.busy > 0); }
+
+  var toastT;
+  function toast(msg, bad) {
+    var t = $('toast'); t.textContent = msg; t.classList.toggle('bad', !!bad); t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, bad ? 4200 : 2400);
+  }
+  function fail(e) {
+    toast(e && e.message ? e.message : 'うまくいきませんでした', true);
+  }
+
+  /* ---------- 共通 ---------- */
+  var WD = ['日', '月', '火', '水', '木', '金', '土'];
+  function fmtDate(s) {
+    var m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(s || ''));
+    if (!m) return String(s || '');
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    var y = Number(m[1]) !== new Date().getFullYear() ? m[1] + '年' : '';
+    return y + Number(m[2]) + '月' + Number(m[3]) + '日(' + WD[d.getDay()] + ')';
+  }
+  function teamName(no) { if (!S) return mk_teamLabel(no); var t = S.teams.filter(function (x) { return x.no === no; })[0]; return t ? t.name : mk_teamLabel(no) + '（解散）'; }
+  function members(no) { return S.players.filter(function (p) { return p.team === no; }); }
+  function tot(m, side) { return mk_total(m, side); }
+  function sizeText(n, t) {
+    if (!t || n < t) return '';
+    var base = Math.floor(n / t), extra = n % t, parts = [];
+    if (extra) parts.push((base + 1) + '人 × ' + extra + 'チーム');
+    if (t - extra) parts.push(base + '人 × ' + (t - extra) + 'チーム');
+    return parts.join('、');
+  }
+
+  /* ---------- 大会情報 ---------- */
+  function renderInfo() {
+    var s = S.settings;
+    var name = s['大会名'] || '月いちモルック';
+    var m = /^(.*?)(モルック)$/.exec(name);
+    $('title').textContent = name + ' 速報';
+    $('when').textContent = s['開催日'] ? fmtDate(s['開催日']) + ' ' + (s['時間'] || '') : '次回の開催日は準備中';
+    $('where').innerHTML = esc(s['場所'] || '') + (s['住所'] ? '<small>' + esc(s['住所']) + '</small>' : '');
+    $('fee').textContent = s['参加費'] || '';
+    $('fee2').textContent = s['参加費'] || '';
+    $('notice').textContent = s['お知らせ'] || '';
+    $('notice').hidden = !s['お知らせ'];
+    $('insta').textContent = '@' + (s['インスタ'] || 'izumi_molkky');
+    document.title = name;
+  }
+
+
+  /* ---------- ルールの体験 ---------- */
+  $('calcN').addEventListener('input', calcTeams);
+  function calcTeams() {
+    var n = Number($('calcN').value), t = mk_suggestTeams(n);
+    $('calcOut').textContent = n + '人なら ' + t + 'チーム（' + sizeText(n, t) + '）';
+  }
+  calcTeams();
+
+  var LAYOUT = [[7, 9, 8], [5, 11, 12, 6], [3, 10, 4], [1, 2]];
+  var sim = { tot: 0, miss: 0, down: {} };
+  $('pins').innerHTML = LAYOUT.map(function (row) {
+    return '<div class="row">' + row.map(function (n) { return '<button class="pin" data-pin="' + n + '" aria-pressed="false" aria-label="' + n + 'のピン">' + n + '</button>'; }).join('') + '</div>';
+  }).join('');
+  function simNow() { var ks = Object.keys(sim.down); return ks.length === 1 ? Number(ks[0]) : ks.length; }
+  $('pins').querySelectorAll('[data-pin]').forEach(function (b) {
+    b.onclick = function () {
+      var n = b.dataset.pin;
+      if (sim.down[n]) delete sim.down[n]; else sim.down[n] = 1;
+      b.setAttribute('aria-pressed', sim.down[n] ? 'true' : 'false');
+      var k = Object.keys(sim.down).length;
+      $('simNow').textContent = simNow();
+      $('simMsg').textContent = k === 0 ? '倒したいピンをタップして「投げる」' : k === 1 ? '1本だけ → ピンの数字 ' + n + ' 点' : k + '本倒れた → 本数の ' + k + ' 点';
+    };
+  });
+  $('simThrow').onclick = function () {
+    if (sim.tot === 50) { $('simMsg').textContent = '上がりです！もう一度は「最初から」を押してください'; return; }
+    var pts = simNow();
+    if (!pts) {
+      sim.miss++;
+      $('simMsg').textContent = sim.miss >= 3 ? '3回連続でミス…そのセットは0点です' : '0点（ミス ' + sim.miss + '回目）';
+      if (sim.miss >= 3) { sim.miss = 0; sim.tot = 0; }
+    } else {
+      sim.miss = 0;
+      var t = sim.tot + pts;
+      if (t === 50) { $('simMsg').textContent = 'ぴったり50点！上がりです'; sim.tot = 50; }
+      else if (t > 50) { $('simMsg').textContent = t + '点で50点オーバー → 25点に戻ります'; sim.tot = 25; }
+      else { $('simMsg').textContent = '+' + pts + '点。あと' + (50 - t) + '点'; sim.tot = t; }
+    }
+    $('simTot').textContent = sim.tot;
+    sim.down = {}; $('simNow').textContent = 0;
+    $('pins').querySelectorAll('[data-pin]').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+  };
+  $('simReset').onclick = function () { sim = { tot: 0, miss: 0, down: {} }; $('simTot').textContent = 0; $('simNow').textContent = 0; $('simMsg').textContent = '倒したいピンをタップして「投げる」'; $('pins').querySelectorAll('[data-pin]').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); }); };
+
+  /* ---------- 記録・名簿 ---------- */
+  var REC = null, recYear = store.get('recPeriod2', 'season'), recLoading = false;
+  function loadRecords() {
+    if (!sheetId || recLoading) return;
+    recLoading = true;
+    call('records').then(function (r) { recLoading = false; REC = r.extra; renderRecords(); })
+      .catch(function () { recLoading = false; if (!REC) $('recList').innerHTML = '<div class="box plain empty"><b>記録を読み込めませんでした</b>電波の良い場所で、もう一度「記録」を開いてください。</div>'; });
+  }
+  function memberStats(rows) {
+    var by = {};
+    rows.forEach(function (r) {
+      var key = r.mid || ('n:' + r.name);
+      var m = by[key] || (by[key] = { key: key, name: r.name, dates: {}, wins: 0, pod: 0, best: 0, list: [] });
+      if (m.dates[r.date]) return;
+      m.dates[r.date] = 1;
+      m.name = r.name;
+      if (r.rank === 1) m.wins++;
+      if (r.rank && r.rank <= 3) m.pod++;
+      if (r.rank && (!m.best || r.rank < m.best)) m.best = r.rank;
+      m.list.push(r);
+    });
+    var rn = {};
+    (REC && REC.roster || []).forEach(function (x) { rn[x.id] = x.name; });
+    return Object.keys(by).map(function (k) {
+      var m = by[k];
+      if (rn[k]) m.name = rn[k];
+      m.count = Object.keys(m.dates).length;
+      m.list.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+      m.last = m.list[0] ? m.list[0].date : '';
+      return m;
+    });
+  }
+  function renderRecords() {
+    if (!REC) { if (ui.tab === 'rank' && $('recordsPanel').open) loadRecords(); return; }
+    renderHaoh();
+    var kingMap = haohKings();
+    var all = REC.rows || [];
+    var years = {};
+    all.forEach(function (r) { var y = String(r.date).slice(0, 4); if (/^\d{4}$/.test(y)) years[y] = 1; });
+    var ys = Object.keys(years).sort().reverse();
+    if (recYear && recYear !== 'season' && !years[recYear]) recYear = 'season';
+    $('recYears').innerHTML = ['<button class="chip" data-y="season" aria-pressed="' + (recYear === 'season') + '">今シーズン（2025/11/22〜）</button>', '<button class="chip" data-y="" aria-pressed="' + (recYear ? 'false' : 'true') + '">通算</button>'].concat(ys.map(function (y) {
+      return '<button class="chip" data-y="' + y + '" aria-pressed="' + (recYear === y ? 'true' : 'false') + '">' + y + '年</button>';
+    })).join('');
+    $('recYears').querySelectorAll('[data-y]').forEach(function (b) { b.onclick = function () { recYear = b.dataset.y; store.set('recPeriod2', recYear); renderRecords(); }; });
+    var rows = recYear === 'season' ? all.filter(function (r) {return mk_normDate(r.date) >= MK_SEASON_START;}) : recYear ? all.filter(function (r) { return String(r.date).slice(0, 4) === recYear; }) : all;
+    var stats = memberStats(rows).sort(function (a, b) { return b.count - a.count || b.wins - a.wins || b.pod - a.pod || (a.name < b.name ? -1 : 1); });
+    var dates = {}; rows.forEach(function (r) { dates[r.date] = 1; });
+    $('recSum').innerHTML = '<span>開催 <b class="num">' + Object.keys(dates).length + '</b> 回</span><span>参加した人 <b class="num">' + stats.length + '</b> 人</span><span>のべ <b class="num">' + stats.reduce(function (a, m) { return a + m.count; }, 0) + '</b> 人</span>';
+    if (recYear === 'season' && !rows.some(function(r){return mk_normDate(r.date) === MK_SEASON_START && Number(r.rank) === 1;})) {
+      $('recSum').insertAdjacentHTML('beforeend','<small>シーズン第1回は2025年11月22日。月例優勝者は記録待ちです。</small>');
+    }
+    var q = $('recSearch').value.trim();
+    var shown = q ? stats.filter(function (m) { return m.name.indexOf(q) >= 0; }) : stats;
+    if (!stats.length) {
+      $('recList').innerHTML = '<div class="box plain empty"><b>まだ記録がありません</b>大会のあとに運営が「リセット」すると、その日の参加と順位がここに残ります。</div>';
+      return;
+    }
+    $('recList').innerHTML = shown.length ? shown.map(function (m) {
+      var kc = kingMap[m.key] || 0;
+      return '<details class="rec"><summary><span class="nm">' + esc(m.name) + (kc ? ' <span class="crown">覇王' + (kc > 1 ? '×' + kc : '') + '</span>' : '') + '</span><span class="stats">' +
+        '<span class="stat num">参加' + m.count + '回</span>' +
+        (m.wins ? '<span class="stat win num">覇者' + m.wins + '回</span>' : '') +
+        (m.pod ? '<span class="stat pod num">3位以内' + m.pod + '</span>' : '') +
+        '</span></summary><div class="rechist"><table><thead><tr><th>開催日</th><th>チーム</th><th>順位</th><th>合計点</th></tr></thead><tbody>' +
+        m.list.map(function (r) {
+          return '<tr><td>' + esc(fmtDate(r.date)) + '</td><td>' + esc(r.team) + '</td><td class="num' + (r.rank === 1 ? ' r1' : '') + '">' + r.rank + '位' + (r.teams ? ' / ' + r.teams : '') + '</td><td class="num">' + (r.total == null ? '―' : r.total + '点') + '</td></tr>';
+        }).join('') + '</tbody></table></div></details>';
+    }).join('') : '<div class="box plain empty"><b>「' + esc(q) + '」に当てはまる人はいません</b></div>';
+  }
+  $('recSearch').addEventListener('input', renderRecords);
+
+  function haohKings() {
+    var k = {};
+    (REC && REC.haoh || []).forEach(function (h) { k[h.mid || ('n:' + h.name)] = (k[h.mid || ('n:' + h.name)] || 0) + 1; });
+    return k;
+  }
+  function renderHaoh() {
+    if (!REC) return;
+    var hs = mk_haohStatus(REC.rows || [], REC.haoh || [], REC.roster || []);
+    var kings = (REC.haoh || []).slice().sort(function (a, b) { return b.no - a.no; });
+    var box = $('haohBox');
+    box.hidden = !kings.length && !hs.eligible.length;
+    box.innerHTML = '<h2 class="h" style="margin:0">覇王戦</h2>' +
+      (kings.length ? '<ul class="kings">' + kings.map(function (h) {
+        return '<li><span class="no">第' + h.no + '回</span><span class="kn">' + esc(h.name) + '</span><span class="crown">覇王</span><span class="muted">' + esc(fmtDate(h.date)) + '</span></li>';
+      }).join('') + '</ul>' : '') +
+      '<div><b>次の覇王戦に出られる覇者</b> <span class="muted num">' + hs.eligible.length + '人</span>' + (hs.cutoff ? ' <span class="muted" style="white-space:nowrap">（' + esc(fmtDate(hs.cutoff)) + (mk_normDate(hs.cutoff) <= MK_SEASON_START ? '以降' : 'より後') + '）</span>' : '') + '</div>' +
+      (hs.eligible.length ? '<div class="elig">' + hs.eligible.map(function (e) { return '<span>' + esc(e.name) + (e.wins > 1 ? '<small class="num">×' + e.wins + '</small>' : '') + '</span>'; }).join('') + '</div>'
+        : '<p class="muted" style="margin:0">まだいません。次の大会で優勝すると、ここに名前が入ります。</p>');
+  }
+
+
+  /* ---------- 全体 ---------- */
+  var selectedRound = '', selectedCourt = 0, choosing = false;
+  var favourites = [];
+  try { favourites = JSON.parse(store.get('courtFavs','[]')); } catch (_) {}
+  if (!Array.isArray(favourites)) favourites = [];
+  function roundKey(m) { return m.cycle + '-' + m.round; }
+  function roundTitle(m) { return (m.cycle > 1 ? m.cycle + '巡目・' : '') + '第' + m.round + 'ラウンド'; }
+  function sortedMatches() {
+    return S.matches.slice().sort(function(a,b) { return a.cycle-b.cycle || a.round-b.round || a.wave-b.wave || a.court-b.court; });
+  }
+  function teamLabel(no) {
+    var names = members(no).map(function(p) { return p.name; });
+    return '<span class="teamlabel"><b>'+esc(teamName(no))+'</b><small class="memberline">'+esc(names.join('・'))+'</small></span>';
+  }
+  function badge(m,big) {
+    return '<span class="cn'+(big?' big':'')+'" aria-label="'+esc(m.court)+'コート">'+esc(m.court)+'</span>';
+  }
+  function sideScore(m,team) { return tot(m, m.a === team ? 'a' : 'b'); }
+  function teamMatches(no) { return sortedMatches().filter(function(m){return m.a===no || m.b===no;}); }
+  function opponent(m,no) {return m.a===no ? m.b : m.a;}
+  function wave(m) {return m.wave>1 ? '・'+m.wave+'組目' : '';}
+  function teamPicker() {
+    var query = $('teamQuery').value.trim().normalize('NFKC').toLowerCase();
+    var teams = S.teams.filter(function(t){return [t.name].concat(members(t.no).map(function(p){return p.name;})).join(' ').normalize('NFKC').toLowerCase().includes(query);});
+    $('teamPickList').innerHTML = teams.length ? teams.map(function(t){return '<li><button data-pick="'+t.no+'">'+teamLabel(t.no)+'<span>選ぶ ›</span></button></li>';}).join('') :
+      '<li class="note">'+(S.teams.length?'該当するチームがありません。':'抽選後にチームが表示されます。')+'</li>';
+  }
+function mk_boardOrder(group, teamNos, courts) {
+  if (courts < 4 || teamNos.length !== 8 || group.length !== 4) return null;
+  var round = Number(group[0].round);
+  if (round < 1 || round > 7 || !Number.isInteger(round)) return null;
+  var ring = teamNos.slice().sort(function (a,b) { return a-b; });
+  for (var r = 1; r < round; r++) ring.splice(1, 0, ring.pop());
+  var ordered = [];
+  for (var c = 0; c < 4; c++) {
+    var a = ring[c], b = ring[7-c];
+    var match = group.find(function (m) { return (m.a === a && m.b === b) || (m.a === b && m.b === a); });
+    if (!match) return null;
+    ordered.push(match);
+  }
+  return ordered;
+}
+
+
+  function alignVenue(state) {
+    if(!state || Number(state.courts)<4 || !Array.isArray(state.matches))return;
+    var groups = new Map(), cycles = new Map();
+    state.matches.forEach(function(m){
+      if(!cycles.has(m.cycle))cycles.set(m.cycle,new Set());
+      cycles.get(m.cycle).add(m.a).add(m.b);
+      var k=roundKey(m); if(!groups.has(k))groups.set(k,[]); groups.get(k).push(m);
+    });
+    groups.forEach(function(group){
+      var ordered=mk_boardOrder(group,Array.from(cycles.get(group[0].cycle)),Number(state.courts));
+      if(ordered)ordered.forEach(function(m,i){m.court=i+1;m.wave=1;});
+    });
+  }
+
+  function renderMine() {
+    var no = ui.myTeam;
+    $('pickBox').hidden = !!no && !choosing;
+    if (!$('pickBox').hidden) teamPicker();
+    if (!no) { $('mineBody').innerHTML=''; return; }
+    var list=teamMatches(no), next=list.find(function(m){return !mk_hasResult(m);});
+    var h='<div class="myhead"><div class="nm">'+teamLabel(no)+'</div><button class="btn" data-change>変更</button></div>';
+    if(next) h+='<div class="next"><div class="lbl">次の試合</div><div class="row">'+badge(next,true)+'<div><div class="when">'+next.court+'コート</div><div class="what">'+roundTitle(next)+wave(next)+'</div></div></div><div class="vs">対戦相手　'+teamLabel(opponent(next,no))+'</div></div>';
+    else h+='<p class="next">'+(list.length?'このチームの試合はすべて終了しました。':'対戦表を準備しています。')+'</p>';
+    if(list.length) h+='<h2>自分の試合予定・結果</h2><ul class="plan">'+list.map(function(m){
+      return '<li'+(m===next?' class="cur"':'')+'>'+badge(m,false)+'<div><div class="t">'+roundTitle(m)+wave(m)+'</div><div class="o">'+teamLabel(opponent(m,no))+'</div><div class="s">'+(mk_hasResult(m)?'自分 '+sideScore(m,no)+'点 ／ 相手 '+sideScore(m,opponent(m,no))+'点':'結果待ち')+'</div></div></li>';
+    }).join('')+'</ul>';
+    var peers=S.teams.filter(function(t){return t.no!==no;});
+    if(peers.length) h+='<h2>仲間のチーム</h2><ul class="favs">'+peers.filter(function(t){return favourites.includes(t.no);}).map(function(t){
+      var q=teamMatches(t.no).find(function(m){return !mk_hasResult(m);});return '<li>'+(q?badge(q,false):'')+'<div>'+teamLabel(t.no)+'<div class="note">'+(q?roundTitle(q)+'・相手 '+esc(teamName(opponent(q,t.no))):'次の試合はありません')+'</div></div><button class="fx" data-fav="'+t.no+'">外す</button></li>';
+    }).join('')+'</ul><details><summary>仲間のチームを選ぶ</summary><ul class="pick">'+peers.map(function(t){return '<li><button data-fav="'+t.no+'">'+teamLabel(t.no)+'<span>'+(favourites.includes(t.no)?'登録済み':'追加')+'</span></button></li>';}).join('')+'</ul></details>';
+    $('mineBody').innerHTML=h;
+  }
+  function renderGames() {
+    var list=sortedMatches(), groups=new Map();
+    list.forEach(function(m){var k=roundKey(m);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(m);});
+    if(!list.length){$('gamesBody').innerHTML='<p class="empty">抽選後に対戦表が表示されます。</p>';return;}
+    var first=list.find(function(m){return !mk_hasResult(m);}) || list[list.length-1];
+    var active=groups.has(selectedRound)?selectedRound:roundKey(first);
+    var draw=groups.get(active);
+    var h='<h2>試合・コート</h2><div class="chips" aria-label="ラウンドを選ぶ">'+Array.from(groups.entries()).map(function(g){
+      return '<button class="chip'+(g[0]===active?' on':'')+'" aria-pressed="'+(g[0]===active)+'" data-round="'+g[0]+'">'+(g[1][0].cycle>1?g[1][0].cycle+'巡・':'')+'第'+g[1][0].round+'R</button>';
+    }).join('')+'</div><label class="courtFilter">コート <select id="courtSelect"><option value="0">すべて</option>';
+    var ns=Array.from(new Set(list.map(function(m){return m.court;}))).sort(function(a,b){return a-b;});
+    if(!ns.includes(selectedCourt))selectedCourt=0;
+    ns.forEach(function(c){h+='<option value="'+c+'"'+(c===selectedCourt?' selected':'')+'>'+c+'コート</option>';});
+    h+='</select></label><div class="rhead"><b class="t">'+roundTitle(draw[0])+'</b>　'+draw.filter(mk_hasResult).length+' / '+draw.length+'試合終了</div>';
+    var shown=draw.filter(function(m){return !selectedCourt || m.court===selectedCourt;});
+    h+=shown.length?'<ul class="mlist">'+shown.map(function(m){
+      return '<li'+(ui.myTeam && [m.a,m.b].includes(ui.myTeam)?' class="mine"':'')+'>'+badge(m,false)+'<div class="teams">'+[m.a,m.b].map(function(t){return '<div class="tm">'+teamLabel(t)+'<span class="sc">'+(mk_hasResult(m)?sideScore(m,t)+'点':'―')+'</span></div>';}).join('')+'<small>'+(mk_hasResult(m)?'結果確定':'結果待ち')+wave(m)+'</small></div></li>';
+    }).join('')+'</ul>':'<p class="empty">このラウンドの試合はありません。</p>';
+    $('gamesBody').innerHTML=h;
+  }
+  function renderStandings() {
+    $('rankBody').innerHTML=S.standings.length?'<table><thead><tr><th>順位</th><th>チーム・メンバー</th><th>試合</th><th>合計点</th></tr></thead><tbody>'+S.standings.map(function(row){return '<tr'+(row.no===ui.myTeam?' class="mine"':'')+'><td>'+row.rank+'</td><td>'+teamLabel(row.no)+'</td><td>'+row.played+'</td><td><strong>'+row.total+'</strong><small class="memberline">平均 '+row.avg+'</small></td></tr>';}).join('')+'</tbody></table>':'<p>抽選後に順位が表示されます。</p>';
+    if (!S.teams.length && S.previousResult) {
+      var prev = S.previousResult;
+      $('rankBody').innerHTML = '<h3>前回の大会結果　'+esc(fmtDate(prev.date))+'</h3><table><thead><tr><th>順位</th><th>チーム・メンバー</th><th>試合</th><th>合計点</th></tr></thead><tbody>'+prev.standings.map(function(r){
+        return '<tr><td>'+esc(r.rank)+'</td><td>'+esc(r.name)+'<small class="memberline">'+esc(r.members)+'</small></td><td>'+esc(r.played)+'</td><td>'+esc(r.total)+'</td></tr>';
+      }).join('')+'</tbody></table>';
+    } else if (resultAvailable()) {
+      $('rankBody').insertAdjacentHTML('afterbegin','<h3>大会結果　'+esc(fmtDate(S.settings['開催日']))+'</h3>');
+    }
+    $('champBox').innerHTML=(S.champions||[]).length?'<h3>これまでの優勝チーム</h3><ul class="plan">'+S.champions.map(function(c){return '<li>'+esc(fmtDate(c.date))+'　'+esc(c.members || c.name)+'　'+Number(c.total)+'点</li>';}).join('')+'</ul>':'';
+  }
+  function resultAvailable() {
+    return S && ((!S.teams.length && S.previousResult) || (S.matches.length && S.matches.every(mk_hasResult)));
+  }
+  function showTab(name) {
+    if(name==='rec'){name='rank';$('recordsPanel').open=true;}
+    if(!['team','match','rank','rules'].includes(name))name='team';
+    ui.tab=name;
+    document.querySelectorAll('#tabs [data-tab]').forEach(function(b){
+      b.setAttribute('aria-selected',String(b.dataset.tab===name));
+      $('p-'+b.dataset.tab).hidden=b.dataset.tab!==name;
+    });
+    if(name==='rank' && $('recordsPanel').open) loadRecords();
+  }
+  $('teamQuery').oninput=function(){ if(S)teamPicker(); };
+  $('recordsPanel').ontoggle=function(){if(this.open)loadRecords();};
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    if(b.dataset.tab || b.dataset.go){showTab(b.dataset.tab||b.dataset.go);window.scrollTo(0,0);return;}
+    if(!S)return;
+    if(b.hasAttribute('data-change')){choosing=true;renderMine();$('teamQuery').focus();}
+    if(b.dataset.pick){ui.myTeam=Number(b.dataset.pick);store.set('myTeam',String(ui.myTeam));choosing=false;$('teamQuery').value='';renderAll();}
+    if(b.dataset.round){selectedRound=b.dataset.round;renderGames();}
+    if(b.dataset.fav){var n=Number(b.dataset.fav);favourites=favourites.includes(n)?favourites.filter(function(x){return x!==n;}):favourites.concat(n);store.set('courtFavs',JSON.stringify(favourites));renderMine();}
+  });
+  document.addEventListener('change',function(e){if(e.target.id==='courtSelect'){selectedCourt=Number(e.target.value);renderGames();}});
+  function paintDisplayButtons(){
+    var root=document.documentElement, mode=root.getAttribute('data-theme');
+    var dark=mode ? mode==='dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    $('themeSwitch').textContent=dark?'明るくする':'暗くする';
+    $('fontSwitch').textContent=root.classList.contains('bigtext')?'標準の文字':'大きい文字';
+    $('themeSwitch').onclick=function(){var next=dark?'light':'dark';root.setAttribute('data-theme',next);store.set('scoreTheme',next);paintDisplayButtons();};
+    $('fontSwitch').onclick=function(){root.classList.toggle('bigtext');store.set('scoreBig',root.classList.contains('bigtext')?'1':'0');paintDisplayButtons();};
+  }
+  var savedTheme=store.get('scoreTheme','');
+  if(savedTheme)document.documentElement.setAttribute('data-theme',savedTheme);
+  document.documentElement.classList.toggle('bigtext',store.get('scoreBig','0')==='1');
+  paintDisplayButtons();
+  $('headReload').onclick=function(){if(!sheetId){$('syncRetry').click();return;}refresh(false);if(ui.tab==='rank' && $('recordsPanel').open)loadRecords();};
+  function renderAll() {
+    if (!S) return;
+    if(ui.myTeam && !S.teams.some(function(t){return t.no===ui.myTeam;})) {ui.myTeam=0;store.set('myTeam','0');}
+    alignVenue(S);
+    renderInfo();renderMine();renderGames();renderStandings();
+    $('progressLine').textContent=S.matches.length ? '試合結果　'+S.matches.filter(mk_hasResult).length+' / '+S.matches.length+'試合' : (S.previousResult ? '前回の大会結果を掲載中' : '対戦表の発表前');
+  }
+
+  function refresh(silent) {
+    return call('state').then(function () { renderAll(silent); return true; }).catch(function (e) { if (!silent) fail(e); return false; });
+  }
+
+
+  function start() {
+    var tabs = ['rules','rank','match','team','rec'];
+    var requested = new URLSearchParams(location.search).get('tab') || location.hash.slice(1);
+    var initial = tabs.indexOf(requested) >= 0 ? requested : 'team';
+
+    if (!sheetId) {
+      S = archive.state;
+      REC = archive.records;
+      renderAll();
+      renderRecords();
+      if (!requested) initial = 'rank';
+    }
+    showTab(initial);
+    var first = true, touched = false, resolving = false;
+    document.getElementById('tabs').addEventListener('click',function () { touched = true; });
+    async function update() {
+      if (!sheetId) {
+        if (resolving) return;
+        resolving = true;
+        $('syncStatus').textContent = '2026年11月21日大会の確定結果';
+        try {
+          var response = await fetch('https://script.google.com/macros/s/AKfycbxNSXkTdeHkwgQlLBYezgAdjcoC0ufmjeYeEYd4h6xBFtSJ5mTS9C41bgg_RglZYzvT9w/exec?feed=viewer',{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(12000)});
+          var info = await response.json();
+          if (/^[a-zA-Z0-9_-]{20,120}$/.test(info.sheet || '')) sheetId = info.sheet;
+        } catch (err) {} finally { resolving = false; }
+        if (!sheetId) { $('syncRetry').hidden = false; return; }
+      }
+      if (await refresh(true)) {
+        if (first && !requested && !touched) showTab(resultAvailable() ? 'rank' : 'team');
+        first = false;
+        if (ui.tab === 'rank' && $('recordsPanel').open) loadRecords();
+      }
+    }
+    $('syncRetry').onclick = update;
+    update();
+    setInterval(function () { if (document.visibilityState === 'visible') update(); },60000);
+    document.addEventListener('visibilitychange',function () { if (!document.hidden) update(); });
+  }
+  start();
+})();
+</script>
+
+</body></html>
