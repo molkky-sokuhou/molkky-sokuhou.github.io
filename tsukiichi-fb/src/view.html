@@ -760,12 +760,12 @@ function mk_haohStatus(rows, haoh, roster) {
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, 18000);
     requests[action] = Promise.resolve().then(function () {
-      if (DEMO) { var db = JSON.parse(localStorage.getItem('tk_fake_server') || '{"docs":{}}'); var d = db.docs[PUB]; return d ? { body: d.body, updatedAt: d.updatedAt } : null; }
-      if (FAKE) return fetch(FAKE + '/state', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (db) { var d = db.docs[PUB]; return d ? { body: d.body, updatedAt: d.updatedAt } : null; });
+      if (DEMO) { var db = JSON.parse(localStorage.getItem('tk_fake_server') || '{"docs":{}}'); var d = db.docs[PUB]; return d ? { body: d.body, updatedAt: d.updatedAt, seq: d.seq } : null; }
+      if (FAKE) return fetch(FAKE + '/state', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (db) { var d = db.docs[PUB]; return d ? { body: d.body, updatedAt: d.updatedAt, seq: d.seq } : null; });
       return fetch(FS, { cache: 'no-store', credentials: 'omit', signal: controller.signal }).then(function (response) {
         if (response.status === 404) return null;
         if (!response.ok) throw new Error('速報を取得できませんでした。');
-        return response.json().then(function (doc) { var f = doc.fields || {}; return { body: f.body && f.body.stringValue, updatedAt: f.updatedAt && f.updatedAt.stringValue }; });
+        return response.json().then(function (doc) { var f = doc.fields || {}; return { body: f.body && f.body.stringValue, updatedAt: f.updatedAt && f.updatedAt.stringValue, seq: f.seq && Number(f.seq.integerValue) }; });
       });
     }).then(function (doc) {
       var data = applyDoc(doc);
@@ -780,9 +780,13 @@ function mk_haohStatus(rows, haoh, roster) {
     return requests[action];
   }
   /* 届いた公開データ（1件）を画面の元データにする。60秒ごとの読み直しでも、リアルタイムの受け取りでも同じ */
-  var LIVE = { on: false, kind: '' };
+  var LIVE = { on: false, kind: '', seq: 0, gen: 0 };
   function applyDoc(doc) {
     if (!doc || !doc.body) throw new Error('まだ大会情報がありません。運営が準備すると、ここに出ます。');
+    /* 公開データの通し番号（seq）が、いま出しているものより古い返事は使わない（「最新にする」の返事が、先に届いたリアルタイムの新しい内容を上書きしないように） */
+    var seq = Number(doc.seq) || 0;
+    if (DATA && seq && LIVE.seq && seq < LIVE.seq) return DATA;
+    if (seq) LIVE.seq = seq;
     var data = clean(JSON.parse(doc.body));
     data.state.updatedAt = String(doc.updatedAt || '');
     DATA = data; S = data.state; LIVE.last = Date.now();
@@ -1178,7 +1182,7 @@ function mk_boardOrder(group, teamNos, courts) {
         if (ui.tab === 'rank' && $('recordsPanel').open) loadRecords();
       }
     }
-    $('syncRetry').onclick = update;
+    $('syncRetry').onclick = function () { update().then(function () { startLive(); }); };
 
     /* 通信を減らす：大会の日（開催日が今日、またはチームを出していて終わっていない試合がある）だけ、
        新しいデータが入ったときにサーバーから知らせてもらう（リアルタイム。届いた回数だけ数えられる）。
@@ -1197,6 +1201,7 @@ function mk_boardOrder(group, teamNos, courts) {
       if (!wantLive()) stopLive();
     }
     function stopLive() {
+      LIVE.gen++; // 読み込み中の開始処理があれば、届いたあとに取りやめる
       if (LIVE.unsub) { try { LIVE.unsub(); } catch (e) {} LIVE.unsub = null; }
       clearInterval(LIVE.timer); LIVE.timer = null; LIVE.on = false;
       if (S) $('syncStatus').textContent = (S.updatedAt || '') + ' 更新';
@@ -1207,16 +1212,17 @@ function mk_boardOrder(group, teamNos, courts) {
       /* 自動試験・練習ではリアルタイムの仕組みがないので、60秒ごとに読み直す */
       if (FAKE || DEMO) { pollLive(); return; }
       LIVE.on = true; LIVE.kind = 'rt';
+      var gen = ++LIVE.gen;
       var base = 'https://www.gstatic.com/firebasejs/13.2.0/';
       Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-firestore.js')]).then(function (m) {
         var A = m[0], F = m[1];
-        if (!LIVE.on) return;
+        if (!LIVE.on || gen !== LIVE.gen || LIVE.unsub) return;
         if (!LIVE.db) { var app = A.getApps().find(function (a) { return a.name === 'view'; }) || A.initializeApp({ apiKey: 'AIzaSyAL3fYkM2kFulsnPhNuuAlyeVpIZy2wdSA', projectId: 'tsukiichi-molkky' }, 'view'); LIVE.db = F.getFirestore(app); LIVE.F = F; }
         LIVE.unsub = LIVE.F.onSnapshot(LIVE.F.doc(LIVE.db, PUB), function (snap) {
           if (!snap.exists()) return;
-          var d = snap.data(); onLive({ body: d.body, updatedAt: d.updatedAt });
-        }, function () { stopLive(); pollLive(); });
-      }).catch(function () { LIVE.on = false; pollLive(); });
+          var d = snap.data(); onLive({ body: d.body, updatedAt: d.updatedAt, seq: d.seq });
+        }, function () { if (gen === LIVE.gen) { stopLive(); pollLive(); } });
+      }).catch(function () { if (gen === LIVE.gen) { LIVE.on = false; pollLive(); } });
     }
     LIVE.start = startLive; window.__live = LIVE;
     update().then(startLive);

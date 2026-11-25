@@ -33,8 +33,8 @@ async def main():
         await A.fill('#sysPw', '7788'); await A.fill('#sysPw2', '7789'); await A.click('#sysGo'); await A.wait_for_timeout(300)
         ok('違います' in await A.locator('#sysErr').text_content() and await A.locator('#sysBody').is_hidden(), '2回の入力が違えば入れない')
         await A.fill('#sysPw', '7788'); await A.fill('#sysPw2', '7788'); await A.click('#sysGo'); await A.wait_for_timeout(1500)
-        sc = docs().get(R + '/conf/sys') or {}
-        ok(await A.locator('#sysBody').is_visible() and sc.get('hash') and '7788' not in json.dumps(sc), '決めると入れる。サーバーにはパスワードそのものは残らない')
+        sk = docs().get(R + '/conf/sysKey') or {}; sm = docs().get(R + '/conf/sysMeta') or {}
+        ok(await A.locator('#sysBody').is_visible() and len(sk.get('hash', '')) == 64 and sm.get('salt') and '7788' not in json.dumps(sk) + json.dumps(sm), '決めると入れる。サーバーにはパスワードそのものは残らない（ハッシュは別の文書）')
         await A.click('#sysOut'); await A.wait_for_timeout(300)
         ok(await A.locator('#sysBody').is_hidden(), '「システムを閉じる」で鍵がかかる')
         cb, B2 = await mk(b, '2台目'); await B2.click('.nb[data-ph=sys]'); await B2.wait_for_timeout(800)
@@ -68,7 +68,8 @@ async def main():
         txt = await A.locator('#clList').inner_text()
         ok('ゆい' in txt and 'マルック' not in txt.split('記録')[0] and '締めた回' in txt and '受付 2人' in txt, '調べると、テストの名簿・記録・締めた回・いまの受付が出る（取り込んだ人は出ない）')
         r = json.loads(json.dumps(get('/state').decode()))
-        await A.click('#clGo'); await A.click('#clGo'); await A.wait_for_timeout(6000)
+        ok(await A.locator('#clList [data-cl]:checked').count() == 0, '最初はどれにもチェックが入っていない')
+        await A.click('#clAll'); await A.click('#clGo'); await A.click('#clGo'); await A.wait_for_timeout(6000)
         msg = await A.locator('#clMsg').text_content()
         d = docs()
         ros = [v['name'] for k, v in d.items() if k.startswith(R + '/roster/')]

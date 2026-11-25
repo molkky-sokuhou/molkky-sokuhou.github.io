@@ -50,7 +50,7 @@ function fakeServerCommit(db, writes, now) {
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'roster') {
       const box = p[1], id = p[3];
-      if (del) ok = cleaning(p[1]);
+      if (del) ok = cleaning(p[1]) && (before || {}).createdIn !== 'sheet';
       else if (!before) ok = !(next && next.mergedInto);
       else if (!before.mergedInto) ok = (!next.mergedInto || (next.mergedInto !== id && notMerged(box, next.mergedInto)))
         && (same(before.nameChk, next.nameChk) || (next.nameChk && next.nameChk.v === (before.name || '')));
@@ -61,14 +61,20 @@ function fakeServerCommit(db, writes, now) {
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && (p[2] === 'metrics' || p[2] === 'ping')) ok = true;
-    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'conf') ok = !del;
+    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'conf') {
+      const key = (docs['staff/' + p[1] + '/conf/sysKey'] || {}).hash;
+      if (p[3] === 'sysKey') ok = !del && typeof next.hash === 'string' && next.hash.length === 64 && (!before || (next.old || '') === before.hash);
+      else if (p[3] === 'sysCheck') ok = !del && !!key && next.key === key;
+      else if (p[3] === 'cleanup') ok = !del && ((next.until || 0) === 0 || (!!key && next.key === key && Number.isInteger(next.until) && next.until <= now + 960000));
+      else ok = true;
+    }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'hist') {
-      if (del) ok = cleaning(p[1]);
+      if (del) ok = cleaning(p[1]) && (before || {}).src !== 'sheet';
       else if (!before) ok = true;
       else {
         const keys = new Set(Object.keys(before).concat(Object.keys(next))), changed = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k]));
         ok = next.movedFrom === before.rid && next.rid !== before.rid && (next.mv || 0) === (before.mv || 0) + 1 && changed.every((k) => k === 'rid' || k === 'movedFrom' || k === 'movedAt' || k === 'mv') && notMerged(p[1], next.rid)
-          || (before.kind === 'haoh' && next.kind === 'haoh' && next.no === before.no);
+          || (before.kind === 'haoh' && next.kind === 'haoh' && next.no === before.no && (next.editOf || '') === (before.ver || ''));
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'events') {
@@ -82,7 +88,7 @@ function fakeServerCommit(db, writes, now) {
     }
     else if (p[0] === 'staff' && p.length === 6 && p[2] === 'events') {
       const box = p[1], e = p[3], kind = p[4], id = p[5];
-      if (kind === 'checkins') ok = del ? cleaning(box) || (isOpen(box, e) && revBumped(box, e)) : isOpen(box, e) && notMerged(box, id) && revBumped(box, e);
+      if (kind === 'checkins') ok = del ? (isOpen(box, e) && revBumped(box, e)) || (cleaning(box) && (getBefore('staff/' + box + '/events/' + e) || {}).status === 'closed') : isOpen(box, e) && notMerged(box, id) && revBumped(box, e);
       else if (kind === 'ops') ok = !del && !before && isOpen(box, e);
       else if (kind === 'devices') ok = !del;
     }
