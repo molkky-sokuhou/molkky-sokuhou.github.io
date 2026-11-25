@@ -37,7 +37,7 @@ async def main():
         b = await p.chromium.launch()
         ca, A = await mk(b, '1台目'); cb, B = await mk(b, '2台目')
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.wait_for_timeout(1500); await A.click('#seedHist'); await A.wait_for_timeout(2500)
+        await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.wait_for_timeout(1500); await A.click('#seedHist'); await A.wait_for_timeout(2500)
         await checkin(A, ['ゆい', 'そうた', 'めい', 'あおい', 'けんた', 'ひな', 'りく', 'だいき', 'さくら', 'ゆうと', 'みお', 'こうき'])
         await B.wait_for_timeout(1500)
 

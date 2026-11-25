@@ -40,7 +40,7 @@ async def main():
         ok(r and r[0][0] is False and '1人になる' in r[0][1],'⑥ 2人チームしか作れず避けられないときは警告を出す：'+r[0][1])
         # 受付22人
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
+        await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
         n=await A.locator('#rList .rc span').count()
         for i in range(n):
             sp=A.locator('#rList .rc span').nth(i); t=(await sp.inner_text()).split('\n')[0]

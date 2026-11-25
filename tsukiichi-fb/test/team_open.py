@@ -12,7 +12,7 @@ async def main():
         await ctx.add_init_script(f"window.__FAKE_URL='{SRV}';localStorage.setItem('tk_devName','1台目')")
         A=await ctx.new_page(); A.on('pageerror',lambda e:errs.append(str(e))); await A.goto(URL); await A.wait_for_timeout(1500)
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
+        await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
         n=await A.locator('#rList .rc span').count()
         for i in range(n):
             sp=A.locator('#rList .rc span').nth(i)

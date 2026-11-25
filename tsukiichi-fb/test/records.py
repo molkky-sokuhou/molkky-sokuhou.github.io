@@ -23,7 +23,7 @@ async def main():
         b=await p.chromium.launch()
         ca,A=await mk(b,'1台目'); cb,B=await mk(b,'2台目','dark')
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.wait_for_timeout(1500); await A.click('#seedHist'); await A.wait_for_timeout(2500)
+        await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.wait_for_timeout(1500); await A.click('#seedHist'); await A.wait_for_timeout(2500)
         ok(len(hist())==48,'架空の過去の記録 3大会×16人')
         ok(await stats(A,'はると')==[2,0,0] or (await stats(A,'はると'))[0]==2,'まとめる前：はると 参加2回 '+str(await stats(A,'はると')))
         ok((await stats(A,'ハルト'))[0]==1,'まとめる前：ハルト（間違えて登録）参加1回')

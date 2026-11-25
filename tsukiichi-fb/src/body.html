@@ -164,6 +164,48 @@
             <button class="btn" id="bkRestoreGo" type="button" hidden style="margin-top:8px"></button>
           </details>
         </div>
+
+      </section>
+
+      <!-- ===== 設定（計測） ===== -->
+      <section class="panel" id="ph-set" hidden>
+        <div class="box">
+          <h2 class="h">大会の案内（参加者画面に出ます）</h2>
+          <p class="muted" style="margin-top:0">開催日は次の回の日です（大会当日にチームを出すと、その日の日付になります）。毎月、次の開催日に書き換えてください。</p>
+          <div id="infoFields"></div>
+          <div class="actions"><button class="btn primary" id="infoSave" type="button">保存する</button><button class="btn ghost" id="infoReset" type="button">保存している内容に戻す</button></div>
+          <p class="muted" id="infoMsg" aria-live="polite" style="margin:6px 0 0"></p>
+        </div>
+        <div class="box">
+          <h2 class="h">開催回</h2>
+          <p id="evNow" style="margin-top:0"></p>
+          <p class="muted">受付は開催回ごとに分けて保存します。新しい回を始めると、いまの回は締められ（試合の結果があれば、順位と参加した人の記録を残します）、あとから圏外の端末の受付・取消が届いても受け付けません。</p>
+          <button class="btn" id="evNew" type="button">新しい回を始める</button>
+          <div class="field" style="margin-top:12px"><label for="courtIn">コート数（この回）</label>
+            <div class="actions" style="margin-top:0"><input class="input" id="courtIn" inputmode="numeric" maxlength="2" style="flex:0 1 6em"><button class="btn" id="courtSave" type="button">決める</button></div>
+            <small class="muted">1ラウンドの試合数よりコートが少ないときは、空いたコートに2組目が入ります。新しい回にも引き継ぎます。</small></div>
+          <ul class="mini-list" id="evList"></ul>
+        </div>
+        <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
+        <a class="btn ghost" href="../" style="margin-left:8px">参加者の画面</a>
+      </section>
+      <!-- ===== システム（運営の中でも、もう1段階のパスワードで入る） ===== -->
+      <section class="panel" id="ph-sys" hidden>
+        <div class="box" id="sysLock">
+          <h2 class="h">システム</h2>
+          <p class="muted" style="margin-top:0" id="sysLockNote"></p>
+          <div class="field"><label for="sysPw" id="sysPwL">システムのパスワード</label><input class="input" id="sysPw" type="password" autocomplete="off" inputmode="numeric"></div>
+          <div class="field" id="sysPw2F" hidden><label for="sysPw2">もう一度（確かめ）</label><input class="input" id="sysPw2" type="password" autocomplete="off" inputmode="numeric"></div>
+          <button class="btn primary" id="sysGo" type="button">入る</button>
+          <p class="err" id="sysErr" aria-live="polite"></p>
+        </div>
+        <div id="sysBody" hidden>
+        <div class="box plain"><div class="actions" style="margin:0"><button class="btn small ghost" id="sysOut" type="button">システムを閉じる（鍵をかける）</button><button class="btn small ghost" id="sysPwChange" type="button">パスワードを変える</button></div></div>
+        <div class="box">
+          <h2 class="h">この端末の名前</h2>
+          <p class="muted" style="margin-top:0">計測の表で、どの端末の記録かを見分けるのに使います。</p>
+          <div class="actions"><input class="input" id="devName" maxlength="12" style="flex:1 1 160px"><button class="btn" id="devSave" type="button">決める</button></div>
+        </div>
         <div class="box" id="impBox">
           <h2 class="h">現行のスプレッドシートの記録</h2>
           <p class="muted" style="margin-top:0" id="impSum"></p>
@@ -171,14 +213,12 @@
             <small class="muted">経験豊富の印は運営だけの情報なので、このページの中には入れていません。Claude が渡した一覧を貼り付けてから取り込んでください。</small></div>
           <button class="btn" id="impGo" type="button">取り込む</button>
         </div>
-      </section>
-
-      <!-- ===== 設定（計測） ===== -->
-      <section class="panel" id="ph-set" hidden>
-        <div class="box">
-          <h2 class="h">この端末の名前</h2>
-          <p class="muted" style="margin-top:0">計測の表で、どの端末の記録かを見分けるのに使います。</p>
-          <div class="actions"><input class="input" id="devName" maxlength="12" style="flex:1 1 160px"><button class="btn" id="devSave" type="button">決める</button></div>
+        <div class="box" id="clBox">
+          <h2 class="h">テストのデータを片付ける</h2>
+          <p class="muted" style="margin-top:0">スプレッドシートから取り込んだもの以外（テストで入れた名簿・受付・締めた回・記録）を、選んで消します。消したものは戻せないので、先に記録タブの「バックアップ」で保存しておくと安心です。</p>
+          <button class="btn" id="clScan" type="button">消すものを調べる</button>
+          <div id="clList"></div>
+          <p id="clMsg" aria-live="polite" style="margin:6px 0 0"></p>
         </div>
         <div class="box">
           <div class="sec-h"><h2 class="h">計測</h2><button class="btn small" id="syncBtn" type="button">時計を合わせ直す</button></div>
@@ -197,23 +237,6 @@
           <p class="muted" style="margin:10px 0 0">「次の人へ」は押してから次の人を入力できるまで、「保存確定」は押してから共有先に届くまで、「もう1台」は押してから別の端末に出るまで（別の端末の側で記録）。</p>
           <div class="field" style="margin-top:12px"><label for="csv">計測結果（全部コピーしてClaudeに貼り付けてください）</label><textarea class="copyta" id="csv" readonly></textarea></div>
           <button class="btn cyan wide" id="csvCopy" type="button">計測結果を全部コピー</button>
-        </div>
-        <div class="box">
-          <h2 class="h">大会の案内（参加者画面に出ます）</h2>
-          <p class="muted" style="margin-top:0">開催日は次の回の日です（大会当日にチームを出すと、その日の日付になります）。毎月、次の開催日に書き換えてください。</p>
-          <div id="infoFields"></div>
-          <div class="actions"><button class="btn primary" id="infoSave" type="button">保存する</button><button class="btn ghost" id="infoReset" type="button">保存している内容に戻す</button></div>
-          <p class="muted" id="infoMsg" aria-live="polite" style="margin:6px 0 0"></p>
-        </div>
-        <div class="box">
-          <h2 class="h">開催回</h2>
-          <p id="evNow" style="margin-top:0"></p>
-          <p class="muted">受付は開催回ごとに分けて保存します。新しい回を始めると、いまの回は締められ（試合の結果があれば、順位と参加した人の記録を残します）、あとから圏外の端末の受付・取消が届いても受け付けません。</p>
-          <button class="btn" id="evNew" type="button">新しい回を始める</button>
-          <div class="field" style="margin-top:12px"><label for="courtIn">コート数（この回）</label>
-            <div class="actions" style="margin-top:0"><input class="input" id="courtIn" inputmode="numeric" maxlength="2" style="flex:0 1 6em"><button class="btn" id="courtSave" type="button">決める</button></div>
-            <small class="muted">1ラウンドの試合数よりコートが少ないときは、空いたコートに2組目が入ります。新しい回にも引き継ぎます。</small></div>
-          <ul class="mini-list" id="evList"></ul>
         </div>
         <div class="box">
           <h2 class="h">ルールの確認</h2>
@@ -249,8 +272,7 @@
           <button class="btn" id="wipeBtn" type="button">この端末からデータを消す</button>
           <p class="err" id="wipeMsg" aria-live="polite"></p>
         </div>
-        <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
-        <a class="btn ghost" href="../" style="margin-left:8px">参加者の画面</a>
+        </div>
       </section>
       <p class="ver">版 @@VER@@</p>
     </main>

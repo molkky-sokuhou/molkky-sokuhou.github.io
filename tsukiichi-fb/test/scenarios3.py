@@ -38,7 +38,7 @@ async def main():
         ok(dis is not None,'③ サーバーで確認できていない間は「始める」を押せない')
         await A.click('#evNo'); await ca.set_offline(False); await A.wait_for_timeout(2000)
         # オンラインで取消した直後の表示順（端末の人数が先に減り、サーバー確認人数は届いてから）
-        await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(1500)
+        await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(1500)
         for n in ['はると','ゆい','そうた']:
             await A.fill('#eq',n); await A.locator('#rList .rc span',has_text=n).first.click()
         await A.fill('#eq',''); await A.click('#qAdd'); await A.wait_for_timeout(2500)
@@ -51,7 +51,7 @@ async def main():
         ok('この端末の表示 2人・送信待ち 0件' in s2 and '最後にサーバーで確認できた受付 2人' in s2 and 'いまの表示と同じ' in s2,'届いたあと：サーバー確認も2人（いまの表示と同じ）')
         print('     直後:',s1[:150]); print('     あと:',s2[:150])
         # ② 練習モードではルールを表示・コピーしない
-        await A.click('.nb[data-ph=set]')
+        await A.click('.nb[data-ph=sys]')
         ok(await A.is_hidden('#rulesBody') and '本番の運営モード' in await A.inner_text('#rulesNote'),'② 練習・試験ではルールの全文を出さない')
         # ① 本番（ここでは自動試験の保存先）で拒否された受付を残し、練習モードに入る
         await ca.set_offline(True); await A.wait_for_timeout(1200)
@@ -69,9 +69,9 @@ async def main():
         ok(sp['mode']=='demo' and sp['ops']==0 and not sp['rej'] and 'めい' not in await pg.inner_text('#rjBox') and await pg.is_hidden('#rjBox'),'① 練習モードには本番の失敗記録も名前も出ない')
         # 練習で記録を作って消す
         await pg.click('#evGate [data-newev]'); await pg.click('#evYes'); await pg.wait_for_timeout(1500)
-        await pg.click('.nb[data-ph=set]'); await pg.click('#seedBtn'); await pg.click('.nb[data-ph=entry]'); await pg.wait_for_timeout(1500)
+        await pg.click('.nb[data-ph=sys]'); await pg.click('#seedBtn'); await pg.click('.nb[data-ph=entry]'); await pg.wait_for_timeout(1500)
         await pg.fill('#eq','ゆい'); await pg.locator('#rList .rc span',has_text='ゆい').first.click(); await pg.fill('#eq',''); await pg.click('#qAdd'); await pg.wait_for_timeout(2500)
-        await pg.click('.nb[data-ph=set]'); await pg.click('#wipeBtn'); await pg.wait_for_timeout(2500)
+        await pg.click('.nb[data-ph=sys]'); await pg.click('#wipeBtn'); await pg.wait_for_timeout(2500)
         if await pg.is_visible('#wpYes'): await pg.click('#wpYes'); await pg.wait_for_timeout(3000)
         ok('消しました' in await pg.inner_text('#lockErr'),'① 練習モードで消去できる：'+await pg.inner_text('#lockErr'))
         await pg.close()

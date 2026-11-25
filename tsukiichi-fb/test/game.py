@@ -50,7 +50,7 @@ async def main():
         ok(r==0,'作り直し：入力済みの試合は残り、いないチームの試合が消え、同じ組み合わせが2回出ない（30通り）')
         # 受付22人→8チームで確定
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
+        await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
         n=await A.locator('#rList .rc span').count()
         for i in range(n):
             sp=A.locator('#rList .rc span').nth(i); t=(await sp.inner_text()).split('\n')[0]

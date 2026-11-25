@@ -550,12 +550,22 @@ body { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
 #hoPast li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #hoPast li > span { flex: 1 1 auto; min-width: 0; }
 #hoPast li .btn { flex: 0 0 auto; }
-#hoEl li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+#hoEl li { display: grid; gap: 2px; padding: 8px 2px; border-bottom: 1px solid var(--line); min-width: 0; }
 #hoEl .rstat { display: flex; gap: 10px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
 ul.checks { list-style: none; margin: 6px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5em, 1fr)); gap: 4px 10px; }
 ul.checks label { display: flex; align-items: center; gap: 6px; min-height: 40px; }
 ul.checks input { width: 20px; height: 20px; }
 #hoEl .pname { font-weight: 900; }
+#hoEl .ho-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%; }
+#hoEl .ho-n { font-size: .85rem; color: var(--muted); font-weight: 900; white-space: nowrap; }
+#hoEl .ho-dates { display: flex; flex-wrap: wrap; gap: 2px 10px; width: 100%; font-size: .82rem; color: var(--muted); }
+#hoEl .ho-dates span { white-space: nowrap; }
+ul.cl-list { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 2px; }
+ul.cl-list label { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; }
+ul.cl-list input { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; }
+ul.cl-list span { min-width: 0; overflow-wrap: anywhere; }
+.bnav-in { grid-template-columns: repeat(6, 1fr); }
+.nb { font-size: .74rem; white-space: nowrap; }
 
 </style>
 </head>
@@ -620,7 +630,7 @@ ul.checks input { width: 20px; height: 20px; }
       <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
     </div>
     <p style="text-align:center;margin:8px 0 0"><a class="btn ghost small" href="../">参加者の画面へ戻る</a></p>
-    <p class="ver">版 2026.11.25-17</p>
+    <p class="ver">版 2026.11.25-18</p>
   </div>
 
   <div id="app" hidden>
@@ -768,6 +778,48 @@ ul.checks input { width: 20px; height: 20px; }
             <button class="btn" id="bkRestoreGo" type="button" hidden style="margin-top:8px"></button>
           </details>
         </div>
+
+      </section>
+
+      <!-- ===== 設定（計測） ===== -->
+      <section class="panel" id="ph-set" hidden>
+        <div class="box">
+          <h2 class="h">大会の案内（参加者画面に出ます）</h2>
+          <p class="muted" style="margin-top:0">開催日は次の回の日です（大会当日にチームを出すと、その日の日付になります）。毎月、次の開催日に書き換えてください。</p>
+          <div id="infoFields"></div>
+          <div class="actions"><button class="btn primary" id="infoSave" type="button">保存する</button><button class="btn ghost" id="infoReset" type="button">保存している内容に戻す</button></div>
+          <p class="muted" id="infoMsg" aria-live="polite" style="margin:6px 0 0"></p>
+        </div>
+        <div class="box">
+          <h2 class="h">開催回</h2>
+          <p id="evNow" style="margin-top:0"></p>
+          <p class="muted">受付は開催回ごとに分けて保存します。新しい回を始めると、いまの回は締められ（試合の結果があれば、順位と参加した人の記録を残します）、あとから圏外の端末の受付・取消が届いても受け付けません。</p>
+          <button class="btn" id="evNew" type="button">新しい回を始める</button>
+          <div class="field" style="margin-top:12px"><label for="courtIn">コート数（この回）</label>
+            <div class="actions" style="margin-top:0"><input class="input" id="courtIn" inputmode="numeric" maxlength="2" style="flex:0 1 6em"><button class="btn" id="courtSave" type="button">決める</button></div>
+            <small class="muted">1ラウンドの試合数よりコートが少ないときは、空いたコートに2組目が入ります。新しい回にも引き継ぎます。</small></div>
+          <ul class="mini-list" id="evList"></ul>
+        </div>
+        <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
+        <a class="btn ghost" href="../" style="margin-left:8px">参加者の画面</a>
+      </section>
+      <!-- ===== システム（運営の中でも、もう1段階のパスワードで入る） ===== -->
+      <section class="panel" id="ph-sys" hidden>
+        <div class="box" id="sysLock">
+          <h2 class="h">システム</h2>
+          <p class="muted" style="margin-top:0" id="sysLockNote"></p>
+          <div class="field"><label for="sysPw" id="sysPwL">システムのパスワード</label><input class="input" id="sysPw" type="password" autocomplete="off" inputmode="numeric"></div>
+          <div class="field" id="sysPw2F" hidden><label for="sysPw2">もう一度（確かめ）</label><input class="input" id="sysPw2" type="password" autocomplete="off" inputmode="numeric"></div>
+          <button class="btn primary" id="sysGo" type="button">入る</button>
+          <p class="err" id="sysErr" aria-live="polite"></p>
+        </div>
+        <div id="sysBody" hidden>
+        <div class="box plain"><div class="actions" style="margin:0"><button class="btn small ghost" id="sysOut" type="button">システムを閉じる（鍵をかける）</button><button class="btn small ghost" id="sysPwChange" type="button">パスワードを変える</button></div></div>
+        <div class="box">
+          <h2 class="h">この端末の名前</h2>
+          <p class="muted" style="margin-top:0">計測の表で、どの端末の記録かを見分けるのに使います。</p>
+          <div class="actions"><input class="input" id="devName" maxlength="12" style="flex:1 1 160px"><button class="btn" id="devSave" type="button">決める</button></div>
+        </div>
         <div class="box" id="impBox">
           <h2 class="h">現行のスプレッドシートの記録</h2>
           <p class="muted" style="margin-top:0" id="impSum"></p>
@@ -775,14 +827,12 @@ ul.checks input { width: 20px; height: 20px; }
             <small class="muted">経験豊富の印は運営だけの情報なので、このページの中には入れていません。Claude が渡した一覧を貼り付けてから取り込んでください。</small></div>
           <button class="btn" id="impGo" type="button">取り込む</button>
         </div>
-      </section>
-
-      <!-- ===== 設定（計測） ===== -->
-      <section class="panel" id="ph-set" hidden>
-        <div class="box">
-          <h2 class="h">この端末の名前</h2>
-          <p class="muted" style="margin-top:0">計測の表で、どの端末の記録かを見分けるのに使います。</p>
-          <div class="actions"><input class="input" id="devName" maxlength="12" style="flex:1 1 160px"><button class="btn" id="devSave" type="button">決める</button></div>
+        <div class="box" id="clBox">
+          <h2 class="h">テストのデータを片付ける</h2>
+          <p class="muted" style="margin-top:0">スプレッドシートから取り込んだもの以外（テストで入れた名簿・受付・締めた回・記録）を、選んで消します。消したものは戻せないので、先に記録タブの「バックアップ」で保存しておくと安心です。</p>
+          <button class="btn" id="clScan" type="button">消すものを調べる</button>
+          <div id="clList"></div>
+          <p id="clMsg" aria-live="polite" style="margin:6px 0 0"></p>
         </div>
         <div class="box">
           <div class="sec-h"><h2 class="h">計測</h2><button class="btn small" id="syncBtn" type="button">時計を合わせ直す</button></div>
@@ -801,23 +851,6 @@ ul.checks input { width: 20px; height: 20px; }
           <p class="muted" style="margin:10px 0 0">「次の人へ」は押してから次の人を入力できるまで、「保存確定」は押してから共有先に届くまで、「もう1台」は押してから別の端末に出るまで（別の端末の側で記録）。</p>
           <div class="field" style="margin-top:12px"><label for="csv">計測結果（全部コピーしてClaudeに貼り付けてください）</label><textarea class="copyta" id="csv" readonly></textarea></div>
           <button class="btn cyan wide" id="csvCopy" type="button">計測結果を全部コピー</button>
-        </div>
-        <div class="box">
-          <h2 class="h">大会の案内（参加者画面に出ます）</h2>
-          <p class="muted" style="margin-top:0">開催日は次の回の日です（大会当日にチームを出すと、その日の日付になります）。毎月、次の開催日に書き換えてください。</p>
-          <div id="infoFields"></div>
-          <div class="actions"><button class="btn primary" id="infoSave" type="button">保存する</button><button class="btn ghost" id="infoReset" type="button">保存している内容に戻す</button></div>
-          <p class="muted" id="infoMsg" aria-live="polite" style="margin:6px 0 0"></p>
-        </div>
-        <div class="box">
-          <h2 class="h">開催回</h2>
-          <p id="evNow" style="margin-top:0"></p>
-          <p class="muted">受付は開催回ごとに分けて保存します。新しい回を始めると、いまの回は締められ（試合の結果があれば、順位と参加した人の記録を残します）、あとから圏外の端末の受付・取消が届いても受け付けません。</p>
-          <button class="btn" id="evNew" type="button">新しい回を始める</button>
-          <div class="field" style="margin-top:12px"><label for="courtIn">コート数（この回）</label>
-            <div class="actions" style="margin-top:0"><input class="input" id="courtIn" inputmode="numeric" maxlength="2" style="flex:0 1 6em"><button class="btn" id="courtSave" type="button">決める</button></div>
-            <small class="muted">1ラウンドの試合数よりコートが少ないときは、空いたコートに2組目が入ります。新しい回にも引き継ぎます。</small></div>
-          <ul class="mini-list" id="evList"></ul>
         </div>
         <div class="box">
           <h2 class="h">ルールの確認</h2>
@@ -853,10 +886,9 @@ ul.checks input { width: 20px; height: 20px; }
           <button class="btn" id="wipeBtn" type="button">この端末からデータを消す</button>
           <p class="err" id="wipeMsg" aria-live="polite"></p>
         </div>
-        <button class="btn ghost" id="logout" type="button">運営モードを終える</button>
-        <a class="btn ghost" href="../" style="margin-left:8px">参加者の画面</a>
+        </div>
       </section>
-      <p class="ver">版 2026.11.25-17</p>
+      <p class="ver">版 2026.11.25-18</p>
     </main>
   </div>
 </div>
@@ -869,6 +901,7 @@ ul.checks input { width: 20px; height: 20px; }
     <button class="nb" data-ph="game"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg>試合<span class="badge" id="bd-game" hidden></span></button>
     <button class="nb" data-ph="rec"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H4a3 3 0 0 0 4 4M16 6h4a3 3 0 0 1-4 4M12 13v4M8 21h8"/></svg>記録</button>
     <button class="nb" data-ph="set"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>設定</button>
+    <button class="nb" data-ph="sys"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v3"/></svg>システム</button>
   </div>
 </nav>
 
@@ -905,6 +938,7 @@ function fakeServerCommit(db, writes, now) {
   let calls = 0;
   const getAfter = (path) => { calls++; return after[path]; };
   const getBefore = (path) => { calls++; return docs[path]; };
+  const cleaning = (box) => { calls++; const c = docs['staff/' + box + '/conf/cleanup']; return !!c && (c.until || 0) > now; };
   const revBumped = (box, e) => { const p2 = 'staff/' + box + '/events/' + e; return ((getAfter(p2) || {}).rev || '') !== ((getBefore(p2) || {}).rev || ''); };
   const same = (x, y) => JSON.stringify(x === undefined ? null : x) === JSON.stringify(y === undefined ? null : y);
   const isOpen = (box, e) => { const ev = getAfter('staff/' + box + '/events/' + e); return !!ev && ev.status === 'open'; };
@@ -928,7 +962,7 @@ function fakeServerCommit(db, writes, now) {
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'roster') {
       const box = p[1], id = p[3];
-      if (del) ok = false;
+      if (del) ok = cleaning(p[1]);
       else if (!before) ok = !(next && next.mergedInto);
       else if (!before.mergedInto) ok = (!next.mergedInto || (next.mergedInto !== id && notMerged(box, next.mergedInto)))
         && (same(before.nameChk, next.nameChk) || (next.nameChk && next.nameChk.v === (before.name || '')));
@@ -941,7 +975,7 @@ function fakeServerCommit(db, writes, now) {
     else if (p[0] === 'staff' && p.length === 4 && (p[2] === 'metrics' || p[2] === 'ping')) ok = true;
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'conf') ok = !del;
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'hist') {
-      if (del) ok = false;
+      if (del) ok = cleaning(p[1]);
       else if (!before) ok = true;
       else {
         const keys = new Set(Object.keys(before).concat(Object.keys(next))), changed = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k]));
@@ -950,7 +984,7 @@ function fakeServerCommit(db, writes, now) {
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'events') {
-      if (del) ok = false;
+      if (del) ok = cleaning(p[1]) && (docs['staff/' + p[1]] || {}).currentEvent !== p[3];
       else if (!before) { const bx = getAfter('staff/' + p[1]); ok = next.status === 'open' && !!bx && bx.currentEvent === p[3]; }
       else ok = before.status === 'open' && ((next.status === 'open' && (next.rev || '') !== (before.rev || '')
         && (same(before.drawnAt, next.drawnAt) || (!same(before.drawId, next.drawId) && !same(before.chk, next.chk)))
@@ -960,7 +994,7 @@ function fakeServerCommit(db, writes, now) {
     }
     else if (p[0] === 'staff' && p.length === 6 && p[2] === 'events') {
       const box = p[1], e = p[3], kind = p[4], id = p[5];
-      if (kind === 'checkins') ok = del ? isOpen(box, e) && revBumped(box, e) : isOpen(box, e) && notMerged(box, id) && revBumped(box, e);
+      if (kind === 'checkins') ok = del ? cleaning(box) || (isOpen(box, e) && revBumped(box, e)) : isOpen(box, e) && notMerged(box, id) && revBumped(box, e);
       else if (kind === 'ops') ok = !del && !before && isOpen(box, e);
       else if (kind === 'devices') ok = !del;
     }
@@ -982,7 +1016,7 @@ if (typeof module !== 'undefined') module.exports = { fakeServerCommit, fakeAppl
    - staff/{BOX}/events/{e}/devices/{d}  各端末の「送信待ち」の件数と最後につながった時刻
    ルール側で：締めた回への書き込み、まとめた人への受付は断る
 */
-const VER = '2026.11.25-17';
+const VER = '2026.11.25-18';
 const FB_VER = '13.2.0';
 const STAFF_EMAIL = 'unei@tsukiichi.example';
 const BOX = 'proto';
@@ -1076,6 +1110,10 @@ service cloud.firestore {
     function revBumped(box, e) {
       return getAfter(pathOf(box, 'events', e)).data.get('rev', '') != get(pathOf(box, 'events', e)).data.get('rev', '');
     }
+    // テストのデータの片付けの間（conf/cleanup の until が今より後）だけ、削除を通す
+    function cleaning(box) {
+      return get(/databases/$(database)/documents/staff/$(box)/conf/cleanup).data.get('until', 0) > request.time.toMillis();
+    }
     // この書き込みで変わる項目か
     function changes(k) {
       return k in request.resource.data.diff(resource.data).affectedKeys();
@@ -1107,6 +1145,7 @@ service cloud.firestore {
     match /staff/{box}/roster/{rid} {
       allow read: if isStaff();
       allow create: if isStaff() && request.resource.data.get('mergedInto', '') == '';
+      allow delete: if isStaff() && cleaning(box);
       // まとめた人は変えない。まとめる先は、自分以外の、まとめられていない人だけ
       // ただし「まとめを元に戻す」操作（mergedInto を空にして unmergedAt を書く。ほかは変えない）だけは通す。
       // 版12までのまとめ（mergeId なし）は、unmergeOf を空にして戻せる
@@ -1128,6 +1167,7 @@ service cloud.firestore {
       allow read: if isStaff();
       // 作るのは締めるときに全員分をまとめて（参照回数の上限に当たらないよう、ここでは名簿を見ない）
       allow create: if isStaff();
+      allow delete: if isStaff() && cleaning(box);
       allow update: if isStaff()
         && request.resource.data.movedFrom == resource.data.rid
         && request.resource.data.rid != resource.data.rid
@@ -1146,6 +1186,9 @@ service cloud.firestore {
       // 回を作れるのは、同じまとめ書きで「いまの回」をその回にするときだけ（開いている回は1つ）
       allow create: if isStaff() && request.resource.data.status == 'open'
         && getAfter(/databases/$(database)/documents/staff/$(box)).data.currentEvent == e;
+      // 片付けで消せるのは、いまの回ではない回だけ
+      allow delete: if isStaff() && cleaning(box)
+        && get(/databases/$(database)/documents/staff/$(box)).data.get('currentEvent', '') != e;
       // 締めた回は開け直さない。開いている回を書き換えるときは、毎回 rev を新しくする（旧版の端末の書き込みは断る）。
       // chk.base があれば、押した画面が見ていた rev がいまと同じときだけ（その間にほかの端末の変更があれば断る）。
       // 参加者画面にチームを出す（shown を true）のは、押した画面の抽選（shownDraw）がいまの抽選（drawId）と同じときだけ。
@@ -1164,7 +1207,7 @@ service cloud.firestore {
       allow read: if isStaff();
       allow create, update: if isStaff() && isOpen(box, e) && notMerged(box, rid) && revBumped(box, e);
       // 取り消し・まとめで受付を消すときは、同じまとめ書きで開催回の rev も新しくする（締めの計算と食い違わないように）
-      allow delete: if isStaff() && isOpen(box, e) && revBumped(box, e);
+      allow delete: if isStaff() && (cleaning(box) || (isOpen(box, e) && revBumped(box, e)));
     }
     match /staff/{box}/events/{e}/ops/{op} {
       allow read: if isStaff();
@@ -1563,6 +1606,7 @@ async function enter(mode) {
   B.subDoc(PUB, (d, fc) => { S.sync.pub = { cache: fc }; S.pub = d; schedulePublish(); }, () => {});
   B.sub(ROOT + '/hist', (list, fc) => { mark('hist', fc); S.hist = list.map((d) => ({ id: d.id, ...d.data })); renderAll(); }, onErr('hist'));
   B.subDoc(INFO, (d, fc) => { mark('info', fc); S.info = d; renderInfo(); schedulePublish(); }, onErr('info'));
+  B.subDoc(ROOT + '/conf/sys', (d, fc) => { S.sysConf = d; S.sysLoaded = !fc || !!d; renderSys(); }, () => {});
   bkLoad();
   B.subMetrics((m) => { S.metrics = m; renderMetrics(); });
   clockSync();
@@ -1785,7 +1829,7 @@ function renderSel() {
 $('eq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (!$('newBox').hidden && $('newAdd').classList.contains('primary')) $('newAdd').click(); } });
 
 /* ===== 表示 ===== */
-function renderAll() { renderBar(); renderEventGate(); renderRoster(); renderDup(); renderList(); renderRejected(); renderPills(); renderEventBox(); if (S.phase === 'team' && !teamEditing()) renderTeam(); if (S.phase === 'game') renderGame(); if (S.phase === 'rec') renderRec(); schedulePublish(); }
+function renderAll() { renderBar(); renderEventGate(); renderRoster(); renderDup(); renderList(); renderRejected(); renderPills(); renderEventBox(); if (S.phase === 'team' && !teamEditing()) renderTeam(); if (S.phase === 'game') renderGame(); if (S.phase === 'rec') renderRec(); if (S.phase === 'sys' && sysOk()) renderImport(); schedulePublish(); }
 /* 入力中（目印・チーム名）は書き換えない */
 function teamEditing() { const a = document.activeElement; return !!(a && a.closest && a.closest('#ph-team') && (a.tagName === 'SELECT' || (a.tagName === 'INPUT' && a.type !== 'checkbox'))); }
 
@@ -2578,7 +2622,7 @@ function showReveal(order, notes, eid, drawId) {
     '<ul class="reveal" id="rv"></ul><div class="actions"><button class="btn ghost" id="rvAll" type="button">すぐに全部見る</button><button class="btn primary" id="rvClose" type="button">チームを見る</button></div>';
   $('ov').hidden = false;
   let i = 0;
-  const step = () => { if (i >= order.length) { clearInterval(revealTimer); return; } const o = order[i++], li = document.createElement('li'); li.innerHTML = '<span>' + esc(o.name) + '</span><b>' + esc(o.team) + '</b>'; $('rv').appendChild(li); $('rv').scrollTop = $('rv').scrollHeight; };
+  const step = () => { if (i >= order.length || !$('rv')) { clearInterval(revealTimer); return; } const o = order[i++], li = document.createElement('li'); li.innerHTML = '<span>' + esc(o.name) + '</span><b>' + esc(o.team) + '</b>'; $('rv').appendChild(li); $('rv').scrollTop = $('rv').scrollHeight; };
   const all = () => { clearInterval(revealTimer); while (i < order.length) step(); };
   clearInterval(revealTimer);
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) all(); else revealTimer = setInterval(step, 280);
@@ -2869,7 +2913,7 @@ function renderRec() {
     '<span class="rstat"><span>参加 ' + x.s.n + '回</span>' + (x.s.win ? '<span>優勝 ' + x.s.win + '</span>' : '') + (x.s.top3 ? '<span>3位以内 ' + x.s.top3 + '</span>' : '') + '</span></button></li>').join('')
     : '<li class="muted">' + (q ? '「' + esc(REC.q) + '」に当てはまる人はいません' : 'まだ名簿がありません') + '</li>';
   $('recList').querySelectorAll('[data-pp]').forEach((b) => { b.onclick = () => openPerson(b.dataset.pp); });
-  renderHaoh(); renderImport(); renderBackup();
+  renderHaoh(); renderBackup();
 }
 $('recQ').addEventListener('input', () => { REC.q = $('recQ').value; renderRec(); });
 document.querySelectorAll('#recScope [data-sc]').forEach((b) => { b.onclick = () => { REC.scope = b.dataset.sc; renderRec(); }; });
@@ -3664,7 +3708,7 @@ function renderHaoh() {
     ((h.entrants || []).length ? '<small class="muted">（出場 ' + h.entrants.length + '人）</small>' : '') + '</span><button class="btn small ghost" type="button" data-ho="' + h.no + '">直す</button></li>').join('') : '<li class="muted">まだ覇王戦の記録がありません</li>';
   $('hoElH').textContent = '第' + el.nextNo + '回 覇王戦に出られる覇者 ' + el.list.length + '人';
   $('hoElNote').textContent = el.cut ? '前回（第' + el.last.no + '回 ' + fmtDate(el.cut) + '）の覇王戦の日以降に、月いちで優勝したチームのメンバーです。' : 'まだ覇王戦の記録がないので、これまでの優勝チームのメンバー全員です。';
-  $('hoEl').innerHTML = el.list.length ? el.list.map((e) => '<li><span class="pname">' + esc(e.name) + '</span><span class="rstat"><span>優勝 ' + e.wins + '回</span><span>' + esc(e.dates.map(fmtDate).join('・')) + '</span></span></li>').join('') : '<li class="muted">まだいません</li>';
+  $('hoEl').innerHTML = el.list.length ? el.list.map((e) => '<li><div class="ho-top"><span class="pname">' + esc(e.name) + '</span><span class="ho-n">優勝 ' + e.wins + '回</span></div><div class="ho-dates">' + e.dates.map((d) => '<span>' + esc(fmtDate(d)) + '</span>').join('') + '</div></li>').join('') : '<li class="muted">まだいません</li>';
   $('hoPast').querySelectorAll('[data-ho]').forEach((b) => { b.onclick = () => openHaoh(+b.dataset.ho); });
 }
 function haohText() {
@@ -3798,6 +3842,99 @@ async function applyRestore() {
   $('bkRestoreGo').disabled = false;
 }
 
+/* ===== システム（もう1段階のパスワード。パスワードは名簿などと同じ運営だけの場所に、ハッシュで置く） ===== */
+const SYSKEY = 'tk_sys_' + BOX;
+let sysMode = ''; // '' 入る / 'set' 初めて決める / 'change' 変える
+function sysOk() { if (S.mode !== 'fire' && !window.__SYS_GATE) return true; /* 鍵は本番だけ（練習モードと自動試験では開けておく。鍵そのものは v18.py で試す） */ try { return !!(S.sysConf && S.sysConf.hash && sessionStorage.getItem(SYSKEY) === S.sysConf.hash); } catch (e) { return false; } }
+async function sha(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
+function renderSys() {
+  if (!$('sysLock')) return;
+  const has = !!(S.sysConf && S.sysConf.hash), open = sysOk() && sysMode !== 'change';
+  const mode = sysMode === 'change' ? 'change' : has ? '' : 'set';
+  $('sysLock').hidden = open; $('sysBody').hidden = !open;
+  if (open) { renderImport(); return; }
+  $('sysLockNote').textContent = !S.sysLoaded ? '読み込んでいます…' : mode === 'set' ? 'システムのパスワードがまだ決まっていません。運営の中でも、Firebase のルールやデータの片付けを触る人だけが知るパスワードを決めてください（4文字以上）。'
+    : mode === 'change' ? '新しいパスワードを2回入れてください。' : 'Firebase のルール・データの取り込みや片付け・計測など、システムの設定です。システムのパスワードを入れてください。';
+  $('sysPwL').textContent = mode === '' ? 'システムのパスワード' : '新しいパスワード';
+  $('sysPw2F').hidden = mode === '';
+  $('sysGo').textContent = mode === 'set' ? '決めて入る' : mode === 'change' ? '変える' : '入る';
+  $('sysGo').disabled = !S.sysLoaded;
+}
+async function sysGo() {
+  const pw = $('sysPw').value, has = !!(S.sysConf && S.sysConf.hash), mode = sysMode === 'change' ? 'change' : has ? '' : 'set';
+  $('sysErr').textContent = '';
+  if (mode === '') {
+    if (await sha(S.sysConf.salt + pw) !== S.sysConf.hash) { $('sysErr').textContent = 'パスワードが違います'; return; }
+    try { sessionStorage.setItem(SYSKEY, S.sysConf.hash); } catch (e) {}
+  } else {
+    if (pw.length < 4) { $('sysErr').textContent = '4文字以上にしてください'; return; }
+    if (pw !== $('sysPw2').value) { $('sysErr').textContent = '2回の入力が違います'; return; }
+    const salt = Math.random().toString(36).slice(2) + Date.now().toString(36), hash = await sha(salt + pw);
+    $('sysGo').disabled = true;
+    try { await B.commit([{ op: 'set', path: ROOT + '/conf/sys', data: { salt, hash, setAt: TS, by: devName } }]); } catch (e) { $('sysGo').disabled = false; $('sysErr').textContent = '保存できませんでした（' + ((e && e.code) || '') + '）'; return; }
+    $('sysGo').disabled = false;
+    try { sessionStorage.setItem(SYSKEY, hash); } catch (e) {}
+    S.sysConf = { salt, hash }; toast(mode === 'set' ? 'システムのパスワードを決めました' : 'システムのパスワードを変えました');
+  }
+  sysMode = ''; $('sysPw').value = ''; $('sysPw2').value = '';
+  renderSys(); renderImport(); renderRules();
+}
+
+/* ===== テストのデータの片付け =====
+   スプレッドシートから取り込んだもの以外（テストで入れた名簿・受付・締めた回・記録）を、選んで消す。
+   ルールは、conf/cleanup の until（ミリ秒）が今より後の間だけ削除を通す（片付けの間の15分だけ） */
+let CL = null;
+function clScan() {
+  const pastIds = new Set(PAST.roster.map((p) => p.id)), sheetPid = new Set(histRows().filter((h) => h.src === 'sheet').map((h) => h.pid));
+  const ev = S.events[S.cur] || {};
+  CL = {
+    roster: S.roster.filter((r) => r.createdIn !== 'sheet' && !pastIds.has(r.id)).map((r) => ({ id: r.id, name: r.name, keep: sheetPid.has(r.id) })),
+    hist: S.hist.filter((h) => h.src !== 'sheet'),
+    events: Object.keys(S.events).filter((k) => k !== S.cur).map((k) => ({ id: k, ...S.events[k] })),
+    ck: S.checkins.slice(), teams: evTeams(ev).length + evMatches(ev).length > 0
+  };
+  const rm = rosterById(), byDay = {};
+  CL.hist.forEach((h) => { const k = h.kind === 'haoh' ? '覇王戦 第' + h.no + '回（' + fmtDate(h.date) + '）' : fmtDate(h.date) + ' ' + (h.ename || ''); (byDay[k] = byDay[k] || []).push(h.id); });
+  CL.histGroups = byDay;
+  const ch = (key, label, on, note) => '<li><label><input type="checkbox" data-cl="' + esc(key) + '"' + (on ? ' checked' : '') + '> <span>' + esc(label) + (note ? '<small class="muted" style="display:block">' + esc(note) + '</small>' : '') + '</span></label></li>';
+  const sec = (h, items) => items.length ? '<h3 class="s">' + esc(h) + '</h3><ul class="cl-list">' + items.join('') + '</ul>' : '';
+  const html =
+    sec('名簿（スプレッドシートにいない人）', CL.roster.map((r) => ch('r:' + r.id, r.name, !r.keep, r.keep ? 'スプレッドシートの記録がある人です' : ''))) +
+    sec('記録（スプレッドシートから取り込んだもの以外）', Object.keys(byDay).sort().map((k) => ch('h:' + k, k + '：' + byDay[k].length + '件', true))) +
+    sec('締めた回（テストで締めたもの）', CL.events.map((e) => ch('e:' + e.id, (e.name || e.id) + (e.status === 'closed' ? '' : '（開いたまま）'), true, (e.final && e.final.standings ? e.final.standings.length + 'チームの順位' : '結果なし')))) +
+    sec('いまの回「' + (ev.name || '') + '」', [].concat(CL.ck.length ? [ch('ck', '受付 ' + CL.ck.length + '人（' + CL.ck.map((c) => (rm[resolveId(c.id, rm)] || {}).name || c.name).slice(0, 30).join('・') + (CL.ck.length > 30 ? '…' : '') + '）', true)] : [],
+      CL.teams ? [ch('tm', 'チーム・対戦表・試合の結果', true)] : []));
+  $('clList').innerHTML = html ? html + '<p class="warnline" style="margin-top:10px">チェックしたものを消します。消したものは戻せません。</p><button class="btn primary" id="clGo" type="button">チェックしたものを消す</button>'
+    : '<p class="muted">消すものはありません。</p>';
+  $('clMsg').textContent = '';
+  if ($('clGo')) { let armed = false; $('clGo').onclick = () => { if (!armed) { armed = true; $('clGo').textContent = 'もう一度押すと消します'; return; } clRun(); }; }
+}
+async function clRun() {
+  if (!CL || needEvent()) return;
+  const on = new Set([...$('clList').querySelectorAll('[data-cl]:checked')].map((x) => x.dataset.cl));
+  const dels = [];
+  CL.roster.forEach((r) => { if (on.has('r:' + r.id)) dels.push(ROOT + '/roster/' + r.id); });
+  Object.keys(CL.histGroups).forEach((k) => { if (on.has('h:' + k)) CL.histGroups[k].forEach((id) => dels.push(ROOT + '/hist/' + id)); });
+  if (on.has('ck')) CL.ck.forEach((c) => dels.push(ROOT + '/events/' + S.cur + '/checkins/' + c.id));
+  $('clGo').disabled = true; $('clMsg').textContent = '消しています…';
+  const CLEAN = ROOT + '/conf/cleanup';
+  try {
+    await B.commit([{ op: 'set', path: CLEAN, data: { until: srvNow() + 15 * 60000, by: devName } }]);
+    for (const e of CL.events) if (on.has('e:' + e.id)) {
+      (await B.getServerCol(ROOT + '/events/' + e.id + '/checkins')).forEach((c) => dels.push(ROOT + '/events/' + e.id + '/checkins/' + c.id));
+      dels.push(ROOT + '/events/' + e.id);
+    }
+    let n = 0;
+    for (const part of chunks(dels, 15)) { await B.commit(part.map((path) => ({ op: 'delete', path }))); n += part.length; $('clMsg').textContent = '消しています… ' + n + '／' + dels.length; }
+    if (on.has('tm')) await B.commit(W.rev(ROOT, S.cur, [{ op: 'update', path: ROOT + '/events/' + S.cur, data: { tm: {}, mt: {}, assign: {}, teams: null, shown: false } }]));
+    await B.commit([{ op: 'set', path: CLEAN, data: { until: 0, by: devName } }]);
+    CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = dels.length + '件を消しました' + (on.has('tm') ? '（いまの回のチーム・試合も空にしました）' : '') + '。参加者画面も新しい内容に変わります。';
+  } catch (e) {
+    B.commit([{ op: 'set', path: CLEAN, data: { until: 0, by: devName } }]).catch(() => {});
+    $('clGo').disabled = false; $('clMsg').textContent = '途中で止まりました（' + ((e && e.code) || '') + '）。「消すものを調べる」からやり直すと、残りを消せます';
+  }
+}
+
 /* ===== タブ ===== */
 function showPhase(ph) {
   S.phase = ph; ls.set('phase', ph);
@@ -3806,6 +3943,8 @@ function showPhase(ph) {
   $('ph-team').hidden = ph !== 'team';
   $('ph-game').hidden = ph !== 'game';
   $('ph-other').hidden = ph !== 'rec';
+  $('ph-sys').hidden = ph !== 'sys';
+  if (ph === 'sys') renderSys();
   $('otherH').textContent = '記録';
   if (ph === 'rec') renderRec();
   if (ph === 'team') renderTeam();
@@ -3912,6 +4051,11 @@ $('selfBtn').onclick = async () => {
     await tryW('覇王戦の記録を直す', [{ op: 'set', path: R + '/hist/haoh_t' + t, data: { kind: 'haoh', no: 1, date: '2026-01-02', rid: ppl[5].id, name: 'y', entrants: [ppl[5].id], at: TS } }], 'ok');
     await tryW('大会の記録を覇王戦の記録に書き換える（断られるはず）', [{ op: 'set', path: R + '/hist/h1' + t, data: { kind: 'haoh', no: 9, date: '2026-01-01' } }], 'denied');
     await tryW('大会の案内を保存する', [{ op: 'set', path: R + '/conf/info', data: { '大会名': '試験', updatedAt: TS } }], 'ok');
+    await tryW('片付けの時間外に記録を消す（断られるはず）', [{ op: 'delete', path: R + '/hist/haoh_t' + t }], 'denied');
+    await tryW('片付けを始める（15分）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: srvNow() + 15 * 60000 } }], 'ok');
+    await tryW('片付けの間に記録を消す', [{ op: 'delete', path: R + '/hist/haoh_t' + t }], 'ok');
+    await tryW('片付けの間でも、いまの回は消せない（断られるはず）', [{ op: 'delete', path: R + '/events/' + e1 }], 'denied');
+    await tryW('片付けを終える', [{ op: 'set', path: R + '/conf/cleanup', data: { until: 0 } }], 'ok');
     await tryW('記録を別の人へ移す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[5].id, movedFrom: ppl[4].id, movedAt: TS, mv: 1 } }], 'ok');
     await tryW('同じ記録を、古い持ち主のつもりで別の端末が移す（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[6].id, movedFrom: ppl[4].id, movedAt: TS, mv: 1 } }], 'denied');
     await tryW('記録を元の人へ戻す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[4].id, movedFrom: ppl[5].id, movedAt: TS, mv: 2 } }], 'ok');
@@ -3972,6 +4116,11 @@ $('seedBtn').onclick = () => {
 };
 $('seedHist').onclick = seedHistory;
 $('impGo').onclick = () => importSheet($('impGo'));
+$('sysGo').onclick = sysGo;
+$('sysPw').onkeydown = (e) => { if (e.key === 'Enter' && $('sysPw2F').hidden) sysGo(); };
+$('sysOut').onclick = () => { try { sessionStorage.removeItem(SYSKEY); } catch (e) {} renderSys(); };
+$('sysPwChange').onclick = () => { sysMode = 'change'; renderSys(); };
+$('clScan').onclick = clScan;
 $('impExp').oninput = renderImport;
 $('infoSave').onclick = saveInfo;
 $('infoReset').onclick = () => renderInfo(true);

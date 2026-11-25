@@ -37,7 +37,7 @@ async def main():
         ca,A=await mk(b,'1台目'); cb,B=await mk(b,'2台目')
         # 最初の回
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(2000)
-        await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
+        await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
         await B.wait_for_timeout(1500)
         e1=(await st(A))['cur']; ok(e1 and (await st(B))['cur']==e1,'2台とも同じ開催回 '+e1)
         # S1 受付
@@ -95,7 +95,7 @@ async def main():
         await pick(A,['りく']); await cancel(A,'あおい'); await A.wait_for_timeout(300)
         sa=await st(A); print('   A offline:',sa['bar'])
         # 端末のデータを消す：送信待ちがあると消せない
-        await A.click('.nb[data-ph=set]'); await A.click('#wipeBtn'); await A.wait_for_timeout(300)
+        await A.click('.nb[data-ph=sys]'); await A.click('#wipeBtn'); await A.wait_for_timeout(300)
         ok('送信待ち' in await A.inner_text('#wipeMsg'),'④ 送信待ちがあると消せない：'+await A.inner_text('#wipeMsg'))
         await A.close(); await ca.set_offline(False)
         A=await reopen(ca,'1台目'); await A.wait_for_timeout(6000); await B.wait_for_timeout(1000)
@@ -105,7 +105,7 @@ async def main():
         ok(sa['unsent']==0 and not sa['rej'],'S4 Aの送信待ち0・断られた操作なし')
         print('   A bar:',sa['bar']); print('   B bar:',sb['bar'])
         # 自己診断（模擬サーバーのルール）
-        await A.click('.nb[data-ph=set]'); await A.click('#selfBtn'); await A.wait_for_timeout(9000)
+        await A.click('.nb[data-ph=sys]'); await A.click('#selfBtn'); await A.wait_for_timeout(9000)
         print('   self:',(await A.inner_text('#selfOut')).replace('\n',' | '))
         await A.screenshot(path='s_set.png',full_page=True)
         await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(300); await A.screenshot(path='s_entry.png')

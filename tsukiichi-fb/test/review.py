@@ -28,7 +28,7 @@ async def main():
         b=await p.chromium.launch()
         ca,A=await mk(b,'1台目'); cb,B=await mk(b,'2台目','dark')
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.wait_for_timeout(1500); await A.click('#seedHist'); await A.wait_for_timeout(2500)
+        await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.wait_for_timeout(1500); await A.click('#seedHist'); await A.wait_for_timeout(2500)
         # ⑧ 同じ日の2件は、読み込み順で数が変わらない
         r=await A.evaluate("""()=>{const t=window.__tk,keep=t.S.hist;const rows=[{id:'x1',rid:'r05',date:'2026-07-01',rank:1},{id:'x2',rid:'r05',date:'2026-07-01',rank:4}];
           t.S.hist=rows;const a=t.personStats(false).r05;t.S.hist=rows.slice().reverse();const b=t.personStats(false).r05;t.S.hist=keep;return [[a.n,a.win,a.top3,a.dup.length],[b.n,b.win,b.top3,b.dup.length]]}""")

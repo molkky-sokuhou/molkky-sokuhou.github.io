@@ -41,7 +41,7 @@ async def main():
     async with async_playwright() as p:
         b=await p.chromium.launch()
         ca,A=await mk(b,'1台目'); cb,B=await mk(b,'2台目')
-        await startEvent(A); await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
+        await startEvent(A); await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
         e1=(await st(A))['cur']
         # ② 10人確認→圏外で1人取消
         await pick(A,['はると','ゆい','そうた','めい','けんた','あおい','りく','ひな','だいき','さくら']); await A.wait_for_timeout(2500)
@@ -62,7 +62,7 @@ async def main():
         # 9人取消して全員を一括で受付 → まずはみんな取消（画面上で）
         get('/reset'); await A.close(); await B.close(); await ca.close(); await cb.close()
         ca,A=await mk(b,'1台目'); cb,B=await mk(b,'2台目')
-        await startEvent(A); await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
+        await startEvent(A); await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)
         e1=(await st(A))['cur']
         # 途中で切断：返事を遅くして、1回目が届いたあとに圏外→閉じる→開き直す
         get('/slow?ms=1200')
@@ -78,7 +78,7 @@ async def main():
         # 拒否が途中の1回だけに起きる：Bが圏外のあいだに、サーバー側で3回目の中の1人（r10）を別の人にまとめる
         get('/reset'); await A.close(); await B.close(); await ca.close(); await cb.close()
         ca,A=await mk(b,'1台目'); cb,B=await mk(b,'2台目')
-        await startEvent(A); await A.click('.nb[data-ph=set]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2500)
+        await startEvent(A); await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2500)
         e1=(await st(A))['cur']
         await ca.set_offline(True); await A.wait_for_timeout(1200)
         print('     まとめ（サーバー側で直接）:',commit([{'op':'update','path':'staff/proto/roster/r10','data':{'mergedInto':'r01'}}]))
@@ -116,7 +116,7 @@ async def main():
         ok(commit([{'op':'update','path':'staff/proto/roster/'+dropid,'data':{'mergedInto':''}}])['ok'] is False,'④ まとめ済みを元に戻す書き込みは断られる')
         ok(commit([{'op':'set','path':'staff/proto/roster/'+dropid,'data':{'name':'やまだ はな'}}])['ok'] is False,'④ まとめ済みを古い新規登録で上書きは断られる')
         # ⑤ ルールの確認：通信エラーは判定不能、ほかはすべて✓
-        await A.click('.nb[data-ph=set]')
+        await A.click('.nb[data-ph=sys]')
         get('/fail?ms=17000'); await A.click('#selfBtn')
         for i in range(60):
             await A.wait_for_timeout(2000)

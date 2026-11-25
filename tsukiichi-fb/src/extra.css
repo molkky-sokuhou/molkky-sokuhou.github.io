@@ -129,9 +129,19 @@
 #hoPast li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #hoPast li > span { flex: 1 1 auto; min-width: 0; }
 #hoPast li .btn { flex: 0 0 auto; }
-#hoEl li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+#hoEl li { display: grid; gap: 2px; padding: 8px 2px; border-bottom: 1px solid var(--line); min-width: 0; }
 #hoEl .rstat { display: flex; gap: 10px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
 ul.checks { list-style: none; margin: 6px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5em, 1fr)); gap: 4px 10px; }
 ul.checks label { display: flex; align-items: center; gap: 6px; min-height: 40px; }
 ul.checks input { width: 20px; height: 20px; }
 #hoEl .pname { font-weight: 900; }
+#hoEl .ho-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%; }
+#hoEl .ho-n { font-size: .85rem; color: var(--muted); font-weight: 900; white-space: nowrap; }
+#hoEl .ho-dates { display: flex; flex-wrap: wrap; gap: 2px 10px; width: 100%; font-size: .82rem; color: var(--muted); }
+#hoEl .ho-dates span { white-space: nowrap; }
+ul.cl-list { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 2px; }
+ul.cl-list label { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; }
+ul.cl-list input { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; }
+ul.cl-list span { min-width: 0; overflow-wrap: anywhere; }
+.bnav-in { grid-template-columns: repeat(6, 1fr); }
+.nb { font-size: .74rem; white-space: nowrap; }

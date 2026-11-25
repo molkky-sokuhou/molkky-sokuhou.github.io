@@ -23,12 +23,12 @@ async def main():
         ca, A = await mk(b, '1台目')
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
 
-        # 1. 取り込み
-        await A.click('.nb[data-ph=rec]'); await A.wait_for_timeout(500)
+        # 1. 取り込み（システムタブ）
+        await A.click('.nb[data-ph=sys]'); await A.wait_for_timeout(500)
         t = await A.locator('#impSum').text_content()
         ok('名簿 33人' in t and '記録 50件' in t and '覇王戦 1件' in t, '取り込む前の説明：' + t)
         await A.fill('#impExp', open('/tmp/explist.txt').read()); await A.wait_for_timeout(200)
-        await A.click('.nb[data-ph=entry]'); await A.click('.nb[data-ph=rec]'); await A.wait_for_timeout(300)
+        await A.click('.nb[data-ph=entry]'); await A.click('.nb[data-ph=sys]'); await A.wait_for_timeout(300)
         await A.click('#impGo'); await A.click('#impGo'); await A.wait_for_timeout(3500)
         ok(len(roster()) == 33 and len(hist()) == 50 and len(hist('haoh')) == 1, '名簿33人・記録50件・覇王戦1件が入る（%d・%d・%d）' % (len(roster()), len(hist()), len(hist('haoh'))))
         ok(not any(v['name'] in ('あ', 'い', 'う', 'え') for v in roster().values()), 'テストの4人（あ・い・う・え）は入らない')
@@ -46,6 +46,7 @@ async def main():
         names = [e['name'] for e in el['list']]
         ok(el['nextNo'] == 2 and len(names) == 20 and '学園長' in names and 'やきとり' in names and names[0] == 'マルック' and el['list'][0]['wins'] == 5,
            '第2回の出場資格は20人（12/20の学園長も入る・マルックは優勝5回）')
+        await A.click('.nb[data-ph=rec]'); await A.wait_for_timeout(300)
         t = await A.locator('#hoElH').text_content()
         ok('第2回' in t and '20人' in t, '運営画面に出場資格の見出し：' + t)
         await A.wait_for_timeout(2500)
