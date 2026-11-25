@@ -154,6 +154,8 @@ input, select, textarea, .input { font-size: max(16px, 1em); }
 .copyta { font-size: 16px; }
 html, body { max-width: 100%; overflow-x: clip; }
 
-.rulestate { word-break: keep-all; overflow-wrap: anywhere; margin: 4px 0 8px; padding: 8px 10px; border: 2px solid var(--frame); border-radius: 10px; font-weight: 700; }
+.rulestate { word-break: keep-all; overflow-wrap: anywhere; min-width: 0; max-width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border: 2px solid var(--frame); border-radius: 10px; font-weight: 700; }
 .rulestate.ok { background: var(--good-soft); }
 .rulestate.old { background: var(--warn-soft); border-color: var(--yellow); }
+#ph-sys .box, #ph-sys details, #ph-sys .field { min-width: 0; max-width: 100%; }
+#ph-sys input { min-width: 0; max-width: 100%; box-sizing: border-box; }

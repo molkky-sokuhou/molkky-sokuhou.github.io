@@ -82,3 +82,4 @@
   - 「ルールを公開」ボタン：Google Identity Services でログイン（scope は firebase）し、Firebase Rules API で rulesets を作って releases/cloud.firestore を切り替える。クライアントIDは conf/deploy。トークンはメモリだけ（1時間）。公開後は10秒ごとに最新か確かめる
   - 準備（1回だけ）：Google Cloud の tsukiichi-molkky で OAuth の同意画面（外部・テスト中・テストユーザーに持ち主）とウェブのクライアントID（JavaScript 生成元 https://molkky-sokuhou.github.io）を作り、システムタブの「公開ボタンの設定」に入れる
   - 試験 test/v25.py（13項目。ログインと API は差し替え）
+- 2026.11.25-26：iPhone でシステムタブのルールの枠が画面からはみ出す件。状態の文に文節ごとの <wbr> を入れ（keep-all だけだと Safari が1行のまま枠を押し広げる）、システムタブの枠と入力欄に min-width:0

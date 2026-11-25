@@ -3008,7 +3008,9 @@ function renderRules() {
     $('rulesVerH').textContent = 'ルールの版 ' + RULES_VER;
     $('rulesState').hidden = !uid;
     $('rulesState').className = 'rulestate ' + (RS.state === 'ok' ? 'ok' : RS.state === 'old' ? 'old' : '');
-    $('rulesState').textContent = RS.state === 'ok' ? '✓ 本番のルールは最新です（ルールの版 ' + RULES_VER + '）' : RS.state === 'old' ? '本番のルールが古いです。「ルールを公開」を押してください' : RS.state === 'err' ? '本番のルールを確かめられませんでした。電波を確かめてください' : '本番のルールを確かめています…';
+    /* 文節の切れ目（|）でだけ折り返す。keep-all だけだと iPhone の Safari が1行のまま枠を押し広げるので <wbr> を入れる */
+    const st = RS.state === 'ok' ? '✓ |本番の|ルールは|最新です|（ルールの版 ' + RULES_VER + '）' : RS.state === 'old' ? '本番の|ルールが|古いです。|「ルールを公開」を|押してください' : RS.state === 'err' ? '本番の|ルールを|確かめられませんでした。|電波を|確かめてください' : '本番の|ルールを|確かめています…';
+    $('rulesState').innerHTML = st.split('|').map(esc).join('<wbr>');
     $('rulesPub').hidden = !uid; $('rulesPub').disabled = RS.busy;
     $('rulesPub').className = 'btn wide ' + (RS.state === 'old' ? 'primary' : '');
     $('rulesPubMsg').textContent = RS.msg; $('rulesPubMsg').className = RS.bad ? 'err' : 'muted';

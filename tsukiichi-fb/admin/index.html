@@ -575,9 +575,11 @@ input, select, textarea, .input { font-size: max(16px, 1em); }
 .copyta { font-size: 16px; }
 html, body { max-width: 100%; overflow-x: clip; }
 
-.rulestate { word-break: keep-all; overflow-wrap: anywhere; margin: 4px 0 8px; padding: 8px 10px; border: 2px solid var(--frame); border-radius: 10px; font-weight: 700; }
+.rulestate { word-break: keep-all; overflow-wrap: anywhere; min-width: 0; max-width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border: 2px solid var(--frame); border-radius: 10px; font-weight: 700; }
 .rulestate.ok { background: var(--good-soft); }
 .rulestate.old { background: var(--warn-soft); border-color: var(--yellow); }
+#ph-sys .box, #ph-sys details, #ph-sys .field { min-width: 0; max-width: 100%; }
+#ph-sys input { min-width: 0; max-width: 100%; box-sizing: border-box; }
 
 </style>
 </head>
@@ -642,7 +644,7 @@ html, body { max-width: 100%; overflow-x: clip; }
       <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
     </div>
     <p style="text-align:center;margin:8px 0 0"><a class="btn ghost small" href="../../tsukiichi/">参加者の画面へ戻る</a></p>
-    <p class="ver">版 2026.11.25-25</p>
+    <p class="ver">版 2026.11.25-26</p>
   </div>
 
   <div id="app" hidden>
@@ -911,7 +913,7 @@ html, body { max-width: 100%; overflow-x: clip; }
         </div>
         </div>
       </section>
-      <p class="ver">版 2026.11.25-25</p>
+      <p class="ver">版 2026.11.25-26</p>
     </main>
   </div>
 </div>
@@ -1048,7 +1050,7 @@ if (typeof module !== 'undefined') module.exports = { fakeServerCommit, fakeAppl
    - staff/{BOX}/events/{e}/devices/{d}  各端末の「送信待ち」の件数と最後につながった時刻
    ルール側で：締めた回への書き込み、まとめた人への受付は断る
 */
-const VER = '2026.11.25-25';
+const VER = '2026.11.25-26';
 const FB_VER = '13.2.0';
 const STAFF_EMAIL = 'unei@tsukiichi.example';
 const BOX = 'proto';
@@ -4498,7 +4500,9 @@ function renderRules() {
     $('rulesVerH').textContent = 'ルールの版 ' + RULES_VER;
     $('rulesState').hidden = !uid;
     $('rulesState').className = 'rulestate ' + (RS.state === 'ok' ? 'ok' : RS.state === 'old' ? 'old' : '');
-    $('rulesState').textContent = RS.state === 'ok' ? '✓ 本番のルールは最新です（ルールの版 ' + RULES_VER + '）' : RS.state === 'old' ? '本番のルールが古いです。「ルールを公開」を押してください' : RS.state === 'err' ? '本番のルールを確かめられませんでした。電波を確かめてください' : '本番のルールを確かめています…';
+    /* 文節の切れ目（|）でだけ折り返す。keep-all だけだと iPhone の Safari が1行のまま枠を押し広げるので <wbr> を入れる */
+    const st = RS.state === 'ok' ? '✓ |本番の|ルールは|最新です|（ルールの版 ' + RULES_VER + '）' : RS.state === 'old' ? '本番の|ルールが|古いです。|「ルールを公開」を|押してください' : RS.state === 'err' ? '本番の|ルールを|確かめられませんでした。|電波を|確かめてください' : '本番の|ルールを|確かめています…';
+    $('rulesState').innerHTML = st.split('|').map(esc).join('<wbr>');
     $('rulesPub').hidden = !uid; $('rulesPub').disabled = RS.busy;
     $('rulesPub').className = 'btn wide ' + (RS.state === 'old' ? 'primary' : '');
     $('rulesPubMsg').textContent = RS.msg; $('rulesPubMsg').className = RS.bad ? 'err' : 'muted';
