@@ -295,7 +295,7 @@ th{white-space:nowrap}
   <button data-tab="venue" role="tab">会場・<br>ルール</button>
 </nav>
 <script>
-var VERSION = '11/25-1';
+var VERSION = '11/25-2';
 var SHEET_ID = atob('VWF0TGs1MlVuZ1FVMHp6ek5hNFdReHJ3UlNqWG1lZ0E3UmtLVHhOMVVyNjE=').split('').reverse().join('');
 var AUTO_SEC = 60;
 var store = {
@@ -682,7 +682,7 @@ function viewGames(){
 function viewRank(){
   var h = '';
   if (M.kind === 'team'){
-    h += '<h2>予選の順位</h2><p class="lead">勝ったセット数 →<wbr>引き分けのセット数 →<wbr>合計得点の順。<wbr>' + (M.qualsDone ? '' : '<b>途中の順位</b>です。') + '</p>';
+    h += '<h2>予選の順位</h2><p class="lead">主催者の表の順位を<wbr>そのまま出しています。<wbr>' + (M.qualsDone ? '' : '<b>途中の順位</b>です。') + '</p>';
     ['A', 'B'].forEach(function(gp){
       var list = M.teams.filter(function(t){ return t.grp === gp; }).slice().sort(function(a, b){ return ((a.rank || a.prov || 99) - (b.rank || b.prov || 99)) || a.no - b.no; });
       h += '<h3>' + gp + 'グループ</h3><table><thead><tr><th>順位</th><th>チーム</th><th>勝ち</th><th>分け</th><th>得点</th></tr></thead><tbody>';
