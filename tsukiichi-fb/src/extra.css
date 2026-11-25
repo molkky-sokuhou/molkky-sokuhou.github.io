@@ -149,3 +149,7 @@ ul.cl-list span { min-width: 0; overflow-wrap: anywhere; }
 input[type="date"].input { -webkit-appearance: none; appearance: none; display: block; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; text-align: left; }
 input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .field { min-width: 0; }
+/* iPhone は16px未満の入力欄を触ると画面を拡大したままにするので、入力欄は16px以上に */
+input, select, textarea, .input { font-size: max(16px, 1em); }
+.copyta { font-size: 16px; }
+html, body { max-width: 100%; overflow-x: clip; }

@@ -65,7 +65,7 @@ function fakeServerCommit(db, writes, now) {
       const key = (docs['staff/' + p[1] + '/conf/sysKey'] || {}).hash;
       if (p[3] === 'sysKey') ok = !del && typeof next.hash === 'string' && next.hash.length === 64 && (!before || (next.old || '') === before.hash);
       else if (p[3] === 'sysCheck') ok = !del && !!key && next.key === key;
-      else if (p[3] === 'cleanup') ok = !del && ((next.until || 0) === 0 || (!!key && next.key === key && Number.isInteger(next.until) && next.until <= now + 960000));
+      else if (p[3] === 'cleanup') ok = !del && ((next.until || 0) === 0 || (!!key && next.key === key && Number.isFinite(next.until) && next.until <= now + 960000));
       else ok = true;
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'hist') {

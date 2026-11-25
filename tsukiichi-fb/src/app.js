@@ -194,7 +194,7 @@ service cloud.firestore {
     match /staff/{box}/conf/cleanup {
       allow write: if isStaff() && (request.resource.data.get('until', 0) == 0
         || (request.resource.data.get('key', '') == sysHash(box)
-          && request.resource.data.until is int && request.resource.data.until <= request.time.toMillis() + 960000));
+          && request.resource.data.until is number && request.resource.data.until <= request.time.toMillis() + 960000));
     }
     match /staff/{box}/events/{e} {
       allow read: if isStaff();
@@ -2529,7 +2529,7 @@ async function clRun() {
   const CLEAN = ROOT + '/conf/cleanup', del = (path) => ({ op: 'delete', path });
   let n = 0;
   try {
-    await B.commit([{ op: 'set', path: CLEAN, data: { until: srvNow() + 15 * 60000, key, by: devName } }]);
+    await B.commit([{ op: 'set', path: CLEAN, data: { until: Math.floor(srvNow()) + 15 * 60000, key, by: devName } }]);
     /* いまの回：受付を消すとき・チームを空にするときは、調べたときの rev から順に rev を変える（その間に結果や受付が変わっていたら断られる） */
     const ck = on.has('ck') ? CL.ck.map((c) => ROOT + '/events/' + CL.eid + '/checkins/' + c.id) : [];
     if (ck.length || on.has('tm')) {
@@ -2682,9 +2682,9 @@ $('selfBtn').onclick = async () => {
     await tryW('今のハッシュを知らずに、パスワードを置き換える（断られるはず）', [{ op: 'set', path: R + '/conf/sysKey', data: { hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', old: 'x' } }], 'denied');
     await tryW('違うパスワードで確かめる（断られるはず）', [{ op: 'set', path: R + '/conf/sysCheck', data: { key: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } }], 'denied');
     await tryW('正しいパスワードで確かめる', [{ op: 'set', path: R + '/conf/sysCheck', data: { key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'ok');
-    await tryW('パスワードなしで片付けを始める（断られるはず）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: srvNow() + 15 * 60000 } }], 'denied');
-    await tryW('1日先まで片付けの時間にする（断られるはず）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: srvNow() + 86400000, key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'denied');
-    await tryW('片付けを始める（15分）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: srvNow() + 15 * 60000, key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'ok');
+    await tryW('パスワードなしで片付けを始める（断られるはず）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: Math.floor(srvNow()) + 15 * 60000 } }], 'denied');
+    await tryW('1日先まで片付けの時間にする（断られるはず）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: Math.floor(srvNow()) + 86400000, key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'denied');
+    await tryW('片付けを始める（15分）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: Math.floor(srvNow()) + 15 * 60000, key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'ok');
     await tryW('片付けの間に記録を消す', [{ op: 'delete', path: R + '/hist/haoh_t' + t }], 'ok');
     await tryW('片付けの間でも、いまの回は消せない（断られるはず）', [{ op: 'delete', path: R + '/events/' + e1 }], 'denied');
     await tryW('片付けを終える', [{ op: 'set', path: R + '/conf/cleanup', data: { until: 0 } }], 'ok');
