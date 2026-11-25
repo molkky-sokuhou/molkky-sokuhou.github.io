@@ -1037,7 +1037,8 @@ function checkVersion(now){
   fetch('./?v=' + Date.now(), { cache: 'no-store' }).then(function(r){ return r.ok ? r.text() : ''; }).then(function(t){
     verBusy = false;
     var m = t.match(/var VERSION = '([^']+)'/);
-    if (m && m[1] !== VERSION){ toast('新しい版（' + m[1] + '）に切り替えます'); setTimeout(function(){ location.replace(location.pathname + '?v=' + encodeURIComponent(m[1]) + location.hash); }, 1200); }
+    var tried = ''; try { tried = sessionStorage.getItem('ehm6:ver') || ''; } catch(e){}
+    if (m && m[1] !== VERSION && m[1] !== tried){ try { sessionStorage.setItem('ehm6:ver', m[1]); } catch(e){} toast('新しい版（' + m[1] + '）に切り替えます'); setTimeout(function(){ location.replace(location.pathname + '?v=' + encodeURIComponent(m[1]) + location.hash); }, 1200); }
   }, function(){ verBusy = false; });
 }
 setTimeout(checkVersion, 4000);
