@@ -76,3 +76,9 @@
   - 同じチームにしない組：記録タブで人を開き「同じチームにしない人」で足す・外す。名簿の ng（{相手の名簿ID: true/false}。両方の人に書く）。まとめた人の分は、まとめ先に付け替えて数える（まとめた人の名簿にある組は、まとめを戻してから外す）
   - 抽選：目印の次に強い（必ず守る）。目印のまとまりの中に組があれば抽選の前に止める。守れないときは結果を出さずに理由を出す。決めたあとに手で同じチームにしたときは注意（⚠）だけ。参加者向けのデータには入らない
   - 試験 test/v24.py（13項目）
+- 2026.11.25-25 引き継ぎ
+  - ルールの版（RULES_VER、いまは R24）をアプリの版と分けた。**ルールの中身を変えたときだけ上げる。** ルールの2行目とシステムタブの見出しに出る
+  - 本番のルールが古いかどうか：ルールに `match /rulesVer/{v} { allow get: if isStaff() && v == 'R24'; }` を入れ、システムタブを開いたときに rulesVer/R24 を読む（読めれば最新・permission-denied なら古い）
+  - 「ルールを公開」ボタン：Google Identity Services でログイン（scope は firebase）し、Firebase Rules API で rulesets を作って releases/cloud.firestore を切り替える。クライアントIDは conf/deploy。トークンはメモリだけ（1時間）。公開後は10秒ごとに最新か確かめる
+  - 準備（1回だけ）：Google Cloud の tsukiichi-molkky で OAuth の同意画面（外部・テスト中・テストユーザーに持ち主）とウェブのクライアントID（JavaScript 生成元 https://molkky-sokuhou.github.io）を作り、システムタブの「公開ボタンの設定」に入れる
+  - 試験 test/v25.py（13項目。ログインと API は差し替え）

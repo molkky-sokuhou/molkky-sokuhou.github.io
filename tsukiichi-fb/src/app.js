@@ -80,8 +80,10 @@ const W = {
 const chunks = (a, n) => { const r = []; for (let i = 0; i < a.length; i += n) r.push(a.slice(i, i + n)); return r; };
 
 /* ===== Firestore のルール（運営アカウントの番号＝UIDで判定）。設定タブでUID入りの全文をコピーできる ===== */
+/* ルールの版：ルールの中身を変えたときだけ上げる（アプリの版とは別）。本番のルールが古いかどうかは、rulesVer/この版 が読めるかで分かる */
+const RULES_VER = 'R24', FB_PROJECT = 'tsukiichi-molkky';
 const RULES = `rules_version = '2';
-// 月いちモルック Firebase版のルール：版 ${VER}（運営画面のいちばん下の版と同じなら、最新のルールです）
+// 月いちモルック Firebase版のルール：ルールの版 ${RULES_VER}（システムタブで、本番のルールが最新か分かります）
 service cloud.firestore {
   match /databases/{database}/documents {
     // 運営アカウント（UIDで判定）
@@ -117,6 +119,10 @@ service cloud.firestore {
     }
     match /public/{path=**} {
       allow read: if true;
+    }
+    // ルールの版の目印。この版の名前だけ読める（文書はなくてよい）。読めなければ、本番のルールが古い
+    match /rulesVer/{v} {
+      allow get: if isStaff() && v == '${RULES_VER}';
     }
     match /public/{id} {
       allow create, update: if isStaff()
@@ -631,6 +637,7 @@ async function enter(mode) {
   B.sub(ROOT + '/roster', (list, fc) => { mark('roster', fc); S.roster = list.map((d) => ({ id: d.id, ...d.data, pending: d.pending })); renderAll(); }, onErr('roster'));
   B.subDoc(PUB, (d, fc) => { S.sync.pub = { cache: fc }; S.pub = d; schedulePublish(); }, () => {});
   B.sub(ROOT + '/hist', (list, fc) => { mark('hist', fc); S.hist = list.map((d) => ({ id: d.id, ...d.data })); renderAll(); }, onErr('hist'));
+  B.subDoc(ROOT + '/conf/deploy', (d) => { S.deploy = d; renderRules(); }, () => {});
   B.subDoc(INFO, (d, fc) => { mark('info', fc); S.info = d; renderInfo(); schedulePublish(); }, onErr('info'));
   B.subDoc(ROOT + '/conf/sysMeta', (d, fc) => { S.sysConf = d; S.sysLoaded = !fc || !!d; renderSys(); }, () => {});
   bkLoad();
@@ -2513,7 +2520,7 @@ function renderSys() {
   const has = !!(S.sysConf && S.sysConf.salt), open = sysOk() && sysMode !== 'change';
   const mode = sysMode === 'change' ? 'change' : has ? '' : 'set';
   $('sysLock').hidden = open; $('sysBody').hidden = !open;
-  if (open) { renderImport(); return; }
+  if (open) { renderImport(); if (!RS.state || now() - RS.at > 60000) checkRules(); return; }
   $('sysLockNote').textContent = !S.sysLoaded ? '読み込んでいます…' : mode === 'set' ? 'システムのパスワードがまだ決まっていません。運営の中でも、Firebase のルールやデータの片付けを触る人だけが知るパスワードを決めてください（4文字以上）。'
     : mode === 'change' ? '新しいパスワードを2回入れてください。' : 'Firebase のルール・データの取り込みや片付け・計測など、システムの設定です。システムのパスワードを入れてください。';
   $('sysPwL').textContent = mode === '' ? 'システムのパスワード' : '新しいパスワード';
@@ -2945,12 +2952,82 @@ function realUid() {
   const u = B.uid();
   return u && B.email && B.email() === STAFF_EMAIL ? u : '';
 }
+/* ===== ルールの公開（システムタブのボタン。Firebase の持ち主の Google アカウントでログインして、Firebase Rules API で公開する） =====
+   OAuth のクライアントID は conf/deploy に置く（公開して困る値ではない）。ログインの許可（アクセストークン）はこの画面のメモリにだけ持つ */
+const RS = { state: '', at: 0, msg: '', busy: false, token: '', exp: 0, polls: 0, probe: (p) => B.getServer(p) };
+const GSI_URL = 'https://accounts.google.com/gsi/client';
+function rulesUid() { return realUid() || (B && B.kind !== 'fire' && window.__RULES_UID) || ''; }
+async function checkRules() {
+  if (!rulesUid()) return;
+  try { await RS.probe('rulesVer/' + RULES_VER); RS.state = 'ok'; }
+  catch (e) { RS.state = (e && e.code) === 'permission-denied' ? 'old' : 'err'; }
+  RS.at = now(); renderRules();
+}
+let gsiP = null;
+function loadGsi() {
+  if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+  if (!gsiP) gsiP = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = GSI_URL; sc.async = true; sc.onload = res; sc.onerror = () => { gsiP = null; rej(new Error('gsi')); }; document.head.appendChild(sc); });
+  return gsiP;
+}
+function deployCid() { return String((S.deploy && S.deploy.clientId) || '').trim(); }
+function rulesMsg(m, bad) { RS.msg = m; RS.bad = !!bad; renderRules(); }
+function publishRules() {
+  const uid = rulesUid(), cid = deployCid();
+  if (!uid) return rulesMsg('本番の運営モードでだけ公開できます', true);
+  if (!cid) return rulesMsg('先に「公開ボタンの設定」でクライアントIDを入れてください', true);
+  if (RS.busy) return;
+  if (RS.token && RS.exp > Date.now() + 60000) { doPublish(uid); return; }
+  if (!(window.google && google.accounts && google.accounts.oauth2)) { loadGsi().then(() => rulesMsg('準備ができました。もう一度「ルールを公開」を押してください'), () => rulesMsg('Google のログイン画面を読み込めませんでした。電波を確かめてください', true)); return rulesMsg('Google のログイン画面を読み込んでいます…'); }
+  /* ボタンを押したその場で開く（あとから開くと、スマホではポップアップが止められる） */
+  const tc = google.accounts.oauth2.initTokenClient({
+    client_id: cid, scope: 'https://www.googleapis.com/auth/firebase',
+    callback: (r) => { if (!r || r.error || !r.access_token) { rulesMsg('ログインできませんでした（' + ((r && r.error) || '') + '）', true); return; } RS.token = r.access_token; RS.exp = Date.now() + (num(r.expires_in) || 3600) * 1000; doPublish(uid); },
+    error_callback: (e) => rulesMsg(e && e.type === 'popup_closed' ? 'ログインの画面が閉じられました' : 'ログインの画面を開けませんでした（' + ((e && e.type) || '') + '）。ポップアップを止める設定になっていないか確かめてください', true),
+  });
+  tc.requestAccessToken({ prompt: '' });
+}
+async function doPublish(uid) {
+  RS.busy = true; rulesMsg('公開しています…');
+  const H = { Authorization: 'Bearer ' + RS.token, 'Content-Type': 'application/json' }, base = 'https://firebaserules.googleapis.com/v1/projects/' + FB_PROJECT;
+  const why = async (r) => { let m = ''; try { m = ((await r.json()).error || {}).message || ''; } catch (e) {} return r.status + (m ? '：' + m.slice(0, 160) : ''); };
+  try {
+    const r1 = await fetch(base + '/rulesets', { method: 'POST', headers: H, body: JSON.stringify({ source: { files: [{ name: 'firestore.rules', content: RULES.replace('__UID__', uid) }] } }) });
+    if (!r1.ok) { if (r1.status === 401) RS.token = ''; throw new Error((r1.status === 403 ? 'このGoogleアカウントにはルールを公開する権限がありません。Firebase の持ち主のアカウントでログインしてください（' : r1.status === 400 ? 'ルールの書き方に誤りがあります。Claude に知らせてください（' : 'ルールを送れませんでした（') + await why(r1) + '）'); }
+    const rs = await r1.json();
+    const r2 = await fetch(base + '/releases/cloud.firestore', { method: 'PATCH', headers: H, body: JSON.stringify({ release: { name: 'projects/' + FB_PROJECT + '/releases/cloud.firestore', rulesetName: rs.name } }) });
+    if (!r2.ok) { if (r2.status === 401) RS.token = ''; throw new Error('ルールを切り替えられませんでした（' + await why(r2) + '）'); }
+    RS.busy = false; rulesMsg('公開しました（ルールの版 ' + RULES_VER + '）。行き渡るまで1分ほどかかります。「最新です」に変わるまで、この画面で確かめます');
+    RS.polls = 0; const poll = () => { if (RS.state === 'ok' || RS.polls++ > 12) return; checkRules().then(() => { if (RS.state !== 'ok') setTimeout(poll, 10000); }); };
+    setTimeout(poll, 5000);
+  } catch (e) { RS.busy = false; rulesMsg(e && e.message && !/fetch/i.test(e.message) ? e.message : '公開できませんでした。電波を確かめてください（' + ((e && e.message) || '') + '）', true); }
+}
 function renderRules() {
-  const uid = realUid();
+  const uid = rulesUid();
+  if ($('rulesState')) {
+    const cid = deployCid();
+    $('rulesVerH').textContent = 'ルールの版 ' + RULES_VER;
+    $('rulesState').hidden = !uid;
+    $('rulesState').className = 'rulestate ' + (RS.state === 'ok' ? 'ok' : RS.state === 'old' ? 'old' : '');
+    $('rulesState').textContent = RS.state === 'ok' ? '✓ 本番のルールは最新です（ルールの版 ' + RULES_VER + '）' : RS.state === 'old' ? '本番のルールが古いです。「ルールを公開」を押してください' : RS.state === 'err' ? '本番のルールを確かめられませんでした。電波を確かめてください' : '本番のルールを確かめています…';
+    $('rulesPub').hidden = !uid; $('rulesPub').disabled = RS.busy;
+    $('rulesPub').className = 'btn wide ' + (RS.state === 'old' ? 'primary' : '');
+    $('rulesPubMsg').textContent = RS.msg; $('rulesPubMsg').className = RS.bad ? 'err' : 'muted';
+    $('rulesCidBox').hidden = !uid;
+    if (document.activeElement !== $('rulesCid')) $('rulesCid').value = cid;
+    $('rulesCidSt').textContent = cid ? '設定済みです' : 'まだ設定していません。はじめに1回だけ、Google Cloud で作ったクライアントIDを入れてください';
+    if (uid && cid && RS.state === 'old') loadGsi().catch(() => {}); // 押したときにすぐログイン画面を開けるよう、先に読み込んでおく
+  }
+
   $('rulesBody').hidden = !uid;
   $('rulesNote').textContent = uid ? 'この運営アカウントのUID：' + uid : '本番の運営モード（運営パスコードでログイン）のときだけ表示します。練習モードでは表示しません。';
   $('rulesTa').value = uid ? RULES.replace('__UID__', uid) : '';
 }
+$('rulesPub').onclick = publishRules;
+$('rulesCidSave').onclick = () => {
+  const v = $('rulesCid').value.trim();
+  if (v && !/^[\w-]+\.apps\.googleusercontent\.com$/.test(v)) { $('rulesCidSt').textContent = '形が違います（…apps.googleusercontent.com で終わる文字です）'; return; }
+  B.commit([{ op: 'set', path: ROOT + '/conf/deploy', data: { clientId: v, at: TS, by: devName } }]).then(() => toast('クライアントIDを保存しました'), (e) => toast('保存できませんでした（' + ((e && e.code) || '') + '）', true));
+};
 $('rulesCopy').onclick = () => {
   renderRules();
   if (!realUid()) { toast('本番の運営モードでだけコピーできます', true); return; }
@@ -2958,6 +3035,6 @@ $('rulesCopy').onclick = () => {
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
 };
-window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance, BK, saveBackup, haohEligible, importPlan, infoNow, openHaoh, openPerson };
+window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance, BK, saveBackup, haohEligible, importPlan, infoNow, openHaoh, openPerson, RS, checkRules, publishRules, RULES_VER };
 
 boot();

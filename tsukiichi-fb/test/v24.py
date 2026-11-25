@@ -18,8 +18,8 @@ async def main():
         A = await ctx.new_page(); A.on('pageerror', lambda e: errs.append(str(e))); await A.goto(URL); await A.wait_for_timeout(1500)
 
         rules = await A.evaluate("window.__tk.RULES")
-        ver = await A.evaluate("document.body.innerText.match(/版 (\\d{4}\\.\\d\\d\\.\\d\\d-\\d+)/)[1]")
-        ok(rules.split('\n')[1].startswith('// ') and ('版 ' + ver) in rules.split('\n')[1], 'ルールの2行目に版（' + ver + '）')
+        ver = await A.evaluate("window.__tk.RULES_VER")
+        ok(rules.split('\n')[1].startswith('// ') and ('ルールの版 ' + ver) in rules.split('\n')[1], 'ルールの2行目にルールの版（' + ver + '）')
 
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
         await A.click('.nb[data-ph=sys]'); await A.click('#seedBtn'); await A.click('.nb[data-ph=entry]'); await A.wait_for_timeout(2000)

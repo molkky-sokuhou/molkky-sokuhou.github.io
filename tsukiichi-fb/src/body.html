@@ -246,13 +246,24 @@
           <p class="muted" id="anonRow" hidden style="margin:6px 0 0">ログインなしの読み取りも確かめます。</p>
         </div>
         <div class="box">
-          <h2 class="h">Firestoreのルール（版 @@VER@@）</h2>
+          <h2 class="h">Firestoreのルール（<span id="rulesVerH"></span>）</h2>
+          <p id="rulesState" class="rulestate" hidden></p>
+          <button class="btn wide" id="rulesPub" type="button" hidden>ルールを公開</button>
+          <p id="rulesPubMsg" class="muted"></p>
+          <details id="rulesCidBox" hidden><summary>公開ボタンの設定（はじめに1回だけ）</summary>
+            <p class="muted">Google Cloud で作った OAuth のクライアントIDを入れます。公開するときは、Firebase の持ち主の Google アカウントでログインします。</p>
+            <div class="field"><label for="rulesCid">クライアントID</label><input class="input" id="rulesCid" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+            <p class="muted" id="rulesCidSt"></p>
+            <button class="btn small" id="rulesCidSave" type="button">保存</button>
+          </details>
+          <details><summary>手で貼り付けるとき</summary>
           <p class="muted" style="margin-top:0">この運営アカウントの番号（UID）を入れたルールの全文です。Firebase の「Firestore Database」→「ルール」に、全部消してから貼り付けて「公開」を押します。</p>
           <p id="rulesNote" style="word-break:break-all"></p>
           <div id="rulesBody" hidden>
             <textarea class="copyta" id="rulesTa" readonly></textarea>
             <button class="btn cyan wide" id="rulesCopy" type="button">ルールの全文をコピー</button>
           </div>
+          </details>
         </div>
         <div class="box">
           <h2 class="h">テスト用の操作</h2>
