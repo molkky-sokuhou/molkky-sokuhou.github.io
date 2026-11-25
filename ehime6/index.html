@@ -247,6 +247,8 @@ h2 small{display:block;font-size:15px;font-weight:600;color:var(--sub)}
 .cn.big.wide{width:auto;min-width:84px;padding:0 10px;border-radius:42px;font-size:30px}
 .chg{flex:none;min-height:44px;padding:4px 10px;border:1.5px solid var(--ink);background:var(--card);border-radius:6px;font-size:14px;font-weight:700;line-height:1.3}
 .myhead .s{font-size:15px;color:var(--sub)}
+.favs .s{font-size:15px;color:var(--sub);line-height:1.5}
+.favs .o{font-size:16px;line-height:1.55}
 .mlist .wait{font-size:14px;font-weight:800;color:var(--warn)}
 .ph{color:var(--sub)}
 .champ{font-size:17px;margin:12px 0 0}
@@ -295,7 +297,7 @@ th{white-space:nowrap}
   <button data-tab="venue" role="tab">会場・<br>ルール</button>
 </nav>
 <script>
-var VERSION = '11/25-6';
+var VERSION = '11/25-7';
 var SHEET_ID = atob('VWF0TGs1MlVuZ1FVMHp6ek5hNFdReHJ3UlNqWG1lZ0E3UmtLVHhOMVVyNjE=').split('').reverse().join('');
 var AUTO_SEC = 60;
 var store = {
@@ -662,7 +664,7 @@ function favSection(){
     h += '<ul class="favs">' + list.map(function(f){
       var r = nextOf(f), nx = r.nx;
       return '<li>' + (nx ? cn(nx.court) : '<span class="cn none">―</span>') + '<div style="flex:1;min-width:0"><div style="font-weight:800">' + teamName(f) + '</div>' +
-        (nx ? '<div class="s">' + esc(nx.time) + '　' + esc(nx.title) + '</div>' : '<div class="s">' + endText(r.P) + '</div>') +
+        (nx ? '<div class="s">' + esc(nx.time) + '　' + esc(nx.title) + '</div><div class="o">' + (nx.me && nx.me.bye ? '不戦勝（相手なし）' : '相手：' + nx.opp.map(function(o){ return o.name ? teamName(o.name) : '<span class="ph">' + esc(o.ph || '未定') + '</span>'; }).join('、')) + '</div>' : '<div class="s">' + endText(r.P) + '</div>') +
         '</div><button type="button" class="fx" data-unfav="' + esc(f) + '" aria-label="' + esc(f) + 'を外す">外す</button></li>';
     }).join('') + '</ul>';
   } else h += '<p class="note">家族や仲間のチームを<wbr>入れておくと、<wbr>その次の試合も<wbr>ここに出ます。</p>';
