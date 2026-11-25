@@ -295,7 +295,7 @@ th{white-space:nowrap}
   <button data-tab="venue" role="tab">会場・<br>ルール</button>
 </nav>
 <script>
-var VERSION = '11/25-2';
+var VERSION = '11/25-3';
 var SHEET_ID = atob('VWF0TGs1MlVuZ1FVMHp6ek5hNFdReHJ3UlNqWG1lZ0E3UmtLVHhOMVVyNjE=').split('').reverse().join('');
 var AUTO_SEC = 60;
 var store = {
@@ -387,6 +387,19 @@ var TABS = {
   }
 };
 
+/* who won: from either side's entry; a lone team (bye) wins once it has a result; both "won" = not decided yet */
+function decide(m, W, L){
+  var T = m.teams.filter(function(t){ return t.name || t.res; });
+  T.forEach(function(t){ t.win = false; t.lose = false; });
+  var a = T[0], b = T[1];
+  if (a && !b){ if (W.test(a.res || '')){ a.win = true; a.bye = true; } }
+  else if (a && b){
+    var aw = W.test(a.res || '') || L.test(b.res || ''), bw = W.test(b.res || '') || L.test(a.res || '');
+    if (aw && !bw){ a.win = true; b.lose = true; } else if (bw && !aw){ b.win = true; a.lose = true; }
+  }
+  m.played = T.some(function(t){ return t.win; });
+  m.part = T.some(function(t){ return t.res; });
+}
 /* ---------- read the organizer's sheet: day 1 ---------- */
 function buildTeam(g){
   var E = g.entry || [], R = g.rec || [], F = g.fin || [];
@@ -412,12 +425,12 @@ function buildTeam(g){
     var ms = [];
     list.filter(function(t){ return t.grp === 'A'; }).forEach(function(t){
       var o = teams[t.opp[i]], ra = t.r[i], rb = o && o.r[i];
-      ms.push({ court: courtText(t.courts[i] || []), cs: t.courts[i] || [], teams: [side(t, ra), o ? side(o, rb) : { name: '' }], played: !!(ra || rb) });
+      ms.push({ court: courtText(t.courts[i] || []), cs: t.courts[i] || [], teams: [side(t, ra), o ? side(o, rb) : { name: '' }], played: !!(ra && rb), part: !!(ra || rb) });
     });
     ms.sort(function(a, b){ return (a.cs[0] || 99) - (b.cs[0] || 99); });
     rounds.push({ k: 'r' + (i + 1), label: '第' + (i + 1) + 'ラウンド', matches: ms });
   });
-  function side(t, r){ return { name: t.name, no: t.no, grp: t.grp, w: r ? r.w : null, d: r ? r.d : null, p: r ? r.p : null }; }
+  function side(t, r){ return { name: t.name, no: t.no, grp: t.grp, sent: !!r, w: r ? r.w : null, d: r ? r.d : null, p: r ? r.p : null }; }
   /* 順位決定戦 */
   var fin = [], cur = null;
   F.forEach(function(row){
@@ -428,7 +441,7 @@ function buildTeam(g){
   });
   var ranked = list.some(function(t){ return t.rank; });
   if (!ranked && !fin.some(function(m){ return m.teams.some(function(t){ return t.res; }); })) fin.forEach(function(m){ m.teams.forEach(function(t){ t.name = ''; t.res = ''; t.fin = ''; }); });
-  fin.forEach(function(m){ m.played = m.teams.some(function(t){ return t.res; }); m.teams.forEach(function(t){ t.win = /勝/.test(t.res); }); });
+  fin.forEach(function(m){ decide(m, /勝/, /負/); });
   rounds.push({ k: 'fin', label: '順位決定戦', matches: fin });
   var started = list.some(function(t){ return t.r.some(Boolean); });
   return { kind: 'team', teams: list, byNo: teams, rounds: rounds, started: started,
@@ -456,7 +469,7 @@ function buildTag(g){
     t.total = n(row[8]); t.ups = n(row[9]); t.prov = n(row[14]); t.rank = n(row[15]);
     if (/免除/.test(row[2] || '')) t.exempt = true;
   });
-  list.forEach(function(t){ if (t.courts.length && t.courts.every(function(c){ return c == null; })) t.exempt = true; });
+  list.forEach(function(t){ if (t.courts.length && t.courts.every(function(c){ return c == null; }) && t.prov === 1 && !t.g.some(function(x){ return x != null; })) t.exempt = true; });
   list.sort(function(a, b){ return a.no - b.no; });
   var byName = {}; list.forEach(function(t){ byName[key(t.name)] = t; });
   var rounds = [];
@@ -465,7 +478,7 @@ function buildTag(g){
     list.forEach(function(t){ var c = t.courts[i]; if (c == null) return; (by[c] = by[c] || []).push(t); });
     var ms = Object.keys(by).map(Number).sort(function(a, b){ return a - b; }).map(function(c){
       var ts = by[c].map(function(t){ var a = t.g[i * 2], b = t.g[i * 2 + 1]; return { name: t.name, no: t.no, g1: a, g2: b, p: (a == null && b == null) ? null : (a || 0) + (b || 0) }; });
-      return { court: String(c), cs: [c], teams: ts, played: ts.some(function(t){ return t.p != null; }) };
+      ts.forEach(function(t){ t.sent = t.p != null; }); return { court: String(c), cs: [c], teams: ts, played: ts.every(function(t){ return t.sent; }), part: ts.some(function(t){ return t.sent; }) };
     });
     rounds.push({ k: 'q' + (i + 1), label: '予選' + '①②③'.charAt(i), matches: ms });
   });
@@ -482,7 +495,7 @@ function buildTag(g){
         if (last && last.court === String(court) && last.teams.length < 2) last.teams.push(tm);
         else { last = { court: String(court), cs: court != null ? [court] : [], teams: [tm] }; ms.push(last); }
       });
-      ms.forEach(function(m){ m.played = m.teams.some(function(t){ return /位|勝|負/.test(t.res); }); m.teams.forEach(function(t){ t.win = /^1位|勝/.test(t.res); }); m.side = side; });
+      ms.forEach(function(m){ decide(m, /^1位|勝/, /^2位|負/); m.side = side; });
       return { k: 't' + (i + 1), side: side, label: side + ' ' + RN[i], matches: ms };
     });
   }
@@ -517,13 +530,13 @@ function plan(nm){
     if (!m) return;
     var me = m.teams.find(function(t){ return key(t.name) === key(nm); });
     items.push({ k: r.k, title: r.label + (m.side ? '（' + m.side + 'トーナメント）' : ''), time: s ? s.s + '〜' + (s.e || '') : '', court: m.court, cs: m.cs, m: m, me: me,
-      opp: m.teams.filter(function(t){ return t !== me; }), done: m.played });
+      opp: m.teams.filter(function(t){ return t !== me; }), done: m.played || !!(me && (me.sent || me.win || me.lose)) });
   });
   if (M.kind === 'tag'){
     var lastT = items.filter(function(x){ return /^t/.test(x.k); }).pop();
-    if (lastT && lastT.done && !lastT.me.win) end = 'lost';
-    if (lastT && lastT.done && lastT.k === 't5') end = 'final';
-    if (lastT && lastT.done && lastT.me.win && lastT.k !== 't5' && !end) end = 'won:' + lastT.k;
+    if (lastT && lastT.me.lose) end = 'lost';
+    if (lastT && lastT.k === 't5' && (lastT.me.win || lastT.me.lose)) end = 'final';
+    if (lastT && lastT.me.win && lastT.k !== 't5' && !end) end = 'won:' + lastT.k;
   } else {
     var f = items.find(function(x){ return x.k === 'fin'; });
     if (f && f.done) end = 'final';
@@ -549,7 +562,7 @@ function scoreLine(t){
   return (t.g1 != null ? t.g1 : '-') + '＋' + (t.g2 != null ? t.g2 : '-') + '＝<b>' + t.p + '</b>点';
 }
 function oppPh(m, t){ return t.name ? teamName(t.name) : '<span class="ph">' + esc(t.ph || '未定') + '</span>'; }
-function started(r){ if (!r || !r.matches) return false; if (r.matches.some(function(x){ return x.played; })) return true; var s = slotOf(r.k); return !!(s && today() === D().date && nowMin() >= toMin(s.s)); }
+function started(r){ if (!r || !r.matches) return false; if (r.matches.some(function(x){ return x.part; })) return true; var s = slotOf(r.k); return !!(s && s.e && today() === D().date && nowMin() >= toMin(s.e)); }
 function matchLi(m, r){
   var win = null;
   if (M.kind === 'team' && m.played && r.k !== 'fin'){ var a = m.teams[0], b = m.teams[1]; if (a.w != null && b.w != null && a.w !== b.w) win = a.w > b.w ? a : b; }
@@ -596,14 +609,14 @@ function nextCard(nm){
   if (nx){
     var cond = !hasNames({ matches: [nx.m] }) || nx.opp.some(function(o){ return !o.name; });
     h += '<div class="next"><div class="lab">次の試合</div><div class="row">' + cn(nx.court, true) + '<div><div class="when">' + esc(nx.time) + '</div><div class="what">' + esc(nx.title) + '</div>' +
-      '<div class="vs">相手：' + nx.opp.map(function(o){ return o.name ? teamName(o.name) : '<span class="ph">' + esc(o.ph || '未定') + '</span>'; }).join('、') + '</div>' +
+      (nx.me && nx.me.bye ? '<div class="vs">不戦勝（相手なし）</div>' : '<div class="vs">相手：' + nx.opp.map(function(o){ return o.name ? teamName(o.name) : '<span class="ph">' + esc(o.ph || '未定') + '</span>'; }).join('、') + '</div>') +
       (cond ? '<div class="note">相手は前の試合の結果で決まります</div>' : '') + '</div></div></div>';
   } else if (P.end === 'lost'){
     h += '<div class="next done"><div class="lab">トーナメントは<wbr>ここまでです</div><p>おつかれさまでした。<wbr>12:50〜15:10は<wbr><b>レッゴリチャレンジ</b>に<wbr>参加できます<wbr>（本部で<wbr>チャレンジカードを<wbr>受け取る）。</p></div>';
   } else if (/^won:/.test(P.end || '')){
     var nk = 't' + (+P.end.slice(5) + 1), ns = slotOf(nk), nr = roundOf(nk);
     h += '<div class="next"><div class="lab">次の試合</div><div class="row">' + cn('', true) + '<div><div class="when">' + esc(ns ? ns.s + '〜' + (ns.e || '') : '') + '</div><div class="what">' + esc(nr ? nr.label : '') + '</div><div class="note">勝ち上がりました。<wbr>相手とコートは、<wbr>ほかの試合の結果で<wbr>決まります。</div></div></div></div>';
-  } else if (P.end === 'final' || (P.items.length && P.items.every(function(x){ return x.done; }))){
+  } else if (P.end === 'final'){
     h += '<div class="next done"><div class="lab">今日の試合は<wbr>終わりました</div></div>';
   } else {
     h += '<div class="next done"><div class="lab">次の試合は<wbr>まだ決まっていません</div><p class="note">' + (M.kind === 'tag' ? '予選の順位が決まると、<wbr>トーナメントの相手と<wbr>コートが出ます。' : '予選の順位が決まると、<wbr>順位決定戦の相手が出ます。') + '</p></div>';
@@ -622,7 +635,7 @@ function viewMe(){
   nc.P.items.forEach(function(x){
     var cur = nc.nx === x;
     h += '<li class="' + (cur ? 'cur' : '') + '">' + cn(x.court) + '<div><div class="t">' + esc(x.title) + (x.done ? ' <span class="tag done">終了</span>' : cur ? ' <span class="tag now">次</span>' : '') + '</div><div class="s">' + esc(x.time) + '</div>' +
-      '<div class="o">' + [x.me].concat(x.opp).map(function(o){ return '<div class="tm' + (o.win ? ' win' : '') + '"><span class="nm">' + (o.name ? (o === x.me ? '<b>' + esc(o.name) + '</b>' : teamName(o.name)) : '<span class="ph">' + esc(o.ph || '未定') + '</span>') + '</span><span class="sc">' + scoreLine(o) + '</span></div>'; }).join('') + '</div></div></li>';
+      '<div class="o">' + (x.me && x.me.bye ? '<div class="note">不戦勝（相手なし）</div>' : '') + [x.me].concat(x.opp.filter(function(o){ return o.name || !(x.me && x.me.bye); })).map(function(o){ return '<div class="tm' + (o.win ? ' win' : '') + '"><span class="nm">' + (o.name ? (o === x.me ? '<b>' + esc(o.name) + '</b>' : teamName(o.name)) : '<span class="ph">' + esc(o.ph || '未定') + '</span>') + '</span><span class="sc">' + scoreLine(o) + '</span></div>'; }).join('') + '</div></div></li>';
   });
   if (M.kind === 'team' && !nc.P.items.some(function(x){ return x.k === 'fin'; })) h += '<li>' + cn('') + '<div><div class="t">順位決定戦</div><div class="s">15:30〜16:10</div><div class="o note">予選の順位が決まると<wbr>相手とコートが出ます</div></div></li>';
   if (M.kind === 'tag' && !nc.P.items.some(function(x){ return /^t/.test(x.k); }) && !nc.P.end) h += '<li>' + cn('') + '<div><div class="t">トーナメント 1回戦</div><div class="s">12:20〜13:00</div><div class="o note">予選の順位で、<wbr>上位か下位か・相手・<wbr>コートが決まります</div></div></li>';
@@ -687,7 +700,7 @@ function viewRank(){
       var list = M.teams.filter(function(t){ return t.grp === gp; }).slice().sort(function(a, b){ return ((a.rank || a.prov || 99) - (b.rank || b.prov || 99)) || a.no - b.no; });
       h += '<h3>' + gp + 'グループ</h3><table><thead><tr><th>順位</th><th>チーム</th><th>勝ち</th><th>分け</th><th>得点</th></tr></thead><tbody>';
       list.forEach(function(t){
-        var w = 0, d = 0; t.r.forEach(function(x){ if (x){ w += x.w; d += x.d; } });
+        var w = 0, d = 0, any = t.r.some(Boolean); t.r.forEach(function(x){ if (x){ w += x.w; d += x.d; } }); if (!any){ w = ''; d = ''; }
         h += '<tr><td class="rk">' + (M.started ? (t.rank || t.prov || '') : '') + '</td><td>' + teamName(t.name) + '</td><td class="n">' + (M.started ? w : '') + '</td><td class="n">' + (M.started ? d : '') + '</td><td class="tot">' + (t.total != null && M.started ? t.total : '') + '</td></tr>';
       });
       h += '</tbody></table>';
