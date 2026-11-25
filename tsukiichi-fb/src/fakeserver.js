@@ -63,7 +63,10 @@ function fakeServerCommit(db, writes, now) {
     else if (p[0] === 'staff' && p.length === 4 && (p[2] === 'metrics' || p[2] === 'ping')) ok = true;
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'conf') {
       const key = (docs['staff/' + p[1] + '/conf/sysKey'] || {}).hash;
-      if (p[3] === 'sysKey') ok = !del && typeof next.hash === 'string' && next.hash.length === 64 && (!before || (next.old || '') === before.hash);
+      const legacy = docs['staff/' + p[1] + '/conf/sys'], keyAfter = (after['staff/' + p[1] + '/conf/sysKey'] || {}).hash;
+      if (p[3] === 'sysKey') ok = !del && typeof next.hash === 'string' && next.hash.length === 64 && (before ? (next.old || '') === before.hash : !legacy);
+      else if (p[3] === 'sysMeta') ok = !del && ((!key && !!keyAfter) || (!!key && keyAfter !== key));
+      else if (p[3] === 'sys') ok = false; // 版20までの置き場所は、コンソールで消すだけ
       else if (p[3] === 'sysCheck') ok = !del && !!key && next.key === key;
       else if (p[3] === 'cleanup') ok = !del && ((next.until || 0) === 0 || (!!key && next.key === key && Number.isFinite(next.until) && next.until <= now + 960000));
       else ok = true;

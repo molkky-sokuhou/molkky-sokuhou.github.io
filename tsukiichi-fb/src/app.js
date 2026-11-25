@@ -176,15 +176,23 @@ service cloud.firestore {
           && request.resource.data.no == resource.data.no
           && request.resource.data.get('editOf', '') == resource.data.get('ver', '');
     }
-    // 大会の案内（info）など
+    // 大会の案内（info）など。パスワードのハッシュが入る sysKey・sysCheck・cleanup は、運営の画面からも読めない
     match /staff/{box}/conf/{doc} {
-      allow read: if isStaff() && doc != 'sysKey';
-      allow write: if isStaff() && !(doc in ['sysKey', 'sysCheck', 'cleanup']);
+      allow read: if isStaff() && !(doc in ['sysKey', 'sysCheck', 'cleanup', 'sys']);
+      allow write: if isStaff() && !(doc in ['sysKey', 'sysCheck', 'cleanup', 'sysMeta', 'sys']);
     }
-    // システムのパスワードのハッシュ。だれも読めない。初めは作るだけ、変えるときは今のハッシュ（old）を添える
+    // システムのパスワードのハッシュ。だれも読めない。初めは作るだけ（版20までの conf/sys が残っている箱では作れない。
+    // そのハッシュは読めた時期があるので、Firebase のコンソールで conf/sys を消してから決め直す）。変えるときは今のハッシュ（old）を添える
     match /staff/{box}/conf/sysKey {
-      allow create: if isStaff() && request.resource.data.hash is string && request.resource.data.hash.size() == 64;
+      allow create: if isStaff() && request.resource.data.hash is string && request.resource.data.hash.size() == 64
+        && !exists(/databases/$(database)/documents/staff/$(box)/conf/sys);
       allow update: if isStaff() && request.resource.data.get('old', '') == resource.data.hash && request.resource.data.hash.size() == 64;
+    }
+    // salt（読める）。変えられるのは、同じまとめ書きで sysKey を作る・変えるときだけ
+    match /staff/{box}/conf/sysMeta {
+      allow create, update: if isStaff()
+        && ((!exists(/databases/$(database)/documents/staff/$(box)/conf/sysKey) && existsAfter(/databases/$(database)/documents/staff/$(box)/conf/sysKey))
+          || getAfter(/databases/$(database)/documents/staff/$(box)/conf/sysKey).data.hash != get(/databases/$(database)/documents/staff/$(box)/conf/sysKey).data.hash);
     }
     // パスワードの確かめ：ハッシュが合うときだけ書ける（書けたら正しい）
     match /staff/{box}/conf/sysCheck {
@@ -2188,6 +2196,7 @@ function importPlan() {
   let newP = 0, expN = 0, rows = 0, skip = 0, haoh = 0;
   const amb = [];
   PAST.roster.forEach((p) => {
+    names[p.id] = p.name; // 飛ばす人の名前も、同じチームの人の記録（members）には要る
     /* 同じ名前の人が名簿に2人以上いるときは、どちらか分からないので取り込まない（別人に成績が付かないように） */
     const cand = byNorm[norm(p.name)] || [];
     if (!rm[p.id] && cand.length > 1) { amb.push(p.name); return; }
@@ -2195,15 +2204,17 @@ function importPlan() {
     const isExp = ex.has(norm(p.name));
     if (!id) { id = p.id; newP++; if (isExp) expN++; w.push({ op: 'set', path: ROOT + '/roster/' + id, data: { name: p.name, norm: norm(p.name), exp: isExp, beg: false, first: p.first || '', createdAt: TS, createdIn: 'sheet' } }); }
     else if (isExp && !(rm[id] || {}).exp) { expN++; w.push({ op: 'update', path: ROOT + '/roster/' + id, data: { exp: true } }); }
-    idMap[p.id] = id; names[p.id] = p.name;
+    idMap[p.id] = id;
   });
-  const have = {}, ids = {}; histRows().forEach((h) => { have[h.date + '|' + h.pid] = 1; }); S.hist.forEach((h) => { ids[h.id] = 1; });
+  /* 取り込んだ記録は、あとで持ち主を移したり、持ち主がまとめられたりしても、文書の名前（imp-日付_元の名簿ID）は変わらない。元の名簿IDをいまの人にたどって比べる */
+  const have = {}; histRows().forEach((h) => { have[h.date + '|' + h.pid] = 1; });
+  S.hist.forEach((h) => { const m = /^imp-(\d{4}-\d\d-\d\d)_(.+)$/.exec(h.id); if (m) have[m[1] + '|' + resolveId(m[2], rm)] = 1; });
   PAST.events.forEach((e) => {
     e.standings.forEach((t, i) => {
       t.members.forEach((m) => {
         const pid = idMap[m];
         if (!pid) return;
-        if (have[e.date + '|' + pid] || ids['imp-' + e.date + '_' + pid]) { skip++; return; } // 取り込んだあと持ち主を直した記録も飛ばす
+        if (have[e.date + '|' + pid]) { skip++; return; } // 取り込んだあと持ち主を直した・まとめた記録も飛ばす
         have[e.date + '|' + pid] = 1; rows++;
         w.push({ op: 'set', path: ROOT + '/hist/imp-' + e.date + '_' + pid, data: { eid: 'imp-' + e.date, ename: '月いちモルック（' + fmtDate(e.date) + '）', date: e.date, rid: pid, name: names[m], team: t.team, teamNo: i + 1,
           members: t.members.map((x) => names[x]), rank: t.rank, teams: e.teams || null, played: t.played == null ? null : t.played, total: t.total == null ? null : t.total, src: 'sheet', at: TS } });
@@ -2212,7 +2223,7 @@ function importPlan() {
   });
   PAST.haoh.forEach((h) => {
     if (S.hist.some((x) => x.kind === 'haoh' && num(x.no) === h.no)) return;
-    haoh++; w.push({ op: 'set', path: ROOT + '/hist/haoh_' + h.no, data: { kind: 'haoh', no: h.no, date: h.date, rid: idMap[h.rid] || h.rid, name: h.name, entrants: [], src: 'sheet', at: TS } });
+    haoh++; w.push({ op: 'set', path: ROOT + '/hist/haoh_' + h.no, data: { kind: 'haoh', no: h.no, date: h.date, rid: idMap[h.rid] || h.rid, name: h.name, entrants: [], src: 'sheet', ver: 'sheet-' + h.no, at: TS } });
   });
   const info = !S.info;
   if (info) w.push({ op: 'set', path: INFO, data: { ...PAST.info, updatedAt: TS } });
@@ -2311,7 +2322,7 @@ function openHaoh(no) {
   const fillKing = () => {
     /* 覇王は出場した人から選ぶ。取り込んだ記録など出場者が分からないときも、記録されている覇王は選べるようにする */
     const ids = [...$('hoEnt').querySelectorAll('input:checked')].map((x) => x.value), cur = $('hoKing').value || king;
-    if (king && !ids.includes(king)) ids.unshift(king);
+    if (king && !((old && old.entrants) || []).length && !ids.includes(king)) ids.unshift(king); // 出場者の記録がない回（取り込んだ記録）だけ
     $('hoKing').innerHTML = '<option value="">（選んでください）</option>' + ids.map((id) => '<option value="' + esc(id) + '"' + (id === cur ? ' selected' : '') + '>' + esc((rm[id] || {}).name || id) + '</option>').join('');
   };
   fillKing();
@@ -2331,7 +2342,7 @@ function openHaoh(no) {
     if (!k) { $('hoErr').textContent = '覇王を選んでください'; return; }
     /* ver：この記録の版。直すときは見ていた版（editOf）を添え、ルールで同じときだけ通す（2台が同じ回を同時に書いても上書きしない） */
     const opv = rid('hv');
-    const data = { kind: 'haoh', no: n, date, rid: k, name: (rm[k] || {}).name || '', entrants: ids, src: old ? old.src || 'app' : 'app', ver: opv, editOf: old ? old.ver || '' : '', at: TS };
+    const data = { kind: 'haoh', no: n, date, rid: k, name: (rm[k] || {}).name || '', entrants: ids, src: old ? old.src || 'app' : 'app', ver: opv, editOf: old ? old.ver || '' : 'new', at: TS }; // 新しく記録するときの 'new' は、どの版とも合わない（同じ回がもうあれば断られる）
     if (recOp('第' + n + '回 覇王戦の記録', [{ op: 'set', path: ROOT + '/hist/haoh_' + n, data }])) { closeSheet(); toast('第' + n + '回 覇王戦を記録しました。次の出場資格は ' + fmtDate(date) + ' 以降の覇者になります'); }
   };
   $('ov').hidden = false;
@@ -2354,7 +2365,7 @@ async function backupData() {
   return { app: 'tsukiichi-fb', ver: VER, box: BOX, savedAt: srvNow(), savedBy: devName, counts: { roster: ro.length, hist: hi.length, events: ev.length }, docs };
 }
 function strip(d) { const o = { ...d }; delete o.id; return o; }
-function bkName(auto) { const d = new Date(srvNow() + 9 * 3600000).toISOString(); return 'tsukiichi_' + d.slice(0, 10) + '_' + d.slice(11, 13) + d.slice(14, 16) + d.slice(17, 19) + (auto ? '_締め' : '') + '.json'; }
+function bkName(auto) { const d = new Date(srvNow() + 9 * 3600000).toISOString(); return 'tsukiichi_' + d.slice(0, 10) + '_' + d.slice(11, 13) + d.slice(14, 16) + d.slice(17, 19) + (auto ? '_締め' : '') + '_' + (devName || 'pc').replace(/[^\w\u3040-\u30ff\u4e00-\u9fff-]/g, '').slice(0, 8) + Math.random().toString(36).slice(2, 5) + '.json'; } // 2台が同じ秒に保存しても上書きしない
 async function saveBackup(auto) {
   if (BK.busy || !B) return;
   if (S.mode === 'demo' && auto) return; // 練習モードの締めでは保存しない
@@ -2407,8 +2418,9 @@ async function restorePlan(data) {
     const p = ROOT + '/' + parts[2] + '/' + parts[3];
     if (parts[2] === 'roster') {
       const cur = rm[parts[3]], { mergedInto, ...rest } = d;
-      if (!cur) add.push({ op: 'set', path: p, data: { ...rest, restoredAt: TS } });
-      if (mergedInto && (!cur || (cur.restoredAt && !cur.mergedInto))) mergeLater.push({ op: 'update', path: p, data: { mergedInto } });
+      /* まとめは、戻した人に restoreMerge（まとめ先）を付けておき、まとめ終えたら消す。あとで運営が「元に戻す」をした人は、もう一度戻してもまとめ直さない */
+      if (!cur) add.push({ op: 'set', path: p, data: { ...rest, restoredAt: TS, ...(mergedInto ? { restoreMerge: mergedInto } : {}) } });
+      if (mergedInto && (!cur || (cur.restoreMerge === mergedInto && !cur.mergedInto))) mergeLater.push({ op: 'update', path: p, data: { mergedInto, restoreMerge: null }, src: parts[3], dst: mergedInto });
     }
     if (parts[2] === 'hist' && !hid[parts[3]]) add.push({ op: 'set', path: p, data: { ...d, restoredAt: TS } });
     if (parts[2] === 'conf' && parts[3] === 'info' && !info) add.push({ op: 'set', path: INFO, data: d });
@@ -2431,7 +2443,14 @@ async function applyRestore() {
   try {
     const pl = await restorePlan(BK.data);
     for (const part of chunks(pl.add, 400)) await B.commit(S.cur ? W.rev(ROOT, S.cur, part) : part);
-    for (const part of chunks(pl.mergeLater, 15)) await B.commit(S.cur ? W.rev(ROOT, S.cur, part) : part);
+    /* A→B と B→C があるときは、A→B を先に（B がまとめられる前に）別のまとめ書きで */
+    let rest = pl.mergeLater.slice();
+    while (rest.length) {
+      const now = rest.filter((m) => !rest.some((o) => o.dst === m.src)); // まとめ先にもなっている人は後の回へ
+      const round = now.length ? now : rest;
+      for (const part of chunks(round.map(({ src, dst, ...w }) => w), 15)) await B.commit(S.cur ? W.rev(ROOT, S.cur, part) : part);
+      rest = rest.filter((m) => !round.includes(m));
+    }
     BK.data = null; $('bkRestoreGo').hidden = true; renderBackup('バックアップから ' + pl.add.length + '件を戻しました' + (pl.mergeLater.length ? '（まとめ ' + pl.mergeLater.length + '人）' : ''));
   } catch (e) { renderBackup('戻せませんでした（' + ((e && e.code) || '') + '）。もう一度押すと、まだの分だけ戻します'); }
   $('bkRestoreGo').disabled = false;
@@ -2473,9 +2492,8 @@ async function sysGo() {
       if (pw !== $('sysPw2').value) { $('sysErr').textContent = '2回の入力が違います'; return; }
       const salt = Math.random().toString(36).slice(2) + Date.now().toString(36), hash = await sha(salt + pw);
       const w = [{ op: 'set', path: ROOT + '/conf/sysKey', data: mode === 'change' ? { hash, old: sysKey() } : { hash } }, { op: 'set', path: ROOT + '/conf/sysMeta', data: { salt, setAt: TS, by: devName } }];
-      if (mode === 'set') w.push({ op: 'delete', path: ROOT + '/conf/sys' }); // 版18〜20の、読めてしまう置き方を消す
       try { await B.commit(w); }
-      catch (e) { $('sysErr').textContent = (e && e.code) === 'permission-denied' ? (mode === 'set' ? 'ほかの端末で先にパスワードが決められました。そのパスワードで入ってください' : 'パスワードを変えられませんでした。一度「システムを閉じる」を押して、入り直してから変えてください') : '保存できませんでした（' + ((e && e.code) || '') + '）'; return; }
+      catch (e) { $('sysErr').textContent = (e && e.code) === 'permission-denied' ? (mode === 'set' ? 'ほかの端末で先にパスワードが決められました。そのパスワードで入ってください（版20までの古いパスワードの置き場所が残っている場合は、Firebase のコンソールで staff → conf → sys を消してから決めてください）' : 'パスワードを変えられませんでした。一度「システムを閉じる」を押して、入り直してから変えてください') : '保存できませんでした（' + ((e && e.code) || '') + '）'; return; }
       keep(hash, salt); S.sysConf = { salt };
       toast(mode === 'set' ? 'システムのパスワードを決めました' : 'システムのパスワードを変えました');
     }
@@ -2490,6 +2508,7 @@ async function sysGo() {
    最初はどれにもチェックを入れない（本番の記録をうっかり消さないように）。調べたときの回と rev を覚え、消すときに回や結果が変わっていれば止める */
 let CL = null;
 function clScan() {
+  if (CL && CL.running) { $('clMsg').textContent = '片付けの途中です。終わってから調べ直してください'; return; }
   const pastIds = new Set(PAST.roster.map((p) => p.id)), sheetPid = new Set(histRows().filter((h) => h.src === 'sheet').map((h) => h.pid));
   const ev = S.events[S.cur] || {};
   CL = {
@@ -2518,42 +2537,52 @@ function clScan() {
   if ($('clGo')) { let armed = false; $('clGo').onclick = () => { if (!$('clList').querySelector('[data-cl]:checked')) { $('clMsg').textContent = '消すものにチェックを入れてください'; return; } if (!armed) { armed = true; $('clGo').textContent = 'もう一度押すと消します'; return; } clRun(); }; }
 }
 async function clRun() {
-  if (!CL || needEvent()) return;
-  if (S.cur !== CL.eid) { CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = '調べたあとに、ほかの端末で新しい回が始まりました。もう一度「消すものを調べる」から'; return; }
-  const key = sysKey(); if (!key) { $('clMsg').textContent = 'システムのパスワードを入れ直してください（「システムを閉じる」→入り直す）'; return; }
+  if (!CL || CL.running || needEvent()) return;
+  const cl = CL; cl.running = true; // 途中で「調べる」を押しても、この片付けの中身は変わらない
+  if (S.cur !== cl.eid) { CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = '調べたあとに、ほかの端末で新しい回が始まりました。もう一度「消すものを調べる」から'; return; }
+  const key = sysKey(); if (!key) { cl.running = false; $('clMsg').textContent = 'システムのパスワードを入れ直してください（「システムを閉じる」→入り直す）'; return; }
   const on = new Set([...$('clList').querySelectorAll('[data-cl]:checked')].map((x) => x.dataset.cl));
-  const simple = [];
-  CL.roster.forEach((r) => { if (on.has('r:' + r.id)) simple.push(ROOT + '/roster/' + r.id); });
-  Object.keys(CL.histGroups).forEach((k) => { if (on.has('h:' + k)) CL.histGroups[k].forEach((id) => simple.push(ROOT + '/hist/' + id)); });
+  const simple = [], delHist = new Set(), skipped = [];
+  Object.keys(cl.histGroups).forEach((k) => { if (on.has('h:' + k)) cl.histGroups[k].forEach((id) => { simple.push(ROOT + '/hist/' + id); delHist.add(id); }); });
+  /* 名簿の人は、消す直前にサーバーを読み直し、残す記録の持ち主や、まとめ先になっている人は消さない（調べたあとに記録が移された場合など） */
+  const delRoster = cl.roster.filter((r) => on.has('r:' + r.id));
   $('clGo').disabled = true; $('clMsg').textContent = '消しています…';
+  if (delRoster.length) {
+    let hiNow, roNow;
+    try { hiNow = await B.getServerCol(ROOT + '/hist'); roNow = await B.getServerCol(ROOT + '/roster'); } catch (e) { cl.running = false; $('clGo').disabled = false; $('clMsg').textContent = 'サーバーを読めませんでした。電波を確かめてください'; return; }
+    const gone = new Set(delRoster.map((r) => r.id)), used = new Set();
+    hiNow.forEach((h) => { if (!delHist.has(h.id) && h.rid) used.add(h.rid); });
+    roNow.forEach((r) => { if (r.mergedInto && !gone.has(r.id)) used.add(r.mergedInto); });
+    delRoster.forEach((r) => { if (used.has(r.id)) skipped.push(r.name); else simple.push(ROOT + '/roster/' + r.id); });
+  }
   const CLEAN = ROOT + '/conf/cleanup', del = (path) => ({ op: 'delete', path });
   let n = 0;
   try {
     await B.commit([{ op: 'set', path: CLEAN, data: { until: Math.floor(srvNow()) + 15 * 60000, key, by: devName } }]);
     /* いまの回：受付を消すとき・チームを空にするときは、調べたときの rev から順に rev を変える（その間に結果や受付が変わっていたら断られる） */
-    const ck = on.has('ck') ? CL.ck.map((c) => ROOT + '/events/' + CL.eid + '/checkins/' + c.id) : [];
+    const ck = on.has('ck') ? cl.ck.map((c) => ROOT + '/events/' + cl.eid + '/checkins/' + c.id) : [];
     if (ck.length || on.has('tm')) {
-      let base = CL.rev;
+      let base = cl.rev;
       const parts = ck.length ? chunks(ck, 5) : [[]];
       for (const [i, part] of parts.entries()) {
         const rev = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), opId = rid('c');
         const data = { rev, chk: { base, op: opId }, ...(i === 0 && on.has('tm') ? { tm: {}, mt: {}, assign: {}, teams: null, shown: false } : {}) };
-        try { await B.commit([{ op: 'update', path: ROOT + '/events/' + CL.eid, data }].concat(part.map(del))); }
+        try { await B.commit([{ op: 'update', path: ROOT + '/events/' + cl.eid, data }].concat(part.map(del))); }
         catch (e) { if ((e && e.code) === 'permission-denied') throw Object.assign(new Error('changed'), { code: 'changed' }); throw e; }
         base = rev; n += part.length;
       }
     }
-    for (const e of CL.events) if (on.has('e:' + e.id)) {
+    for (const e of cl.events) if (on.has('e:' + e.id)) {
       const cks = (await B.getServerCol(ROOT + '/events/' + e.id + '/checkins')).map((c) => ROOT + '/events/' + e.id + '/checkins/' + c.id);
-      for (const part of chunks(cks, 8)) { await B.commit(part.map(del)); n += part.length; }
+      for (const part of chunks(cks, 6)) { await B.commit(part.map(del)); n += part.length; } // 1人3回の参照×6人＝18（上限20）
       await B.commit([del(ROOT + '/events/' + e.id)]); n++;
     }
     for (const part of chunks(simple, 15)) { await B.commit(part.map(del)); n += part.length; $('clMsg').textContent = '消しています… ' + n + '件'; }
     await B.commit([{ op: 'set', path: CLEAN, data: { until: 0, by: devName } }]);
-    CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = n + '件を消しました' + (on.has('tm') ? '（いまの回のチーム・試合も空にしました）' : '') + '。参加者画面も新しい内容に変わります。';
+    CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = n + '件を消しました' + (on.has('tm') ? '（いまの回のチーム・試合も空にしました）' : '') + '。' + (skipped.length ? skipped.join('・') + ' さんは、記録の持ち主やまとめ先になっているので消しませんでした。' : '') + '参加者画面も新しい内容に変わります。';
   } catch (e) {
-    B.commit([{ op: 'set', path: CLEAN, data: { until: 0, by: devName } }]).catch(() => {});
-    $('clGo').disabled = false;
+    /* 途中で止まったときは片付けの時間を閉じない（ほかの端末が片付けている途中かもしれない。15分で自然に閉じる） */
+    cl.running = false; $('clGo').disabled = false;
     $('clMsg').textContent = (e && e.code) === 'changed' ? '調べたあとに、いまの回で受付や結果が変わったため止めました（' + n + '件は消しました）。もう一度「消すものを調べる」から'
       : (e && e.code) === 'permission-denied' ? '断られました。システムのパスワードを入れ直してから、もう一度「消すものを調べる」から（' + n + '件は消しました）'
       : '途中で止まりました（' + ((e && e.code) || '') + '）。「消すものを調べる」からやり直すと、残りを消せます';
@@ -2673,13 +2702,14 @@ $('selfBtn').onclick = async () => {
     await tryW('いまの名前を確かめて名前を戻す', [{ op: 'update', path: R + '/roster/' + ppl[11].id, data: { name: 'X', nameChk: { v: ppl[11].name, op: 'n2' } } }], 'ok');
     await tryW('大会の記録を書く', [{ op: 'set', path: R + '/hist/h1' + t, data: { eid: e1, date: '2026-01-01', rid: ppl[4].id, name: ppl[4].name, rank: 1, teams: 4, at: TS } }], 'ok');
     await tryW('覇王戦を記録する', [{ op: 'set', path: R + '/hist/haoh_t' + t, data: { kind: 'haoh', no: 1, date: '2026-01-01', rid: ppl[4].id, name: 'x', entrants: [], ver: 'v1', editOf: '', at: TS } }], 'ok');
-    await tryW('同じ回を別の端末が新しく記録する（断られるはず）', [{ op: 'set', path: R + '/hist/haoh_t' + t, data: { kind: 'haoh', no: 1, date: '2026-01-01', rid: ppl[6].id, name: 'z', entrants: [], ver: 'v9', editOf: '', at: TS } }], 'denied');
+    await tryW('同じ回を別の端末が新しく記録する（断られるはず）', [{ op: 'set', path: R + '/hist/haoh_t' + t, data: { kind: 'haoh', no: 1, date: '2026-01-01', rid: ppl[6].id, name: 'z', entrants: [], ver: 'v9', editOf: 'new', at: TS } }], 'denied');
     await tryW('覇王戦の記録を直す', [{ op: 'set', path: R + '/hist/haoh_t' + t, data: { kind: 'haoh', no: 1, date: '2026-01-02', rid: ppl[5].id, name: 'y', entrants: [ppl[5].id], ver: 'v2', editOf: 'v1', at: TS } }], 'ok');
     await tryW('大会の記録を覇王戦の記録に書き換える（断られるはず）', [{ op: 'set', path: R + '/hist/h1' + t, data: { kind: 'haoh', no: 9, date: '2026-01-01' } }], 'denied');
     await tryW('大会の案内を保存する', [{ op: 'set', path: R + '/conf/info', data: { '大会名': '試験', updatedAt: TS } }], 'ok');
     await tryW('片付けの時間外に記録を消す（断られるはず）', [{ op: 'delete', path: R + '/hist/haoh_t' + t }], 'denied');
     await tryW('システムのパスワードのハッシュを置く', [{ op: 'set', path: R + '/conf/sysKey', data: { hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'ok');
     await tryW('今のハッシュを知らずに、パスワードを置き換える（断られるはず）', [{ op: 'set', path: R + '/conf/sysKey', data: { hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', old: 'x' } }], 'denied');
+    await tryW('パスワードを変えずに、塩（salt）だけ書き換える（断られるはず）', [{ op: 'set', path: R + '/conf/sysMeta', data: { salt: 'x' } }], 'denied');
     await tryW('違うパスワードで確かめる（断られるはず）', [{ op: 'set', path: R + '/conf/sysCheck', data: { key: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } }], 'denied');
     await tryW('正しいパスワードで確かめる', [{ op: 'set', path: R + '/conf/sysCheck', data: { key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'ok');
     await tryW('パスワードなしで片付けを始める（断られるはず）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: Math.floor(srvNow()) + 15 * 60000 } }], 'denied');
@@ -2882,6 +2912,6 @@ $('rulesCopy').onclick = () => {
   const fb = () => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} toast(ok ? 'ルールの全文をコピーしました' : '全文を選択しました。コピーしてください', !ok); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fb); else fb();
 };
-window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance, BK, saveBackup, haohEligible, importPlan, infoNow };
+window.__tk = { S, unsent, rejected, people, dupGroups, W, RULES, T, drawPeople, teamOptions, drawTeams, checkTeams, pairGroups, rrList, buildMatches, rebuildMatches, inSync, assignCourts, standings, evMatches, evTeams, hasRes, personStats, histRows, closingData: (e) => closingData(e), closingSummary, serverClosing, publicData, PUBST, topPoints, balance, BK, saveBackup, haohEligible, importPlan, infoNow, openHaoh };
 
 boot();

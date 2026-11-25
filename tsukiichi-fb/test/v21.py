@@ -129,7 +129,7 @@ async def main():
         open('/tmp/v21_bk.json', 'w').write(json.dumps(bk))
         get('/reset'); await ca.close(); ca, A = await mk(b, '4台目')
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        commit([{'op': 'set', 'path': R + '/roster/' + i, 'data': {**{k: v for k, v in bk['docs'][R + '/roster/' + i].items() if k != 'mergedInto'}, 'restoredAt': 1}} for i in ids])
+        commit([{'op': 'set', 'path': R + '/roster/' + i, 'data': {**{k: v for k, v in bk['docs'][R + '/roster/' + i].items() if k != 'mergedInto'}, 'restoredAt': 1, **({'restoreMerge': ids[0]} if i == ids[1] else {})}} for i in ids])  # 版23：途中で止まった復元には restoreMerge が付いている
         await A.wait_for_timeout(1500); await A.click('.nb[data-ph=rec]'); await A.evaluate("document.querySelector('#bkBox details').open=true")
         await A.set_input_files('#bkFile', '/tmp/v21_bk.json'); await A.wait_for_timeout(1000)
         await A.click('#bkRestoreGo'); await A.wait_for_timeout(3000)

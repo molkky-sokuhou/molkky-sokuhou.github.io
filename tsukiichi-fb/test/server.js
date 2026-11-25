@@ -13,6 +13,8 @@ const srv = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x');
     if (u.pathname === '/state') { res.end(JSON.stringify(db)); return; }
     if (u.pathname === '/reset') { db = { docs: {}, ver: 0 }; slow = 0; failUntil = 0; res.end('{}'); return; }
+    // 試験用：ルールを通さずに文書を置く（版20までの古いデータを再現する）
+    if (u.pathname === '/seed') { const w = JSON.parse(body); Object.keys(w).forEach((k) => { db.docs[k] = w[k]; }); db.ver++; res.end('{}'); return; }
     if (u.pathname === '/slow') { slow = +u.searchParams.get('ms') || 0; res.end('{}'); return; }
     if (u.pathname === '/fail') { failUntil = Date.now() + (+u.searchParams.get('ms') || 0); res.end('{}'); return; }
     if (u.pathname === '/commit') {
