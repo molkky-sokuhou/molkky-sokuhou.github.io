@@ -295,7 +295,7 @@ th{white-space:nowrap}
   <button data-tab="venue" role="tab">会場・<br>ルール</button>
 </nav>
 <script>
-var VERSION = '11/25-3';
+var VERSION = '11/25-4';
 var SHEET_ID = atob('VWF0TGs1MlVuZ1FVMHp6ek5hNFdReHJ3UlNqWG1lZ0E3UmtLVHhOMVVyNjE=').split('').reverse().join('');
 var AUTO_SEC = 60;
 var store = {
@@ -942,7 +942,11 @@ function gvizUrl(tab, handler){
 }
 function tableToGrid(res){
   if (!res || res.status === 'error' || !res.table) throw new Error('read error');
-  return (res.table.rows || []).map(function(row){ return (row.c || []).map(function(c){ if (!c) return ''; var x = c.f != null ? c.f : c.v; return x == null ? '' : String(x); }); });
+  var rows = (res.table.rows || []).map(function(row){ return (row.c || []).map(function(c){ if (!c) return ''; var x = c.f != null ? c.f : c.v; return x == null ? '' : String(x); }); });
+  /* Google sometimes turns the first row into column labels even with headers=0: put it back */
+  var cols = res.table.cols || [];
+  if (res.table.parsedNumHeaders > 0 || cols.some(function(c){ return c && c.label; })) rows.unshift(cols.map(function(c){ return c && c.label ? String(c.label) : ''; }));
+  return rows;
 }
 function getTabFetch(tab){
   return fetch(gvizUrl(tab), { cache: 'no-store' }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
