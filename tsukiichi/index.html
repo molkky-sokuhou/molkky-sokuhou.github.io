@@ -654,7 +654,7 @@ html.bigtext main{zoom:1.16}html.bigtext #tabs button{font-size:18px}
     </details></section>
   </main>
   <p style="margin:28px 16px 0;text-align:center"><a class="to-admin" href="../tsukiichi-fb/admin/">運営の画面</a></p>
-  <p class="mk-ver" style="margin:12px 16px 20px;text-align:center;font-size:13px;line-height:1.6;color:var(--muted,#777)">版 2026.11.25-19</p>
+  <p class="mk-ver" style="margin:12px 16px 20px;text-align:center;font-size:13px;line-height:1.6;color:var(--muted,#777)">版 2026.11.25-20</p>
 </div>
 
 <div class="ov" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div></div>
@@ -768,11 +768,7 @@ function mk_haohStatus(rows, haoh, roster) {
         return response.json().then(function (doc) { var f = doc.fields || {}; return { body: f.body && f.body.stringValue, updatedAt: f.updatedAt && f.updatedAt.stringValue }; });
       });
     }).then(function (doc) {
-      if (!doc || !doc.body) throw new Error('まだ大会情報がありません。運営が準備すると、ここに出ます。');
-      var data = clean(JSON.parse(doc.body));
-      data.state.updatedAt = String(doc.updatedAt || '');
-      DATA = data;
-      if (state) { S = data.state; $('syncStatus').textContent = (data.state.updatedAt || '') + ' 更新'; $('syncRetry').hidden = true; }
+      var data = applyDoc(doc);
       return state ? { state: data.state } : { extra: data.records };
     }).catch(function (error) {
       if (state) {
@@ -782,6 +778,17 @@ function mk_haohStatus(rows, haoh, roster) {
       throw error;
     }).finally(function () { clearTimeout(timer); delete requests[action]; setBusy(-1); });
     return requests[action];
+  }
+  /* 届いた公開データ（1件）を画面の元データにする。60秒ごとの読み直しでも、リアルタイムの受け取りでも同じ */
+  var LIVE = { on: false, kind: '' };
+  function applyDoc(doc) {
+    if (!doc || !doc.body) throw new Error('まだ大会情報がありません。運営が準備すると、ここに出ます。');
+    var data = clean(JSON.parse(doc.body));
+    data.state.updatedAt = String(doc.updatedAt || '');
+    DATA = data; S = data.state; LIVE.last = Date.now();
+    $('syncStatus').textContent = (data.state.updatedAt || '') + ' 更新' + (LIVE.on ? '（自動で更新中）' : '');
+    $('syncRetry').hidden = true;
+    return data;
   }
   /* 届いたデータの数字の欄は数字に、文字の欄は文字にそろえる（画面に入れる前に型を確かめる） */
   function int(v, d) { var n = Number(v); return isFinite(n) ? Math.round(n) : (d === undefined ? 0 : d); }
@@ -1142,7 +1149,7 @@ function mk_boardOrder(group, teamNos, courts) {
   if(savedTheme)document.documentElement.setAttribute('data-theme',savedTheme);
   document.documentElement.classList.toggle('bigtext',store.get('scoreBig','0')==='1');
   paintDisplayButtons();
-  $('headReload').onclick=function(){refresh(false).then(function(){if(ui.tab==='rank' && $('recordsPanel').open)loadRecords();});};
+  $('headReload').onclick=function(){refresh(false).then(function(){if(ui.tab==='rank' && $('recordsPanel').open)loadRecords();if(LIVE.start)LIVE.start();});};
   function renderAll() {
     if (!S) return;
     if(ui.myTeam && !S.teams.some(function(t){return t.no===ui.myTeam;})) {ui.myTeam=0;store.set('myTeam','0');}
@@ -1172,9 +1179,52 @@ function mk_boardOrder(group, teamNos, courts) {
       }
     }
     $('syncRetry').onclick = update;
-    update();
-    setInterval(function () { if (document.visibilityState === 'visible') update(); },60000);
-    document.addEventListener('visibilitychange',function () { if (!document.hidden) update(); });
+
+    /* 通信を減らす：大会の日（開催日が今日、またはチームを出していて終わっていない試合がある）だけ、
+       新しいデータが入ったときにサーバーから知らせてもらう（リアルタイム。届いた回数だけ数えられる）。
+       それ以外の日は、開いたときに1回読むだけ。ほかのアプリから戻ったときも、前に読んでから3分たっていれば読み直す。
+       画面を見ていない間は受け取りを止める */
+    function today() { return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10); }
+    function wantLive() {
+      if (!S) return false;
+      var unfinished = S.teams.length > 0 && (!S.matches.length || S.matches.some(function (m) { return m.totalA === '' || m.totalB === ''; }));
+      return mk_normDate(S.settings['開催日'] || '') === today() || unfinished;
+    }
+    function onLive(doc) {
+      try { applyDoc(doc); } catch (e) { return; }
+      renderAll(true);
+      if (ui.tab === 'rank' && $('recordsPanel').open) loadRecords();
+      if (!wantLive()) stopLive();
+    }
+    function stopLive() {
+      if (LIVE.unsub) { try { LIVE.unsub(); } catch (e) {} LIVE.unsub = null; }
+      clearInterval(LIVE.timer); LIVE.timer = null; LIVE.on = false;
+      if (S) $('syncStatus').textContent = (S.updatedAt || '') + ' 更新';
+    }
+    function pollLive() { LIVE.on = true; LIVE.kind = 'poll'; if (S) $('syncStatus').textContent = (S.updatedAt || '') + ' 更新（自動で更新中）'; clearInterval(LIVE.timer); LIVE.timer = setInterval(function () { if (!document.hidden) update().then(function () { if (!wantLive()) stopLive(); }); }, 60000); }
+    function startLive() {
+      if (LIVE.on || document.hidden || !wantLive()) return;
+      /* 自動試験・練習ではリアルタイムの仕組みがないので、60秒ごとに読み直す */
+      if (FAKE || DEMO) { pollLive(); return; }
+      LIVE.on = true; LIVE.kind = 'rt';
+      var base = 'https://www.gstatic.com/firebasejs/13.2.0/';
+      Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-firestore.js')]).then(function (m) {
+        var A = m[0], F = m[1];
+        if (!LIVE.on) return;
+        if (!LIVE.db) { var app = A.getApps().find(function (a) { return a.name === 'view'; }) || A.initializeApp({ apiKey: 'AIzaSyAL3fYkM2kFulsnPhNuuAlyeVpIZy2wdSA', projectId: 'tsukiichi-molkky' }, 'view'); LIVE.db = F.getFirestore(app); LIVE.F = F; }
+        LIVE.unsub = LIVE.F.onSnapshot(LIVE.F.doc(LIVE.db, PUB), function (snap) {
+          if (!snap.exists()) return;
+          var d = snap.data(); onLive({ body: d.body, updatedAt: d.updatedAt });
+        }, function () { stopLive(); pollLive(); });
+      }).catch(function () { LIVE.on = false; pollLive(); });
+    }
+    LIVE.start = startLive; window.__live = LIVE;
+    update().then(startLive);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { stopLive(); return; }
+      if (wantLive()) startLive(); // 受け取りを始めると、最新の1件が最初に届く
+      else if (!LIVE.last || Date.now() - LIVE.last > 180000) update().then(startLive);
+    });
   }
   start();
 })();
