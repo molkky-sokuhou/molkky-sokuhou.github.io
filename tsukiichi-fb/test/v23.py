@@ -52,18 +52,17 @@ async def main():
         pl = json.loads(await A.evaluate("JSON.stringify((({rows,skip})=>({rows,skip}))(window.__tk.importPlan()))"))
         ok(r1['ok'] and r2['ok'] and pl['rows'] == 0, '⑨ 移してからまとめた人の記録も取り込み直さない ' + str(pl))
 
-        # ①② 片付け：調べたあとに、残す記録がテストの人へ移されたら、その人は消さない。片付けの途中は「調べる」を受け付けない
+        # ①②（版29）片付け：調べたあとに、残す記録がテストの人へ移されたら、その人は表示に残る
         await A.click('.nb[data-ph=entry]')
         await A.click('.nb[data-ph=sys]'); await A.click('#clScan'); await A.wait_for_timeout(500)
         yui = rid_of('ゆい')
         k1 = imp[1]; r3 = commit([{'op': 'update', 'path': k1, 'data': {'rid': yui, 'movedFrom': docs()[k1]['rid'], 'movedAt': 1, 'mv': 1}}])
-        await A.click('#clAll'); await A.click('#clGo')
-        await A.click('#clGo'); await A.wait_for_timeout(50); await A.evaluate("document.getElementById('clScan').click()")
-        mid = await A.locator('#clMsg').text_content()
-        await A.wait_for_timeout(6000)
+        await A.wait_for_timeout(1500)
+        await A.click('#clAll'); await A.click('#clGo'); await A.wait_for_timeout(5000)
         msg = await A.locator('#clMsg').text_content(); d = docs()
-        ok(r3['ok'] and (R + '/roster/' + yui) in d and 'ゆい' in msg, '①② 残す記録の持ち主になった人は消さない：' + msg[:80])
-        ok('件を消しました' in msg, '①② ほかは消える（途中の「調べる」で中身が変わらない）：' + mid[:40])
+        vis = await A.evaluate("window.__tk.S.roster.map(x=>x.name).join(',')")
+        ok(r3['ok'] and (R + '/roster/' + yui) in d and 'ゆい' in vis, '①② 残す記録の持ち主になった人は表示に残る：' + msg[:80])
+        ok('件を片付けました' in msg and 'そうた' not in vis, '①② ほかは画面から外れる')
 
         # ⑤ 戻す：A→B と B→C のまとめを順に戻す。まとめを元に戻した人は、古いバックアップを戻してもまとめ直さない
         await A.click('.nb[data-ph=rec]'); await A.wait_for_timeout(300)
@@ -81,10 +80,11 @@ async def main():
         await A.set_input_files('#bkFile', '/tmp/v23_bk.json'); await A.wait_for_timeout(1000)
         await A.click('#bkRestoreGo'); await A.wait_for_timeout(4000)
         d = docs(); ra, rb = d.get(R + '/roster/' + a_, {}), d.get(R + '/roster/' + b_, {})
-        ok(ra.get('mergedInto') == b_ and rb.get('mergedInto') == c_ and not ra.get('restoreMerge') and not rb.get('restoreMerge'), '⑤ A→B と B→C のまとめが両方戻る（restoreMerge は消える）')
+        ok(ra.get('mergedInto') == b_ and rb.get('mergedInto') == c_ and ra.get('restoreOf'), '⑤ A→B と B→C のまとめが両方戻る（どのバックアップから戻したか restoreOf が付く）')
         get('/reset'); await ca.close(); ca, A = await mk(b, '3台目')
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        commit([{'op': 'set', 'path': R + '/roster/' + i, 'data': {**{k: v for k, v in bk['docs'][R + '/roster/' + i].items() if k != 'mergedInto'}, 'restoredAt': 1, 'unmergedAt': 2}} for i in (a_, b_, c_)])  # 「元に戻す」をした人には unmergedAt がある
+        bid = 'b' + str(round(bk['savedAt'])) + '_' + str(bk.get('savedBy') or '')[:20]
+        commit([{'op': 'set', 'path': R + '/roster/' + i, 'data': {**{k: v for k, v in bk['docs'][R + '/roster/' + i].items() if k != 'mergedInto'}, 'restoredAt': 1, 'restoreOf': bid, 'unmergedAt': 2}} for i in (a_, b_, c_)])  # 同じバックアップから戻したあと「元に戻す」をした人には unmergedAt がある
         await A.wait_for_timeout(1500); await A.click('.nb[data-ph=rec]'); await A.evaluate("document.querySelector('#bkBox details').open=true")
         await A.set_input_files('#bkFile', '/tmp/v23_bk.json'); await A.wait_for_timeout(1000)
         if await A.locator('#bkRestoreGo').is_visible(): await A.click('#bkRestoreGo'); await A.wait_for_timeout(3000)

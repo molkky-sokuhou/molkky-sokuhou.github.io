@@ -43,25 +43,21 @@ async def main():
         a, bb = rid_of('ゆい'), rid_of('そうた')
         commit([{'op': 'update', 'path': imp[0], 'data': {'rid': a, 'movedFrom': d[imp[0]]['rid'], 'movedAt': 1, 'mv': 1}}])
         commit([{'op': 'update', 'path': R + '/roster/' + a, 'data': {'mergedInto': bb, 'mergeId': 'mX'}}])
-        # 版22→27 の1：読み直してから消すまでの間に、別の人へ記録が移されたら、その人を戻す
+        # 版29：片付けは消さずに印を置くだけ。片付けたあとに記録が移されても、その人は表示に戻る（消えない）
         c3 = rid_of('めい')
-        moved = {'done': False}
-        async def hook(route, req):
-            body = req.post_data or ''
-            if not moved['done'] and ('"delete"' in body) and (R + '/roster/') in body and (R + '/roster/' + c3) in body:
-                moved['done'] = True
-                commit([{'op': 'update', 'path': imp[1], 'data': {'rid': c3, 'movedFrom': docs()[imp[1]]['rid'], 'movedAt': 1, 'mv': 1}}])
-            await route.continue_()
-        await A.route('**/commit', hook)
         await A.wait_for_timeout(1500)
         await A.click('#clScan'); await A.wait_for_timeout(600)
-        await A.click('#clAll'); await A.click('#clGo'); await A.click('#clGo'); await A.wait_for_timeout(7000)
-        await A.unroute('**/commit')
+        await A.click('#clAll'); await A.click('#clGo'); await A.wait_for_timeout(5000)
         msg = await A.locator('#clMsg').text_content(); d = docs()
-        ok((R + '/roster/' + a) in d and (R + '/roster/' + bb) in d, '2. 残る人のまとめ先も消さない：' + msg[:70])
-        ok(moved['done'] and (R + '/roster/' + c3) in d and d[imp[1]]['rid'] == c3, '1. 読み直したあとに記録が移された人は、元に戻す')
-        cl = d.get(R + '/conf/cleanup', {})
-        ok(cl.get('until', 0) > 0, '9. 片付けが終わっても、片付けの時間を0に戻さない（ほかの端末の片付けを止めない）')
+        vis = lambda: A.evaluate("window.__tk.S.roster.map(x=>x.id)")
+        v1 = await vis()
+        ok(a in v1 and bb in v1, '2. 残る記録の持ち主（まとめた人）と、そのまとめ先は表示に残る：' + msg[:70])
+        ok(c3 not in v1 and (R + '/roster/' + c3) in d and (R + '/hide/r_' + c3) in d, '片付けた人は表示から外れるが、名簿は消えない')
+        commit([{'op': 'update', 'path': imp[1], 'data': {'rid': c3, 'movedFrom': docs()[imp[1]]['rid'], 'movedAt': 1, 'mv': 1}}])
+        await A.wait_for_timeout(2000)
+        ok(c3 in await vis(), '1. 片付けたあとに記録を移された人は、表示に戻る（記録の持ち主が消えない）')
+        ok(not any(k.endswith('/conf/cleanup') for k in docs()), '9. 片付けの時間（cleanup）は使わない')
+        await A.click('#clGo') if await A.locator('#clGo').count() else None
 
         # P2 まとめ先の人から「同じチームにしない」を外せる
         sheet = sorted(k.split('/')[-1] for k, v in docs().items() if k.startswith(R + '/roster/') and v.get('createdIn') == 'sheet' and not v.get('mergedInto'))
@@ -101,29 +97,34 @@ async def main():
         ok(king in before and king not in after, 'P2 出場者を選ぶと、出場者でない覇王は候補から消える')
         await A.evaluate("document.getElementById('ov').hidden=true")
 
-        # 7・8 戻す：まとめ先がもうほかへまとまっている／版22で途中まで戻した人／「元に戻す」をした人
+        # 7・8（版29）戻す：空のときか、同じファイルから戻している途中のときだけ
         get('/reset'); await ca.close(); ca, A = await mk(b, '2台目'); await newev(A); await unlock(A)
         await A.click('#seedBtn'); await A.wait_for_timeout(2000)
         ro = sorted((k.split('/')[-1], v) for k, v in docs().items() if k.startswith(R + '/roster/'))
-        (p1, d1), (p2, d2), (p3, d3), (p4, d4), (p5, d5), (p6, d6) = ro[:6]
-        bk = {'app': 'tsukiichi-fb', 'ver': 'x', 'box': 'proto', 'savedAt': 1, 'counts': {}, 'docs': {
-            R + '/roster/' + p1: {**d1, 'mergedInto': p2}, R + '/roster/' + p2: d2, R + '/roster/' + p3: d3,
-            R + '/roster/' + p4: {**d4, 'mergedInto': p5}, R + '/roster/' + p5: d5,
-            R + '/roster/' + p6: {**d6, 'restoreMerge': p3}}}
-        open('/tmp/v28_bk.json', 'w').write(json.dumps(bk))
-        # サーバー：p1 はない（バックアップから作る）。p2 は p3 へまとめ済み。p4 は版22で途中まで戻した人（restoredAt だけ）。p6 はない
-        urllib.request.urlopen(urllib.request.Request(SRV + '/seed', data=json.dumps({R + '/roster/' + p4: {**d4, 'restoredAt': 1}}).encode(), method='POST')).read()
-        st = json.loads(get('/state')); st['docs'].pop(R + '/roster/' + p1, None); st['docs'].pop(R + '/roster/' + p6, None)
-        get('/reset'); urllib.request.urlopen(urllib.request.Request(SRV + '/seed', data=json.dumps(st['docs']).encode(), method='POST')).read()
-        commit([{'op': 'update', 'path': R + '/roster/' + p2, 'data': {'mergedInto': p3, 'mergeId': 'mZ'}}])
-        await ca.close(); ca, A = await mk(b, '3台目'); await A.wait_for_timeout(1000)
-        await A.click('.nb[data-ph=rec]'); await A.evaluate("()=>{document.querySelector('#bkBox details').open=true}")
-        await A.set_input_files('#bkFile', '/tmp/v28_bk.json'); await A.wait_for_timeout(1000)
-        await A.click('#bkRestoreGo'); await A.wait_for_timeout(4000)
+        (p1, d1), (p2, d2), (p3, d3), (p4, d4), (p5, d5) = ro[:5]
+        def mkbk(saved): return {'app': 'tsukiichi-fb', 'ver': 'x', 'box': 'proto', 'savedAt': saved, 'savedBy': 'NAS', 'counts': {}, 'docs': {
+            R + '/roster/' + p1: {**d1, 'mergedInto': p2}, R + '/roster/' + p2: {**d2, 'mergedInto': p3}, R + '/roster/' + p3: d3,
+            R + '/roster/' + p4: {**d4, 'mergedInto': p5, 'unmergedAt': 5, 'unmergeOf': 'old'}, R + '/roster/' + p5: d5}}
+        open('/tmp/v28_bk1.json', 'w').write(json.dumps(mkbk(1000))); open('/tmp/v28_bk2.json', 'w').write(json.dumps(mkbk(2000)))
+        async def pick(f):
+            await A.click('.nb[data-ph=rec]'); await A.evaluate("()=>{document.querySelector('#bkBox details').open=true}")
+            await A.set_input_files('#bkFile', f); await A.wait_for_timeout(1200)
+        await pick('/tmp/v28_bk1.json')
+        ok('もう名簿・記録があります' in await A.locator('#bkMsg').text_content() and await A.locator('#bkRestoreGo').is_hidden(), '名簿が入っている箱には戻さない（空のときだけ）')
+        # 空の箱：同じファイルの途中から（p1 だけ作ってまとめる前に止まった）。別のファイルは混ぜない
+        get('/reset'); await ca.close(); ca, A = await mk(b, '3台目'); await newev(A)
+        commit([{'op': 'set', 'path': R + '/roster/' + p1, 'data': {**d1, 'restoreOf': 'b1000_NAS', 'restoredAt': 1}}])
+        await pick('/tmp/v28_bk2.json')
+        ok('もう名簿・記録があります' in await A.locator('#bkMsg').text_content(), '7. 途中で止まった復元に、別のファイルは混ぜない')
+        await pick('/tmp/v28_bk1.json'); await A.click('#bkRestoreGo'); await A.wait_for_timeout(4000)
         d = docs()
-        ok(d[R + '/roster/' + p1].get('mergedInto') == p3 and not d[R + '/roster/' + p1].get('restoreMerge'), '7. まとめ先がもうほかへまとまっていたら、その先へまとめる（restoreMerge は残らない）')
-        ok(d[R + '/roster/' + p4].get('mergedInto') == p5, '8. 版22で途中まで戻した人も、選び直せばまとめが戻る')
-        ok(d[R + '/roster/' + p6].get('mergedInto') == p3, '7. 戻している途中に取ったバックアップ（restoreMerge だけ）からも、まとめが戻る')
+        ok(d[R + '/roster/' + p1].get('mergedInto') == p2 and d[R + '/roster/' + p2].get('mergedInto') == p3, '7. 同じファイルを選び直すと、途中から続けて A→B→C のまとめも戻る')
+        ok(d[R + '/roster/' + p4].get('mergedInto') == p5 and not d[R + '/roster/' + p4].get('unmergedAt'), '8. バックアップに昔の「元に戻す」の跡があっても、まとめは戻る（跡は外す）')
+        # 戻したあとに「元に戻す」をした人は、同じファイルをもう一度選んでもまとめ直さない
+        commit([{'op': 'set', 'path': R + '/roster/' + p4, 'data': {**{k: v for k, v in d[R + '/roster/' + p4].items() if k != 'mergedInto'}, 'unmergedAt': 9}}]) if False else urllib.request.urlopen(urllib.request.Request(SRV + '/seed', data=json.dumps({R + '/roster/' + p4: {**{k: v for k, v in d[R + '/roster/' + p4].items() if k != 'mergedInto'}, 'unmergedAt': 9}}).encode(), method='POST')).read()
+        await A.wait_for_timeout(1500); await pick('/tmp/v28_bk1.json')
+        if await A.locator('#bkRestoreGo').is_visible(): await A.click('#bkRestoreGo'); await A.wait_for_timeout(3000)
+        ok(not docs()[R + '/roster/' + p4].get('mergedInto'), '8. 戻したあとに「元に戻す」をした人は、まとめ直さない')
 
         # 5・4・10 ルールの公開
         get('/reset'); await ca.close(); ca, A = await mk(b, '4台目')

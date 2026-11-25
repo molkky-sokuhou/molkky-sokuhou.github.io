@@ -21,7 +21,7 @@ const srv = http.createServer((req, res) => {
     if (u.pathname === '/fail') { failUntil = Date.now() + (+u.searchParams.get('ms') || 0); res.end('{}'); return; }
     if (u.pathname === '/commit') {
       if (Date.now() < failUntil) { res.statusCode = 503; res.end('{}'); return; }
-      setTimeout(() => { const r = fakeServerCommit(db, JSON.parse(body).writes, Date.now()); res.end(JSON.stringify(r)); }, slow);
+      setTimeout(() => { const r = fakeServerCommit(db, JSON.parse(body).writes, Date.now()); if (!r.ok && process.env.FAKE_LOG) console.log('deny', r.path, r.why || ''); res.end(JSON.stringify(r)); }, slow);
       return;
     }
     res.statusCode = 404; res.end();

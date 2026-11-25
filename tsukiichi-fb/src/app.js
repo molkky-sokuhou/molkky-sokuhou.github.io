@@ -82,7 +82,7 @@ const chunks = (a, n) => { const r = []; for (let i = 0; i < a.length; i += n) r
 /* ===== Firestore のルール（運営アカウントの番号＝UIDで判定）。設定タブでUID入りの全文をコピーできる ===== */
 /* ルールの版：ルールの中身を変えたときだけ上げる（アプリの版とは別）。
    本番のルールは rulesVer/N（N は自分の版以下）だけ読ませる。この画面の版 N が読めなければ本番が古い。N+1 が読めれば、この画面の方が古い */
-const RULES_NO = 25, RULES_VER = 'R' + RULES_NO, FB_PROJECT = 'tsukiichi-molkky';
+const RULES_NO = 26, RULES_VER = 'R' + RULES_NO, FB_PROJECT = 'tsukiichi-molkky';
 const RULES = `rules_version = '2';
 // 月いちモルック Firebase版のルール：ルールの版 ${RULES_VER}（システムタブで、本番のルールが最新か分かります）
 service cloud.firestore {
@@ -105,11 +105,6 @@ service cloud.firestore {
     // 開催回の更新番号（rev）が、この書き込みで変わるか（参照2回。同じ文書なので数え方は実際には1回のことが多い）
     function revBumped(box, e) {
       return getAfter(pathOf(box, 'events', e)).data.get('rev', '') != get(pathOf(box, 'events', e)).data.get('rev', '');
-    }
-    // テストのデータの片付けの間（conf/cleanup の until が今より後）だけ、削除を通す。
-    // until を書けるのは、システムのパスワード（conf/sysKey のハッシュ。運営の画面からも読めない）を知っている人だけで、長さは16分まで
-    function cleaning(box) {
-      return get(/databases/$(database)/documents/staff/$(box)/conf/cleanup).data.get('until', 0) > request.time.toMillis();
     }
     function sysHash(box) {
       return get(/databases/$(database)/documents/staff/$(box)/conf/sysKey).data.hash;
@@ -149,8 +144,6 @@ service cloud.firestore {
     match /staff/{box}/roster/{rid} {
       allow read: if isStaff();
       allow create: if isStaff() && request.resource.data.get('mergedInto', '') == '';
-      // 片付けで消せるのは、スプレッドシートから取り込んでいない人だけ
-      allow delete: if isStaff() && cleaning(box) && resource.data.get('createdIn', '') != 'sheet';
       // まとめた人は変えない。まとめる先は、自分以外の、まとめられていない人だけ
       // ただし「まとめを元に戻す」操作（mergedInto を空にして unmergedAt を書く。ほかは変えない）だけは通す。
       // 版12までのまとめ（mergeId なし）は、unmergeOf を空にして戻せる
@@ -172,7 +165,6 @@ service cloud.firestore {
       allow read: if isStaff();
       // 作るのは締めるときに全員分をまとめて（参照回数の上限に当たらないよう、ここでは名簿を見ない）
       allow create: if isStaff();
-      allow delete: if isStaff() && cleaning(box) && resource.data.get('src', '') != 'sheet';
       allow update: if isStaff()
         && request.resource.data.movedFrom == resource.data.rid
         && request.resource.data.rid != resource.data.rid
@@ -184,7 +176,7 @@ service cloud.firestore {
           && request.resource.data.no == resource.data.no
           && request.resource.data.get('editOf', '') == resource.data.get('ver', '');
     }
-    // 大会の案内（info）など。パスワードのハッシュが入る sysKey・sysCheck・cleanup は、運営の画面からも読めない
+    // 大会の案内（info）など。パスワードのハッシュが入る sysKey・sysCheck は、運営の画面からも読めない（cleanup は版28までの片付けの時間。もう使わない）
     match /staff/{box}/conf/{doc} {
       allow read: if isStaff() && !(doc in ['sysKey', 'sysCheck', 'cleanup', 'sys']);
       allow write: if isStaff() && !(doc in ['sysKey', 'sysCheck', 'cleanup', 'sysMeta', 'sys']);
@@ -206,20 +198,16 @@ service cloud.firestore {
     match /staff/{box}/conf/sysCheck {
       allow write: if isStaff() && request.resource.data.key == sysHash(box);
     }
-    // 片付けの時間：始めるのはパスワードを知っている人だけ・16分まで。終えるのはだれでも
-    match /staff/{box}/conf/cleanup {
-      allow write: if isStaff() && (request.resource.data.get('until', 0) == 0
-        || (request.resource.data.get('key', '') == sysHash(box)
-          && request.resource.data.until is number && request.resource.data.until <= request.time.toMillis() + 960000));
+    // 片付け：名簿・記録・回は消さず、hide に「片付け済み」の印を置くだけ（画面と集計から外す。印を消せば戻る）
+    match /staff/{box}/hide/{h} {
+      allow read, delete: if isStaff();
+      allow create, update: if isStaff() && request.resource.data.kind in ['r', 'h', 'e'] && h == request.resource.data.kind + '_' + request.resource.data.ref;
     }
     match /staff/{box}/events/{e} {
       allow read: if isStaff();
       // 回を作れるのは、同じまとめ書きで「いまの回」をその回にするときだけ（開いている回は1つ）
       allow create: if isStaff() && request.resource.data.status == 'open'
         && getAfter(/databases/$(database)/documents/staff/$(box)).data.currentEvent == e;
-      // 片付けで消せるのは、いまの回ではない回だけ
-      allow delete: if isStaff() && cleaning(box)
-        && get(/databases/$(database)/documents/staff/$(box)).data.get('currentEvent', '') != e;
       // 締めた回は開け直さない。開いている回を書き換えるときは、毎回 rev を新しくする（旧版の端末の書き込みは断る）。
       // chk.base があれば、押した画面が見ていた rev がいまと同じときだけ（その間にほかの端末の変更があれば断る）。
       // 参加者画面にチームを出す（shown を true）のは、押した画面の抽選（shownDraw）がいまの抽選（drawId）と同じときだけ。
@@ -238,9 +226,8 @@ service cloud.firestore {
       allow read: if isStaff();
       allow create, update: if isStaff() && isOpen(box, e) && notMerged(box, rid) && revBumped(box, e);
       // 取り消し・まとめで受付を消すときは、同じまとめ書きで開催回の rev も新しくする（締めの計算と食い違わないように）
-      // 片付けでも、開いている回の受付を消すときは rev を変える（締めの計算と食い違わないように）。締めた回の受付は片付けの間だけ
-      allow delete: if isStaff() && ((isOpen(box, e) && revBumped(box, e))
-        || (cleaning(box) && get(pathOf(box, 'events', e)).data.status == 'closed'));
+      // 片付けで、いまの回の受付を消すときも rev を変える
+      allow delete: if isStaff() && isOpen(box, e) && revBumped(box, e);
     }
     match /staff/{box}/events/{e}/ops/{op} {
       allow read: if isStaff();
@@ -520,7 +507,7 @@ function fakeBackend() {
     subs.forEach((s) => {
       if (s.kind === 'col') {
         const depth = s.path.split('/').length + 1;
-        const list = Object.keys(v.docs).filter((k) => k.indexOf(s.path + '/') === 0 && k.split('/').length === depth)
+        const list = Object.keys(v.docs).filter((k) => k.indexOf(s.path + '/') === 0 && k.split('/').length === depth && fakeReadOk(k, cache, RULES_NO)) // 読めない文書は購読にも出さない（本物のルールと同じ）
           .map((k) => ({ id: k.split('/').pop(), data: v.docs[k], pending: !!v.pend[k] }));
         const hasPend = Object.keys(v.pend).some((k) => k.indexOf(s.path + '/') === 0 && k.split('/').length === depth);
         const sig = JSON.stringify(list) + fromCache + hasPend;
@@ -529,7 +516,7 @@ function fakeBackend() {
         lastSig[s.key] = sig;
         s.cb(list, fromCache, list.filter((d) => prev[d.id] !== s.prev[d.id]).map((d) => d.id), hasPend);
       } else {
-        const d = v.docs[s.path] || null, sig = JSON.stringify(d) + fromCache;
+        const d = fakeReadOk(s.path, cache, RULES_NO) ? v.docs[s.path] || null : null, sig = JSON.stringify(d) + fromCache;
         if (lastSig[s.key] === sig) return; lastSig[s.key] = sig; s.cb(d, fromCache);
       }
     });
@@ -563,7 +550,7 @@ function fakeBackend() {
       return new Promise((res, rej) => { waiters[id] = { res, rej }; });
     },
     async getServer(path) { const st = await T.state(); if (!fakeReadOk(path, st, RULES_NO)) throw { code: 'permission-denied' }; return st.docs[path] || null; },
-    async getServerCol(path) { const st = await T.state(), depth = path.split('/').length + 1; return Object.keys(st.docs).filter((k) => k.indexOf(path + '/') === 0 && k.split('/').length === depth).map((k) => ({ id: k.split('/').pop(), ...st.docs[k] })); },
+    async getServerCol(path) { const st = await T.state(), depth = path.split('/').length + 1; return Object.keys(st.docs).filter((k) => k.indexOf(path + '/') === 0 && k.split('/').length === depth && fakeReadOk(k, st, RULES_NO)).map((k) => ({ id: k.split('/').pop(), ...st.docs[k] })); },
     waitPending() { return ready.then(() => new Promise((res) => { const f = () => { if (!queue.length) res(); else setTimeout(f, 200); }; f(); })); },
     uid() { return ''; },
     async clearLocal() { clearInterval(timer); try { kv && kv.close(); } catch (e) {} const n = 'tk_fake_' + (URL0 ? 'test' : 'demo'); await idbDelete(n); return [n]; },
@@ -634,10 +621,11 @@ async function enter(mode) {
     }
     renderAll();
   }, onErr('box'));
-  B.sub(ROOT + '/events', (list, fc) => { mark('events', fc); S.events = {}; list.forEach((d) => { S.events[d.id] = d.data; }); renderAll(); }, onErr('events'));
-  B.sub(ROOT + '/roster', (list, fc) => { mark('roster', fc); S.roster = list.map((d) => ({ id: d.id, ...d.data, pending: d.pending })); renderAll(); }, onErr('roster'));
+  B.sub(ROOT + '/events', (list, fc) => { mark('events', fc); RAW.events = {}; list.forEach((d) => { RAW.events[d.id] = d.data; }); applyHide(); renderAll(); }, onErr('events'));
+  B.sub(ROOT + '/roster', (list, fc) => { mark('roster', fc); RAW.roster = list.map((d) => ({ id: d.id, ...d.data, pending: d.pending })); applyHide(); renderAll(); }, onErr('roster'));
+  B.sub(ROOT + '/hide', (list) => { RAW.hide = new Set(list.map((d) => d.id)); applyHide(); renderAll(); renderHidden(); }, () => {});
   B.subDoc(PUB, (d, fc) => { S.sync.pub = { cache: fc }; S.pub = d; schedulePublish(); }, () => {});
-  B.sub(ROOT + '/hist', (list, fc) => { mark('hist', fc); S.hist = list.map((d) => ({ id: d.id, ...d.data })); renderAll(); }, onErr('hist'));
+  B.sub(ROOT + '/hist', (list, fc) => { mark('hist', fc); RAW.hist = list.map((d) => ({ id: d.id, ...d.data })); applyHide(); renderAll(); }, onErr('hist'));
   B.subDoc(ROOT + '/conf/deploy', (d) => { S.deploy = d; renderRules(); }, () => {});
   B.subDoc(INFO, (d, fc) => { mark('info', fc); S.info = d; renderInfo(); schedulePublish(); }, onErr('info'));
   B.subDoc(ROOT + '/conf/sysMeta', (d, fc) => { S.sysConf = d; S.sysLoaded = !fc || !!d; renderSys(); }, () => {});
@@ -670,7 +658,7 @@ function refreshConfirmedCount() {
 }
 function switchEvent(cur) {
   unsubCur.forEach((f) => f()); unsubCur = [];
-  S.cur = cur; S.checkins = []; S.devices = []; S.sync.checkins = null; S.firstSnap = true; S.seen = {}; S.sel = {}; S.lastServer = null; S.liveServer = false;
+  S.cur = cur; S.checkins = []; applyHide(); S.devices = []; S.sync.checkins = null; S.firstSnap = true; S.seen = {}; S.sel = {}; S.lastServer = null; S.liveServer = false;
   if (!cur) return;
   const onErr = (err) => { S.sync.checkins = { cache: true, err: (err && err.code) || 'error' }; renderAll(); };
   unsubCur.push(B.sub(ROOT + '/events/' + cur + '/checkins', (list, fc, changed, hasPend) => {
@@ -730,7 +718,7 @@ function onCheckins(list, changed) {
     });
   } else { list.forEach((c) => { S.seen[c.id] = 1; }); }
   if (list.length || !S.sync.checkins.cache) S.firstSnap = false;
-  S.checkins = list;
+  S.checkins = list; applyHide();
   renderAll();
 }
 function metric(m) {
@@ -1262,6 +1250,22 @@ function markTop(ps, K) {
   const cut = K > 0 && pts.length ? pts[Math.min(K, pts.length) - 1] : Infinity;
   ps.forEach((p) => { p.top = p.pts > 0 && p.pts >= cut; });
   return ps;
+}
+/* ===== 片付け（版29）：名簿・記録・回は消さず、hide の印（r_名簿ID・h_記録ID・e_回ID）で画面と集計から外す =====
+   名簿の人は、印があっても、見えている記録の持ち主・見えている人のまとめ先・いまの回の受付にいる人なら外さない（あとから記録が移されても消えない） */
+const RAW = { roster: [], hist: [], events: {}, hide: new Set() };
+function applyHide() {
+  const H = RAW.hide;
+  S.hist = RAW.hist.filter((h) => !H.has('h_' + h.id));
+  S.events = {}; Object.keys(RAW.events).forEach((k) => { if (k === S.cur || !H.has('e_' + k)) S.events[k] = RAW.events[k]; });
+  let show = new Set(RAW.roster.filter((r) => !H.has('r_' + r.id)).map((r) => r.id));
+  const base = new Set(); S.hist.forEach((h) => { if (h.rid) base.add(h.rid); }); (S.checkins || []).forEach((c) => base.add(c.id));
+  for (;;) {
+    const need = new Set(base); RAW.roster.forEach((r) => { if (show.has(r.id) && r.mergedInto) need.add(r.mergedInto); });
+    const next = new Set(show); need.forEach((id) => next.add(id));
+    if (next.size === show.size) break; show = next;
+  }
+  S.roster = RAW.roster.filter((r) => show.has(r.id));
 }
 /* 同じチームにしない組（名簿の ng：{相手の名簿ID: true}。両方の人に書く。外すときは false。1つの欄だけ書き換えるので、2台で別々に足しても消し合わない）。
    まとめた人の分も、まとめ先の人に付け替えて数える */
@@ -2421,6 +2425,7 @@ async function backupData() {
   const ev = await B.getServerCol(ROOT + '/events'), ro = await B.getServerCol(ROOT + '/roster'), hi = await B.getServerCol(ROOT + '/hist');
   put(ROOT, await B.getServer(ROOT)); put(INFO, await B.getServer(INFO));
   ro.forEach((d) => put(ROOT + '/roster/' + d.id, strip(d))); hi.forEach((d) => put(ROOT + '/hist/' + d.id, strip(d)));
+  (await B.getServerCol(ROOT + '/hide')).forEach((d) => put(ROOT + '/hide/' + d.id, strip(d)));
   for (const e of ev) { put(ROOT + '/events/' + e.id, strip(e)); (await B.getServerCol(ROOT + '/events/' + e.id + '/checkins')).forEach((c) => put(ROOT + '/events/' + e.id + '/checkins/' + c.id, strip(c))); }
   return { app: 'tsukiichi-fb', ver: VER, box: BOX, savedAt: srvNow(), savedBy: devName, counts: { roster: ro.length, hist: hi.length, events: ev.length }, docs };
 }
@@ -2466,29 +2471,34 @@ async function pickBackupDir() {
   try { const d = await window.showDirectoryPicker({ id: 'tsukiichi-backup', mode: 'readwrite' }); BK.dir = d; await bkPut('dir_' + BOX, d); renderBackup('保存先を「' + d.name + '」にしました'); }
   catch (e) { if (e && e.name !== 'AbortError') renderBackup('フォルダを選べませんでした（' + e.name + '）'); }
 }
-/* バックアップから戻す：サーバーにない名簿・記録・大会の案内だけを足す（あるものは書き換えない）。開催回と受付は戻さない */
+/* バックアップから戻す：空のサーバー（か、同じファイルから戻している途中）に、名簿・記録・片付けの印・大会の案内を戻す。開催回と受付は戻さない */
 /* 戻す計画：サーバーから名簿・記録・案内を読み直して、ないものだけ足す。押したときにもう一度読み直すので、その間にほかの端末が作ったものは書き換えない。
    戻した人（restoredAt あり）のまとめ（mergedInto）がまだなら、もう一度押したときにも続きを入れる */
+/* 戻す（版29）：戻せるのは、サーバーの名簿・記録が空のとき（データが全部なくなったときの復旧）か、同じバックアップから戻している途中のときだけ。
+   戻した名簿・記録には restoreOf（どのバックアップから戻したか）を付け、別のファイルと混ざらないようにする。
+   まとめ（mergedInto）は名簿を作ったあとに書く（作るときは mergedInto が空でないと断られるため）。
+   続きでまとめるのは、同じバックアップから戻した人で、まだまとまっていない・「元に戻す」をしていない（unmergedAt がない）人だけ。
+   バックアップに残っている昔の unmergedAt・unmergeOf は、戻すときに外す（今回の「元に戻す」と見分けるため） */
+function bkId(data) { return 'b' + Math.round(num(data.savedAt)) + '_' + String(data.savedBy || '').slice(0, 20); }
 async function restorePlan(data) {
-  const ro = await B.getServerCol(ROOT + '/roster'), hi = await B.getServerCol(ROOT + '/hist'), info = await B.getServer(INFO);
-  const rm = {}, hid = {}; ro.forEach((r) => { rm[r.id] = r; }); hi.forEach((h) => { hid[h.id] = 1; });
+  const bid = bkId(data);
+  const ro = await B.getServerCol(ROOT + '/roster'), hi = await B.getServerCol(ROOT + '/hist'), hd = await B.getServerCol(ROOT + '/hide'), info = await B.getServer(INFO);
+  const foreign = ro.filter((r) => r.restoreOf !== bid).length + hi.filter((h) => h.restoreOf !== bid).length;
+  if (foreign) return { blocked: foreign, add: [], mergeLater: [] };
+  const rm = {}, hid = {}, hdd = {}; ro.forEach((r) => { rm[r.id] = r; }); hi.forEach((h) => { hid[h.id] = 1; }); hd.forEach((h) => { hdd[h.id] = 1; });
+  const inBk = (id) => !!data.docs['staff/' + data.box + '/roster/' + id];
   const add = [], mergeLater = [];
   Object.keys(data.docs).forEach((path) => {
     const d = data.docs[path], parts = path.split('/'); if (!d || parts.length !== 4 || parts[1] !== data.box) return;
     const p = ROOT + '/' + parts[2] + '/' + parts[3];
     if (parts[2] === 'roster') {
-      const cur = rm[parts[3]], { mergedInto: m0, restoreMerge: r0, ...rest } = d;
-      const want = m0 || r0 || ''; // 戻している途中に取ったバックアップには restoreMerge だけが残っている
-      /* まとめ先の人が、いまのサーバーでほかの人へまとめられていたら、その先へまとめる（まとめられた人へはまとめられないため） */
-      let dst = want; for (let i = 0; dst && rm[dst] && rm[dst].mergedInto && i < 20; i++) dst = rm[dst].mergedInto;
-      if (dst === parts[3]) dst = '';
-      /* まとめは、戻した人に restoreMerge（まとめ先）を付けておき、まとめ終えたら消す。
-         続きをするのは、まだまとまっていない人で、restoreMerge が残っている人か、版22までに戻した途中の人（restoredAt だけ。「元に戻す」をした人は unmergedAt があるので除く） */
-      if (!cur) add.push({ op: 'set', path: p, data: { ...rest, restoredAt: TS, ...(dst ? { restoreMerge: dst } : {}) } });
-      const resume = cur && !cur.mergedInto && (cur.restoreMerge || (cur.restoredAt && !cur.unmergedAt));
-      if (dst && (!cur || resume)) mergeLater.push({ op: 'update', path: p, data: { mergedInto: dst, restoreMerge: null }, src: parts[3], dst });
+      const cur = rm[parts[3]], { mergedInto: m0, restoreMerge: r0, unmergedAt: _u, unmergeOf: _o, ...rest } = d;
+      const dst = (m0 || r0 || '') !== parts[3] ? (m0 || r0 || '') : '';
+      if (!cur) add.push({ op: 'set', path: p, data: { ...rest, restoreOf: bid, restoredAt: TS } });
+      if (dst && (rm[dst] || inBk(dst)) && (!cur || (!cur.mergedInto && !cur.unmergedAt))) mergeLater.push({ op: 'update', path: p, data: { mergedInto: dst }, src: parts[3], dst });
     }
-    if (parts[2] === 'hist' && !hid[parts[3]]) add.push({ op: 'set', path: p, data: { ...d, restoredAt: TS } });
+    if (parts[2] === 'hist' && !hid[parts[3]]) add.push({ op: 'set', path: p, data: { ...d, restoreOf: bid, restoredAt: TS } });
+    if (parts[2] === 'hide' && !hdd[parts[3]]) add.push({ op: 'set', path: p, data: d });
     if (parts[2] === 'conf' && parts[3] === 'info' && !info) add.push({ op: 'set', path: INFO, data: d });
   });
   return { add, mergeLater };
@@ -2497,6 +2507,7 @@ async function restoreBackup(file) {
   let data; try { data = JSON.parse(await file.text()); } catch (e) { renderBackup('ファイルを読めませんでした（バックアップのファイルを選んでください）'); return; }
   if (!data || data.app !== 'tsukiichi-fb' || !data.docs) { renderBackup('月いちのバックアップのファイルではありません'); return; }
   let pl; try { pl = await restorePlan(data); } catch (e) { renderBackup('サーバーを読めませんでした（' + ((e && e.code) || '') + '）。電波を確かめてください'); return; }
+  if (pl.blocked) { BK.data = null; $('bkRestoreGo').hidden = true; renderBackup('サーバーにはもう名簿・記録があります（' + pl.blocked + '件）。バックアップから戻せるのは、データが全部なくなったとき（空のとき）か、同じファイルから戻している途中のときだけです'); return; }
   const n = pl.add.length + pl.mergeLater.length;
   if (!n) { BK.data = null; $('bkRestoreGo').hidden = true; renderBackup('このバックアップの名簿・記録は、すべてサーバーにあります。戻すものはありません'); return; }
   BK.data = data;
@@ -2508,6 +2519,7 @@ async function applyRestore() {
   $('bkRestoreGo').disabled = true;
   try {
     const pl = await restorePlan(BK.data);
+    if (pl.blocked) throw { code: 'not-empty' };
     for (const part of chunks(pl.add, 400)) await B.commit(S.cur ? W.rev(ROOT, S.cur, part) : part);
     /* A→B と B→C があるときは、A→B を先に（B がまとめられる前に）別のまとめ書きで */
     let rest = pl.mergeLater.slice();
@@ -2518,7 +2530,7 @@ async function applyRestore() {
       rest = rest.filter((m) => !round.includes(m));
     }
     BK.data = null; $('bkRestoreGo').hidden = true; renderBackup('バックアップから ' + pl.add.length + '件を戻しました' + (pl.mergeLater.length ? '（まとめ ' + pl.mergeLater.length + '人）' : ''));
-  } catch (e) { renderBackup('戻せませんでした（' + ((e && e.code) || '') + '）。もう一度押すと、まだの分だけ戻します'); }
+  } catch (e) { renderBackup((e && e.code) === 'not-empty' ? 'その間にサーバーに名簿・記録が入ったので止めました' : '戻せませんでした（' + ((e && e.code) || '') + '）。同じファイルを選び直すと、まだの分だけ戻します'); }
   $('bkRestoreGo').disabled = false;
 }
 
@@ -2569,12 +2581,11 @@ async function sysGo() {
 }
 
 /* ===== テストのデータの片付け =====
-   スプレッドシートから取り込んだもの以外（テストで入れた名簿・受付・締めた回・記録）を、選んで消す。
-   ルールは、conf/cleanup の until（ミリ秒）が今より後の間だけ削除を通す（片付けの間の15分だけ。始めるにはシステムのパスワードが要る）。
-   最初はどれにもチェックを入れない（本番の記録をうっかり消さないように）。調べたときの回と rev を覚え、消すときに回や結果が変わっていれば止める */
+   スプレッドシートから取り込んだもの以外（テストで入れた名簿・締めた回・記録）を選んで、hide の印で画面と集計から外す（版29。消さないので、
+   あとから記録が移されても消えない・何度押しても同じ・「戻す」で元どおり）。いまの回の受付とチームを空にするのだけは、rev を確かめて本当に消す。
+   最初はどれにもチェックを入れない（本番の記録をうっかり外さないように） */
 let CL = null;
 function clScan() {
-  if (CL && CL.running) { $('clMsg').textContent = '片付けの途中です。終わってから調べ直してください'; return; }
   const pastIds = new Set(PAST.roster.map((p) => p.id)), sheetPid = new Set(histRows().filter((h) => h.src === 'sheet').map((h) => h.pid));
   const ev = S.events[S.cur] || {};
   CL = {
@@ -2593,46 +2604,35 @@ function clScan() {
     sec('名簿（スプレッドシートにいない人）', CL.roster.map((r) => ch('r:' + r.id, r.name, r.keep ? 'スプレッドシートの記録がある人です' : ''))) +
     sec('記録（スプレッドシートから取り込んだもの以外）', Object.keys(byDay).sort().map((k) => ch('h:' + k, k + '：' + byDay[k].length + '件'))) +
     sec('締めた回', CL.events.map((e) => ch('e:' + e.id, (e.name || e.id) + (e.status === 'closed' ? '' : '（開いたまま）'), (e.final && e.final.standings ? e.final.standings.length + 'チームの順位' : '結果なし')))) +
-    sec('いまの回「' + (ev.name || '') + '」', [].concat(CL.ck.length ? [ch('ck', '受付 ' + CL.ck.length + '人（' + CL.ck.map((c) => (rm[resolveId(c.id, rm)] || {}).name || c.name).slice(0, 30).join('・') + (CL.ck.length > 30 ? '…' : '') + '）')] : [],
+    sec('いまの回「' + (ev.name || '') + '」（ここは本当に消します）', [].concat(CL.ck.length ? [ch('ck', '受付 ' + CL.ck.length + '人（' + CL.ck.map((c) => (rm[resolveId(c.id, rm)] || {}).name || c.name).slice(0, 30).join('・') + (CL.ck.length > 30 ? '…' : '') + '）')] : [],
       CL.teams ? [ch('tm', 'チーム・対戦表・試合の結果')] : []));
-  $('clList').innerHTML = html ? '<p class="muted">消すものにチェックを入れてください（最初はどれにも入っていません）。<button class="btn small ghost" id="clAll" type="button">すべてチェック</button></p>' + html +
-    '<p class="warnline" style="margin-top:10px">チェックしたものを消します。消したものは戻せません。</p><button class="btn primary" id="clGo" type="button">チェックしたものを消す</button>'
-    : '<p class="muted">消すものはありません。</p>';
+  $('clList').innerHTML = html ? '<p class="muted">片付けるものにチェックを入れてください（最初はどれにも入っていません）。<button class="btn small ghost" id="clAll" type="button">すべてチェック</button></p>' + html +
+    '<p class="muted" style="margin-top:10px">名簿・記録・締めた回は消さずに、画面と集計から外します（あとで戻せます）。残る記録の持ち主や、まとめ先になっている人は、外しても表示に残ります。</p><button class="btn primary" id="clGo" type="button">チェックしたものを片付ける</button>'
+    : '<p class="muted">片付けるものはありません。</p>';
   $('clMsg').textContent = '';
   if ($('clAll')) $('clAll').onclick = () => { $('clList').querySelectorAll('[data-cl]').forEach((x) => { x.checked = true; }); };
-  if ($('clGo')) { let armed = false; $('clGo').onclick = () => { if (!$('clList').querySelector('[data-cl]:checked')) { $('clMsg').textContent = '消すものにチェックを入れてください'; return; } if (!armed) { armed = true; $('clGo').textContent = 'もう一度押すと消します'; return; } clRun(); }; }
+  if ($('clGo')) $('clGo').onclick = () => { if (!$('clList').querySelector('[data-cl]:checked')) { $('clMsg').textContent = '片付けるものにチェックを入れてください'; return; } clRun(); };
+}
+function renderHidden() {
+  if (!$('clHidden')) return;
+  const n = RAW.hide.size;
+  $('clHidden').textContent = n ? '片付け済み：' + n + '件（画面と集計から外しています）' : '';
+  $('clUndo').hidden = !n;
 }
 async function clRun() {
   if (!CL || CL.running || needEvent()) return;
-  const cl = CL; cl.running = true; // 途中で「調べる」を押しても、この片付けの中身は変わらない
-  if (S.cur !== cl.eid) { CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = '調べたあとに、ほかの端末で新しい回が始まりました。もう一度「消すものを調べる」から'; return; }
-  const key = sysKey(); if (!key) { cl.running = false; $('clMsg').textContent = 'システムのパスワードを入れ直してください（「システムを閉じる」→入り直す）'; return; }
+  const cl = CL; cl.running = true;
+  if (S.cur !== cl.eid) { CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = '調べたあとに、ほかの端末で新しい回が始まりました。もう一度「片付けるものを調べる」から'; return; }
+  if (!sysOk()) { cl.running = false; $('clMsg').textContent = 'システムのパスワードを入れ直してください'; return; }
   const on = new Set([...$('clList').querySelectorAll('[data-cl]:checked')].map((x) => x.dataset.cl));
-  const simple = [], delHist = new Set(), skipped = [], delR = [], keepCopy = {};
-  Object.keys(cl.histGroups).forEach((k) => { if (on.has('h:' + k)) cl.histGroups[k].forEach((id) => { simple.push(ROOT + '/hist/' + id); delHist.add(id); }); });
-  /* 名簿の人は、消す直前にサーバーを読み直し、残す記録の持ち主や、まとめ先になっている人は消さない（調べたあとに記録が移された場合など） */
-  const delRoster = cl.roster.filter((r) => on.has('r:' + r.id));
-  $('clGo').disabled = true; $('clMsg').textContent = '消しています…';
-  if (delRoster.length) {
-    let hiNow, roNow;
-    try { hiNow = await B.getServerCol(ROOT + '/hist'); roNow = await B.getServerCol(ROOT + '/roster'); } catch (e) { cl.running = false; $('clGo').disabled = false; $('clMsg').textContent = 'サーバーを読めませんでした。電波を確かめてください'; return; }
-    /* 残る記録の持ち主・残る人のまとめ先は消さない。消さないと決めた人のまとめ先も残すので、変わらなくなるまで繰り返す */
-    let gone = new Set(delRoster.map((r) => r.id).filter((id) => roNow.some((x) => x.id === id)));
-    for (;;) {
-      const used = new Set();
-      hiNow.forEach((h) => { if (!delHist.has(h.id) && h.rid) used.add(h.rid); });
-      roNow.forEach((r) => { if (r.mergedInto && !gone.has(r.id)) used.add(r.mergedInto); });
-      const next = new Set([...gone].filter((id) => !used.has(id)));
-      if (next.size === gone.size) break; gone = next;
-    }
-    delRoster.forEach((r) => { if (!gone.has(r.id)) skipped.push(r.name); else { delR.push(ROOT + '/roster/' + r.id); keepCopy[r.id] = roNow.find((x) => x.id === r.id); } });
-  }
-  const CLEAN = ROOT + '/conf/cleanup', del = (path) => ({ op: 'delete', path });
-  /* 片付けの時間は5分ずつ。続いている間は延ばし、終わっても0には戻さない（同時に片付けているほかの端末を止めないため。5分で自然に閉じる） */
-  let n = 0, winAt = 0;
-  const openWin = async () => { if (Date.now() - winAt < 120000) return; await B.commit([{ op: 'set', path: CLEAN, data: { until: Math.floor(srvNow()) + 5 * 60000, key, by: devName } }]); winAt = Date.now(); };
+  const mark = (kind, id) => ({ op: 'set', path: ROOT + '/hide/' + kind + '_' + id, data: { kind, ref: id, at: TS, by: devName } }); // 中身の名前は ref（id にすると、読み込みで文書の名前と取り違える）
+  const marks = [];
+  cl.roster.forEach((r) => { if (on.has('r:' + r.id)) marks.push(mark('r', r.id)); });
+  Object.keys(cl.histGroups).forEach((k) => { if (on.has('h:' + k)) cl.histGroups[k].forEach((id) => marks.push(mark('h', id))); });
+  cl.events.forEach((e) => { if (on.has('e:' + e.id)) marks.push(mark('e', e.id)); });
+  $('clGo').disabled = true; $('clMsg').textContent = '片付けています…';
+  let n = 0, wiped = 0;
   try {
-    await openWin();
     /* いまの回：受付を消すとき・チームを空にするときは、調べたときの rev から順に rev を変える（その間に結果や受付が変わっていたら断られる） */
     const ck = on.has('ck') ? cl.ck.map((c) => ROOT + '/events/' + cl.eid + '/checkins/' + c.id) : [];
     if (ck.length || on.has('tm')) {
@@ -2641,40 +2641,27 @@ async function clRun() {
       for (const [i, part] of parts.entries()) {
         const rev = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), opId = rid('c');
         const data = { rev, chk: { base, op: opId }, ...(i === 0 && on.has('tm') ? { tm: {}, mt: {}, assign: {}, teams: null, shown: false } : {}) };
-        try { await B.commit([{ op: 'update', path: ROOT + '/events/' + cl.eid, data }].concat(part.map(del))); }
+        try { await B.commit([{ op: 'update', path: ROOT + '/events/' + cl.eid, data }].concat(part.map((path) => ({ op: 'delete', path })))); }
         catch (e) { if ((e && e.code) === 'permission-denied') throw Object.assign(new Error('changed'), { code: 'changed' }); throw e; }
-        base = rev; n += part.length;
+        base = rev; wiped += part.length;
       }
     }
-    for (const e of cl.events) if (on.has('e:' + e.id)) {
-      const cks = (await B.getServerCol(ROOT + '/events/' + e.id + '/checkins')).map((c) => ROOT + '/events/' + e.id + '/checkins/' + c.id);
-      for (const part of chunks(cks, 6)) { await openWin(); await B.commit(part.map(del)); n += part.length; } // 1人3回の参照×6人＝18（上限20）
-      await openWin(); await B.commit([del(ROOT + '/events/' + e.id)]); n++;
-    }
-    for (const part of chunks(simple, 15)) { await openWin(); await B.commit(part.map(del)); n += part.length; $('clMsg').textContent = '消しています… ' + n + '件'; }
-    for (const part of chunks(delR, 15)) { await openWin(); await B.commit(part.map(del)); n += part.length; $('clMsg').textContent = '消しています… ' + n + '件'; }
-    /* 読み直してから消すまでの間に、ほかの端末がその人へ記録を移したり、まとめたりしていたら、消した人を元に戻す */
-    if (delR.length) {
-      const hi2 = await B.getServerCol(ROOT + '/hist'), ro2 = await B.getServerCol(ROOT + '/roster'), need = new Set();
-      hi2.forEach((h) => { if (h.rid && keepCopy[h.rid]) need.add(h.rid); });
-      ro2.forEach((r) => { if (r.mergedInto && keepCopy[r.mergedInto]) need.add(r.mergedInto); });
-      /* 元に戻した人がまとめ先にしていた人も戻す（変わらなくなるまで） */
-      for (let more = true; more;) { more = false; [...need].forEach((id) => { const m = keepCopy[id].mergedInto; if (m && keepCopy[m] && !need.has(m)) { need.add(m); more = true; } }); }
-      for (const id of need) {
-        const { id: _i, mergedInto, ...rest } = keepCopy[id];
-        await B.commit([{ op: 'set', path: ROOT + '/roster/' + id, data: { ...rest, mergedInto: '' } }]); n--;
-        skipped.push(rest.name || id);
-      }
-      for (const id of need) { const m = keepCopy[id].mergedInto; if (m) await B.commit([{ op: 'update', path: ROOT + '/roster/' + id, data: { mergedInto: m } }]).catch(() => {}); }
-    }
-    CL = null; $('clList').innerHTML = ''; $('clMsg').textContent = n + '件を消しました' + (on.has('tm') ? '（いまの回のチーム・試合も空にしました）' : '') + '。' + (skipped.length ? skipped.join('・') + ' さんは、記録の持ち主やまとめ先になっているので消しませんでした。' : '') + '参加者画面も新しい内容に変わります。';
+    for (const part of chunks(marks, 100)) { await B.commit(part); n += part.length; $('clMsg').textContent = '片付けています… ' + n + '件'; }
+    CL = null; $('clList').innerHTML = '';
+    const kept = cl.roster.filter((r) => on.has('r:' + r.id) && S.roster.some((x) => x.id === r.id)).map((r) => r.name);
+    $('clMsg').textContent = n + '件を片付けました' + (wiped ? '（いまの回の受付 ' + wiped + '人を消しました）' : '') + (on.has('tm') ? '（いまの回のチーム・試合を空にしました）' : '') + '。' +
+      (kept.length ? kept.join('・') + ' さんは、残る記録の持ち主やまとめ先なので表示に残しています。' : '') + '参加者画面も新しい内容に変わります。';
   } catch (e) {
-    /* 途中で止まったときも片付けの時間は閉じない（5分で自然に閉じる） */
     cl.running = false; $('clGo').disabled = false;
-    $('clMsg').textContent = (e && e.code) === 'changed' ? '調べたあとに、いまの回で受付や結果が変わったため止めました（' + n + '件は消しました）。もう一度「消すものを調べる」から'
-      : (e && e.code) === 'permission-denied' ? '断られました。システムのパスワードを入れ直してから、もう一度「消すものを調べる」から（' + n + '件は消しました）'
-      : '途中で止まりました（' + ((e && e.code) || '') + '）。「消すものを調べる」からやり直すと、残りを消せます';
+    $('clMsg').textContent = (e && e.code) === 'changed' ? '調べたあとに、いまの回で受付や結果が変わったため止めました。もう一度「片付けるものを調べる」から'
+      : '途中で止まりました（' + ((e && e.code) || '') + '）。もう一度押すと続きを片付けます（同じものを何度片付けても大丈夫です）';
   }
+}
+async function clUndo() {
+  if (!sysOk()) { $('clMsg').textContent = 'システムのパスワードを入れ直してください'; return; }
+  const ids = [...RAW.hide]; let n = 0;
+  try { for (const part of chunks(ids, 100)) { await B.commit(part.map((id) => ({ op: 'delete', path: ROOT + '/hide/' + id }))); n += part.length; } $('clMsg').textContent = n + '件を戻しました'; }
+  catch (e) { $('clMsg').textContent = '途中で止まりました（' + n + '件は戻しました）。もう一度押してください'; }
 }
 
 /* ===== タブ ===== */
@@ -2794,18 +2781,17 @@ $('selfBtn').onclick = async () => {
     await tryW('覇王戦の記録を直す', [{ op: 'set', path: R + '/hist/haoh_t' + t, data: { kind: 'haoh', no: 1, date: '2026-01-02', rid: ppl[5].id, name: 'y', entrants: [ppl[5].id], ver: 'v2', editOf: 'v1', at: TS } }], 'ok');
     await tryW('大会の記録を覇王戦の記録に書き換える（断られるはず）', [{ op: 'set', path: R + '/hist/h1' + t, data: { kind: 'haoh', no: 9, date: '2026-01-01' } }], 'denied');
     await tryW('大会の案内を保存する', [{ op: 'set', path: R + '/conf/info', data: { '大会名': '試験', updatedAt: TS } }], 'ok');
-    await tryW('片付けの時間外に記録を消す（断られるはず）', [{ op: 'delete', path: R + '/hist/haoh_t' + t }], 'denied');
     await tryW('システムのパスワードのハッシュを置く', [{ op: 'set', path: R + '/conf/sysKey', data: { hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'ok');
     await tryW('今のハッシュを知らずに、パスワードを置き換える（断られるはず）', [{ op: 'set', path: R + '/conf/sysKey', data: { hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', old: 'x' } }], 'denied');
     await tryW('パスワードを変えずに、塩（salt）だけ書き換える（断られるはず）', [{ op: 'set', path: R + '/conf/sysMeta', data: { salt: 'x' } }], 'denied');
     await tryW('違うパスワードで確かめる（断られるはず）', [{ op: 'set', path: R + '/conf/sysCheck', data: { key: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' } }], 'denied');
     await tryW('正しいパスワードで確かめる', [{ op: 'set', path: R + '/conf/sysCheck', data: { key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'ok');
-    await tryW('パスワードなしで片付けを始める（断られるはず）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: Math.floor(srvNow()) + 15 * 60000 } }], 'denied');
-    await tryW('1日先まで片付けの時間にする（断られるはず）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: Math.floor(srvNow()) + 86400000, key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'denied');
-    await tryW('片付けを始める（15分）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: Math.floor(srvNow()) + 15 * 60000, key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } }], 'ok');
-    await tryW('片付けの間に記録を消す', [{ op: 'delete', path: R + '/hist/haoh_t' + t }], 'ok');
-    await tryW('片付けの間でも、いまの回は消せない（断られるはず）', [{ op: 'delete', path: R + '/events/' + e1 }], 'denied');
-    await tryW('片付けを終える', [{ op: 'set', path: R + '/conf/cleanup', data: { until: 0 } }], 'ok');
+    await tryW('記録を消す（どんなときも断られるはず）', [{ op: 'delete', path: R + '/hist/haoh_t' + t }], 'denied');
+    await tryW('締めていない回を消す（断られるはず）', [{ op: 'delete', path: R + '/events/' + e1 }], 'denied');
+    await tryW('片付けの印を置く（記録を画面から外す）', [{ op: 'set', path: R + '/hide/h_haoh_t' + t, data: { kind: 'h', ref: 'haoh_t' + t, at: TS } }], 'ok');
+    await tryW('名前の合わない片付けの印を置く（断られるはず）', [{ op: 'set', path: R + '/hide/h_x' + t, data: { kind: 'h', ref: 'y' + t, at: TS } }], 'denied');
+    await tryW('片付けの印を消す（戻す）', [{ op: 'delete', path: R + '/hide/h_haoh_t' + t }], 'ok');
+    await tryW('古い片付けの時間（cleanup）を書く（もう使わないので断られるはず）', [{ op: 'set', path: R + '/conf/cleanup', data: { until: 0 } }], 'denied');
     await tryW('記録を別の人へ移す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[5].id, movedFrom: ppl[4].id, movedAt: TS, mv: 1 } }], 'ok');
     await tryW('同じ記録を、古い持ち主のつもりで別の端末が移す（断られるはず）', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[6].id, movedFrom: ppl[4].id, movedAt: TS, mv: 1 } }], 'denied');
     await tryW('記録を元の人へ戻す', [{ op: 'update', path: R + '/hist/h1' + t, data: { rid: ppl[4].id, movedFrom: ppl[5].id, movedAt: TS, mv: 2 } }], 'ok');
@@ -2870,7 +2856,39 @@ $('sysGo').onclick = sysGo;
 $('sysPw').onkeydown = (e) => { if (e.key === 'Enter' && $('sysPw2F').hidden) sysGo(); };
 $('sysOut').onclick = () => { try { sessionStorage.removeItem(SYSKEY); } catch (e) {} dropToken(); renderSys(); }; // 閉じたら、ルールを公開する Google の許可も捨てる
 $('sysPwChange').onclick = () => { sysMode = 'change'; renderSys(); };
-$('clScan').onclick = clScan;
+$('clUndo').onclick = clUndo;
+$('clScan').onclick = clScan; $('clUndo').onclick = clUndo;
+
+/* ===== 新しい版への自動切り替え（ホーム画面に追加したアプリでも。版29） =====
+   開いたとき・画面に戻ったとき・5分ごと・「最新にする」で、このページを取り直して VER を比べる。新しければ入れ替える。
+   送信待ち・シートを開いている・入力中・公開や片付けの途中は待つ（終わってから切り替える）。同じ版へは1回だけ（キャッシュで古いまま返るときに繰り返さない） */
+let verBusy = false, verNext = '', verWait = 0;
+function verIdle() {
+  const a = document.activeElement;
+  return !unsent().length && $('ov').hidden && !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !RS.busy && !(CL && CL.running) && !BK.busy;
+}
+function checkVersion(force) {
+  if (verBusy || (location.protocol === 'file:' && !window.__VER_URL)) return;
+  verBusy = true;
+  fetch((window.__VER_URL || './') + '?v=' + Date.now(), { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).then((t) => {
+    verBusy = false;
+    const m = t.match(/const VER = '([^']+)'/);
+    if (m && m[1] !== VER && /^\d{4}\./.test(m[1])) { verNext = m[1]; switchVersion(force); }
+    else if (force) toast('いまの版（' + VER + '）が最新です');
+  }, () => { verBusy = false; if (force) toast('新しい版を確かめられませんでした。電波を確かめてください', true); });
+}
+function switchVersion(force) {
+  let tried = ''; try { tried = sessionStorage.getItem('tk_ver') || ''; } catch (e) {}
+  if (verNext === tried && !force) return;
+  if (!verIdle()) { if (!verWait++) toast('新しい版（' + verNext + '）があります。いまの操作が終わったら切り替えます'); clearTimeout(switchVersion.t); switchVersion.t = setTimeout(() => switchVersion(force), 5000); return; }
+  try { sessionStorage.setItem('tk_ver', verNext); } catch (e) {}
+  toast('新しい版（' + verNext + '）に切り替えます');
+  setTimeout(() => { location.replace(location.pathname + '?v=' + encodeURIComponent(verNext) + location.hash); }, 1200);
+}
+setTimeout(checkVersion, 4000);
+setInterval(() => { if (document.visibilityState === 'visible') checkVersion(); }, 300000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
+document.querySelectorAll('[data-vercheck]').forEach((b) => { b.onclick = () => checkVersion(true); });
 $('impExp').oninput = renderImport;
 $('infoSave').onclick = saveInfo;
 $('infoReset').onclick = () => renderInfo(true);
@@ -2991,8 +3009,8 @@ function realUid() {
    OAuth のクライアントID は conf/deploy に置く（公開して困る値ではない）。ログインの許可（アクセストークン）はこの画面のメモリにだけ持つ */
 const RS = { state: '', at: 0, msg: '', busy: false, polls: 0, probe: (p) => B.getServer(p) };
 /* Google の許可（アクセストークン）は、この閉じた変数にだけ置く（window.__tk からも見えない）。システムを閉じたら捨てる */
-let GT = { token: '', exp: 0, pick: false };
-function dropToken(pick) { GT = { token: '', exp: 0, pick: !!pick }; }
+let GT = { token: '', exp: 0, pick: false }, GTE = 0; // GTE：システムを閉じるたびに増える。閉じる前に頼んだログインの返事は捨てる
+function dropToken(pick) { GT = { token: '', exp: 0, pick: !!pick }; if (!pick) GTE++; }
 const GSI_URL = 'https://accounts.google.com/gsi/client';
 function rulesUid() { return realUid() || (B && B.kind !== 'fire' && window.__RULES_UID) || ''; }
 const denied = (e) => (e && e.code) === 'permission-denied';
@@ -3022,18 +3040,22 @@ function publishRules() {
   if (GT.token && GT.exp > Date.now() + 60000) { doPublish(uid); return; }
   if (!(window.google && google.accounts && google.accounts.oauth2)) { loadGsi().then(() => rulesMsg('準備ができました。もう一度「ルールを公開」を押してください'), () => rulesMsg('Google のログイン画面を読み込めませんでした。電波を確かめてください', true)); return rulesMsg('Google のログイン画面を読み込んでいます…'); }
   /* ボタンを押したその場で開く（あとから開くと、スマホではポップアップが止められる）。前に権限のないアカウントを選んでいたら、選び直す画面から */
+  const ep = GTE;
   const tc = google.accounts.oauth2.initTokenClient({
     client_id: cid, scope: 'https://www.googleapis.com/auth/firebase',
-    callback: (r) => { if (!r || r.error || !r.access_token) { rulesMsg('ログインできませんでした（' + ((r && r.error) || '') + '）', true); return; } GT = { token: r.access_token, exp: Date.now() + (num(r.expires_in) || 3600) * 1000, pick: false }; doPublish(uid); },
+    callback: (r) => { if (ep !== GTE || !sysOk()) { rulesMsg('ログインの間にシステムが閉じられたので、公開しませんでした', true); return; } if (!r || r.error || !r.access_token) { rulesMsg('ログインできませんでした（' + ((r && r.error) || '') + '）', true); return; } GT = { token: r.access_token, exp: Date.now() + (num(r.expires_in) || 3600) * 1000, pick: false }; doPublish(uid); },
     error_callback: (e) => rulesMsg(e && e.type === 'popup_closed' ? 'ログインの画面が閉じられました' : 'ログインの画面を開けませんでした（' + ((e && e.type) || '') + '）。ポップアップを止める設定になっていないか確かめてください', true),
   });
   tc.requestAccessToken({ prompt: GT.pick ? 'select_account' : '' });
 }
 async function doPublish(uid) {
+  const ep = GTE, stillOpen = () => ep === GTE && sysOk() && !!GT.token;
   RS.busy = true; rulesMsg('本番のルールの版を確かめています…');
   /* 押す直前にもう一度確かめる（ほかの端末が新しい版を公開したあとなら、古い版で上書きしない） */
-  if (await checkRules() === 'newer') { RS.busy = false; rulesMsg('この画面より新しいルールが公開されています。ページを再読み込みしてください（古いルールに戻さないため、公開しませんでした）', true); return; }
-  if (!sysOk() || !GT.token) { RS.busy = false; rulesMsg('システムが閉じられたので止めました', true); return; }
+  const st0 = await checkRules();
+  if (st0 === 'err') { RS.busy = false; rulesMsg('本番のルールの版を確かめられませんでした。電波を確かめてから、もう一度押してください', true); return; }
+  if (st0 === 'newer') { RS.busy = false; rulesMsg('この画面より新しいルールが公開されています。ページを再読み込みしてください（古いルールに戻さないため、公開しませんでした）', true); return; }
+  if (!stillOpen()) { RS.busy = false; rulesMsg('システムが閉じられたので止めました', true); return; }
   rulesMsg('公開しています…');
   const H = { Authorization: 'Bearer ' + GT.token, 'Content-Type': 'application/json' }, base = 'https://firebaserules.googleapis.com/v1/projects/' + FB_PROJECT;
   const why = async (r) => { let m = ''; try { m = ((await r.json()).error || {}).message || ''; } catch (e) {} return r.status + (m ? '：' + m.slice(0, 160) : ''); };
@@ -3041,6 +3063,9 @@ async function doPublish(uid) {
     const r1 = await fetch(base + '/rulesets', { method: 'POST', headers: H, body: JSON.stringify({ source: { files: [{ name: 'firestore.rules', content: RULES.replace('__UID__', uid) }] } }) });
     if (!r1.ok) { if (r1.status === 401 || r1.status === 403) dropToken(true); throw new Error((r1.status === 403 ? 'このGoogleアカウントにはルールを公開する権限がありません。もう一度押して、Firebase の持ち主のアカウントを選び直してください（' : r1.status === 400 ? 'ルールの書き方に誤りがあります。Claude に知らせてください（' : 'ルールを送れませんでした（') + await why(r1) + '）'); }
     const rs = await r1.json();
+    /* 切り替えの直前にも確かめる（ルールを送っている間にシステムが閉じられた・ほかの端末が新しい版を公開した） */
+    if (!stillOpen()) throw new Error('システムが閉じられたので、切り替える前に止めました（本番のルールは変わっていません）');
+    if (await checkRules() === 'newer') throw new Error('その間に、この画面より新しいルールが公開されました。切り替える前に止めました（本番のルールは変わっていません）');
     const r2 = await fetch(base + '/releases/cloud.firestore', { method: 'PATCH', headers: H, body: JSON.stringify({ release: { name: 'projects/' + FB_PROJECT + '/releases/cloud.firestore', rulesetName: rs.name } }) });
     if (!r2.ok) { if (r2.status === 401 || r2.status === 403) dropToken(true); throw new Error('ルールを切り替えられませんでした（' + await why(r2) + '）'); }
     RS.busy = false; rulesMsg('公開しました（ルールの版 ' + RULES_VER + '）。行き渡るまで1分ほどかかります。「最新です」に変わるまで、この画面で確かめます');

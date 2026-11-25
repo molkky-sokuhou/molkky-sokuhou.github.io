@@ -40,16 +40,14 @@ async def main():
         await checkin(A, ['ゆい', 'そうた', 'めい', 'あおい', 'マルック', 'てつ'])
         await unlock(B)
 
-        # ④ 片付けの時間は16分まで。取り込んだ記録は片付けの間でも消せない
+        # ④（版29）片付けの時間はもう使わない。記録・名簿はいつでも消せない
         key = docs()[R + '/conf/sysKey']['hash']
         now = int(time.time() * 1000)
-        ok(not commit([{'op': 'set', 'path': R + '/conf/cleanup', 'data': {'until': now + 86400000, 'key': key}}])['ok'], '④ 1日先までの片付けの時間は書けない')
-        ok(commit([{'op': 'set', 'path': R + '/conf/cleanup', 'data': {'until': now + 600000, 'key': key}}])['ok'], '④ パスワードを知っていれば10分の片付けは始められる')
+        ok(not commit([{'op': 'set', 'path': R + '/conf/cleanup', 'data': {'until': now + 600000, 'key': key}}])['ok'], '④ 片付けの時間（cleanup）は書けない（版29でやめた）')
         hid = [k for k, v in docs().items() if '/hist/imp-' in k][0]
-        ok(not commit([{'op': 'delete', 'path': hid}])['ok'], '④ 片付けの間でも、取り込んだ記録は消せない')
+        ok(not commit([{'op': 'delete', 'path': hid}])['ok'], '④ 取り込んだ記録は消せない')
         rid0 = [k for k, v in docs().items() if '/roster/' in k and v.get('createdIn') == 'sheet'][0]
-        ok(not commit([{'op': 'delete', 'path': rid0}])['ok'], '④ 片付けの間でも、取り込んだ名簿の人は消せない')
-        commit([{'op': 'set', 'path': R + '/conf/cleanup', 'data': {'until': 0}}])
+        ok(not commit([{'op': 'delete', 'path': rid0}])['ok'], '④ 取り込んだ名簿の人は消せない')
 
         # ① 調べたあとに新しい回が始まったら、片付けは止まる
         await A.click('.nb[data-ph=sys]'); await A.wait_for_timeout(300); await A.click('#clScan'); await A.wait_for_timeout(300)
@@ -59,7 +57,7 @@ async def main():
         if await B.locator('#evYes').is_visible(): await B.click('#evYes'); await B.wait_for_timeout(2500)
         await checkin(B, ['ゆい', 'マルック'])
         await A.wait_for_timeout(1500)
-        await A.click('.nb[data-ph=sys]'); await A.click('#clGo'); await A.click('#clGo'); await A.wait_for_timeout(2500)
+        await A.click('.nb[data-ph=sys]'); await A.click('#clGo'); await A.wait_for_timeout(2500)
         cur = docs()[R]['currentEvent']
         cks = [k for k in docs() if k.startswith(R + '/events/' + cur + '/checkins/')]
         ok(len(cks) == 2 and '新しい回' in await A.locator('#clMsg').text_content(), '① 新しい回の受付2人は消えず、理由が出る')
@@ -67,13 +65,13 @@ async def main():
         # ① 同じ回でも、調べたあとに結果が入ったら止まる
         await A.click('#clScan'); await A.wait_for_timeout(300); await A.check('[data-cl="ck"]')
         commit([{'op': 'update', 'path': R + '/events/' + cur, 'data': {'rev': 'zz1', 'mt.x.ta': 50}}])
-        await A.click('#clGo'); await A.click('#clGo'); await A.wait_for_timeout(2500)
+        await A.click('#clGo'); await A.wait_for_timeout(2500)
         cks = [k for k in docs() if k.startswith(R + '/events/' + cur + '/checkins/')]
         ok(len(cks) == 2 and '変わった' in await A.locator('#clMsg').text_content(), '① 調べたあとに結果が入ったら、受付は消さない')
         # ② 片付けで受付を消すと、回の rev が変わる（締めの計算と食い違えば締めが断られる）
         await A.wait_for_timeout(1200); await A.click('#clScan'); await A.wait_for_timeout(300); await A.check('[data-cl="ck"]')
         rev0 = docs()[R + '/events/' + cur].get('rev')
-        await A.click('#clGo'); await A.click('#clGo'); await A.wait_for_timeout(2500)
+        await A.click('#clGo'); await A.wait_for_timeout(2500)
         cks = [k for k in docs() if k.startswith(R + '/events/' + cur + '/checkins/')]
         ok(not cks and docs()[R + '/events/' + cur].get('rev') != rev0, '② 受付を消すと、回の rev も変わる')
         ok(not commit([{'op': 'update', 'path': R + '/events/' + cur, 'data': {'status': 'closed', 'closeRev': rev0}}])['ok'], '② 消す前の rev で締めようとすると断られる')
@@ -87,7 +85,7 @@ async def main():
         await A.select_option('#hoKing', index=1); await B.select_option('#hoKing', index=2)
         await A.click('#hoSave'); await B.click('#hoSave'); await A.wait_for_timeout(3000)
         h2 = docs().get(R + '/hist/haoh_2') or {}
-        rjB = await B.evaluate("JSON.stringify(window.__tk.rejected().map(o=>o.items[0].name))")
+        rjB = await B.evaluate("JSON.stringify(window.__tk.rejected().map(o=>o.items[0].name))") + await A.evaluate("JSON.stringify(window.__tk.rejected().map(o=>o.items[0].name))")  # どちらが先に届いても、あとの方が断られる
         ok(h2.get('ver') and '覇王戦' in rjB, '⑧ 同じ回をあとから記録した方は断られ、届かなかった操作に残る ' + rjB)
 
         # ⑨ 取り込んだ記録の持ち主を直したあとでも、取り込みは止まらない
@@ -129,7 +127,8 @@ async def main():
         open('/tmp/v21_bk.json', 'w').write(json.dumps(bk))
         get('/reset'); await ca.close(); ca, A = await mk(b, '4台目')
         await A.click('#evGate [data-newev]'); await A.click('#evYes'); await A.wait_for_timeout(1500)
-        commit([{'op': 'set', 'path': R + '/roster/' + i, 'data': {**{k: v for k, v in bk['docs'][R + '/roster/' + i].items() if k != 'mergedInto'}, 'restoredAt': 1, **({'restoreMerge': ids[0]} if i == ids[1] else {})}} for i in ids])  # 版23：途中で止まった復元には restoreMerge が付いている
+        bid = 'b' + str(round(bk['savedAt'])) + '_' + str(bk.get('savedBy') or '')[:20]
+        commit([{'op': 'set', 'path': R + '/roster/' + i, 'data': {**{k: v for k, v in bk['docs'][R + '/roster/' + i].items() if k != 'mergedInto'}, 'restoredAt': 1, 'restoreOf': bid}} for i in ids])  # 版29：同じバックアップから戻した途中の人には restoreOf が付いている
         await A.wait_for_timeout(1500); await A.click('.nb[data-ph=rec]'); await A.evaluate("document.querySelector('#bkBox details').open=true")
         await A.set_input_files('#bkFile', '/tmp/v21_bk.json'); await A.wait_for_timeout(1000)
         await A.click('#bkRestoreGo'); await A.wait_for_timeout(3000)
@@ -141,7 +140,7 @@ async def main():
         await A.set_input_files('#bkFile', '/tmp/v21_bk.json'); await A.wait_for_timeout(1000)
         commit([{'op': 'set', 'path': R + '/roster/' + ids[0], 'data': {'name': 'Bが作った名前'}}])
         await A.click('#bkRestoreGo'); await A.wait_for_timeout(3000)
-        ok(docs()[R + '/roster/' + ids[0]].get('name') == 'Bが作った名前', '⑥ 開いたあとに別の端末が作った人は、古い内容で書き換えない')
+        ok(docs()[R + '/roster/' + ids[0]].get('name') == 'Bが作った名前' and '名簿・記録が入った' in await A.locator('#bkMsg').text_content(), '⑥ 開いたあとに別の端末が人を作ったら、戻さずに止める（空のときだけ戻せる）')
 
         ok(not errs, 'ページのエラーなし ' + str(errs[:3]))
         await b.close()

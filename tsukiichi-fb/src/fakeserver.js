@@ -26,7 +26,6 @@ function fakeServerCommit(db, writes, now) {
   let calls = 0;
   const getAfter = (path) => { calls++; return after[path]; };
   const getBefore = (path) => { calls++; return docs[path]; };
-  const cleaning = (box) => { calls++; const c = docs['staff/' + box + '/conf/cleanup']; return !!c && (c.until || 0) > now; };
   const revBumped = (box, e) => { const p2 = 'staff/' + box + '/events/' + e; return ((getAfter(p2) || {}).rev || '') !== ((getBefore(p2) || {}).rev || ''); };
   const same = (x, y) => JSON.stringify(x === undefined ? null : x) === JSON.stringify(y === undefined ? null : y);
   const isOpen = (box, e) => { const ev = getAfter('staff/' + box + '/events/' + e); return !!ev && ev.status === 'open'; };
@@ -50,7 +49,7 @@ function fakeServerCommit(db, writes, now) {
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'roster') {
       const box = p[1], id = p[3];
-      if (del) ok = cleaning(p[1]) && (before || {}).createdIn !== 'sheet';
+      if (del) ok = false;
       else if (!before) ok = !(next && next.mergedInto);
       else if (!before.mergedInto) ok = (!next.mergedInto || (next.mergedInto !== id && notMerged(box, next.mergedInto)))
         && (same(before.nameChk, next.nameChk) || (next.nameChk && next.nameChk.v === (before.name || '')));
@@ -61,6 +60,7 @@ function fakeServerCommit(db, writes, now) {
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && (p[2] === 'metrics' || p[2] === 'ping')) ok = true;
+    else if (p[0] === 'staff' && p.length === 4 && p[2] === 'hide') ok = del ? !!before : ['r', 'h', 'e'].includes(next.kind) && p[3] === next.kind + '_' + next.ref;
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'conf') {
       const key = (docs['staff/' + p[1] + '/conf/sysKey'] || {}).hash;
       const legacy = docs['staff/' + p[1] + '/conf/sys'], keyAfter = (after['staff/' + p[1] + '/conf/sysKey'] || {}).hash;
@@ -68,11 +68,11 @@ function fakeServerCommit(db, writes, now) {
       else if (p[3] === 'sysMeta') ok = !del && ((!key && !!keyAfter) || (!!key && keyAfter !== key));
       else if (p[3] === 'sys') ok = false; // 版20までの置き場所は、コンソールで消すだけ
       else if (p[3] === 'sysCheck') ok = !del && !!key && next.key === key;
-      else if (p[3] === 'cleanup') ok = !del && ((next.until || 0) === 0 || (!!key && next.key === key && Number.isFinite(next.until) && next.until <= now + 960000));
+      else if (p[3] === 'cleanup') ok = false; // 版28までの片付けの時間。もう使わない
       else ok = true;
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'hist') {
-      if (del) ok = cleaning(p[1]) && (before || {}).src !== 'sheet';
+      if (del) ok = false;
       else if (!before) ok = true;
       else {
         const keys = new Set(Object.keys(before).concat(Object.keys(next))), changed = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(next[k]));
@@ -81,7 +81,7 @@ function fakeServerCommit(db, writes, now) {
       }
     }
     else if (p[0] === 'staff' && p.length === 4 && p[2] === 'events') {
-      if (del) ok = cleaning(p[1]) && (docs['staff/' + p[1]] || {}).currentEvent !== p[3];
+      if (del) ok = false;
       else if (!before) { const bx = getAfter('staff/' + p[1]); ok = next.status === 'open' && !!bx && bx.currentEvent === p[3]; }
       else ok = before.status === 'open' && ((next.status === 'open' && (next.rev || '') !== (before.rev || '')
         && (same(before.drawnAt, next.drawnAt) || (!same(before.drawId, next.drawId) && !same(before.chk, next.chk)))
@@ -91,7 +91,7 @@ function fakeServerCommit(db, writes, now) {
     }
     else if (p[0] === 'staff' && p.length === 6 && p[2] === 'events') {
       const box = p[1], e = p[3], kind = p[4], id = p[5];
-      if (kind === 'checkins') ok = del ? (isOpen(box, e) && revBumped(box, e)) || (cleaning(box) && (getBefore('staff/' + box + '/events/' + e) || {}).status === 'closed') : isOpen(box, e) && notMerged(box, id) && revBumped(box, e);
+      if (kind === 'checkins') ok = del ? (isOpen(box, e) && revBumped(box, e)) : isOpen(box, e) && notMerged(box, id) && revBumped(box, e);
       else if (kind === 'ops') ok = !del && !before && isOpen(box, e);
       else if (kind === 'devices') ok = !del;
     }

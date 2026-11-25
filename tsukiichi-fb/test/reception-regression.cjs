@@ -10,7 +10,7 @@ function element(id) {
 }
 const ctx = vm.createContext({
   window: {addEventListener() {}}, document: {getElementById: element, addEventListener() {}, querySelectorAll: () => []},
-  localStorage: {getItem: () => null, setItem() {}}, setTimeout, clearTimeout, console
+  localStorage: {getItem: () => null, setItem() {}}, setTimeout, clearTimeout, console, setInterval: () => 0, location: { protocol: 'file:' }
 });
 const source = fs.readFileSync(require.resolve('../src/app.js'), 'utf8');
 vm.runInContext(source.replace(/boot\(\);\s*$/, ''), ctx);

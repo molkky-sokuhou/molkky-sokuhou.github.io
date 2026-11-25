@@ -69,22 +69,20 @@ async def main():
         ok('ゆい' in txt and 'マルック' not in txt.split('記録')[0] and '締めた回' in txt and '受付 2人' in txt, '調べると、テストの名簿・記録・締めた回・いまの受付が出る（取り込んだ人は出ない）')
         r = json.loads(json.dumps(get('/state').decode()))
         ok(await A.locator('#clList [data-cl]:checked').count() == 0, '最初はどれにもチェックが入っていない')
-        await A.click('#clAll'); await A.click('#clGo'); await A.click('#clGo'); await A.wait_for_timeout(6000)
+        await A.click('#clAll'); await A.click('#clGo'); await A.wait_for_timeout(5000)
         msg = await A.locator('#clMsg').text_content()
         d = docs()
-        ros = [v['name'] for k, v in d.items() if k.startswith(R + '/roster/')]
-        hs = [v for k, v in d.items() if k.startswith(R + '/hist/')]
-        evs = [k for k in d if k.startswith(R + '/events/') and k.count('/') == 3]
-        cks = [k for k in d if '/checkins/' in k]
-        ok(len(ros) == 33 and 'ゆい' not in ros, '名簿はスプレッドシートの33人だけ残る（%d人）：%s' % (len(ros), msg))
-        ok(len(hs) == 51 and all(h.get('src') == 'sheet' for h in hs), '記録は取り込んだ50件＋覇王戦1件だけ残る（%d件）' % len(hs))
-        ok(len(evs) == 1 and not cks, 'テストで締めた回と、受付は消える（回 %d・受付 %d）' % (len(evs), len(cks)))
-        import time
-        u = (d.get(R + '/conf/cleanup') or {}).get('until', 0)
-        ok(0 < u - time.time() * 1000 <= 5 * 60000 + 5000, '片付けの時間は5分まで（版28：終わっても0に戻さず、5分で閉じる）')
+        vis = json.loads(await A.evaluate("JSON.stringify({r:window.__tk.S.roster.map(x=>x.name),h:window.__tk.S.hist.map(x=>x.src||''),e:Object.keys(window.__tk.S.events).length})"))
+        cks = [k for k in d if '/checkins/' in k and ('/events/' + await A.evaluate("window.__tk.S.cur")) in k]
+        ok(len(vis['r']) == 33 and 'ゆい' not in vis['r'], '版29：画面の名簿はスプレッドシートの33人だけ（%d人）：%s' % (len(vis['r']), msg))
+        ok(len(vis['h']) == 51 and all(x == 'sheet' for x in vis['h']), '画面の記録は取り込んだ50件＋覇王戦1件だけ（%d件）' % len(vis['h']))
+        ok(vis['e'] == 1 and not cks, '締めた回は画面から外れ、いまの回の受付は消える（回 %d・受付 %d）' % (vis['e'], len(cks)))
+        ok(any(v.get('name') == 'ゆい' for k, v in d.items() if k.startswith(R + '/roster/')) and any(k.startswith(R + '/hide/r_') for k in d), '名簿は消さず、片付けの印（hide）を置くだけ')
         from urllib.request import Request, urlopen
         rr = json.loads(urlopen(Request(SRV + '/commit', data=json.dumps({'writes': [{'op': 'delete', 'path': R + '/hist/haoh_1'}]}).encode(), method='POST')).read())
-        ok(not rr['ok'], '片付けの時間のあとは、記録を消せない（ルール）')
+        ok(not rr['ok'], '記録はどんなときも消せない（ルール）')
+        await A.click('#clUndo'); await A.wait_for_timeout(2500)
+        ok('ゆい' in await A.evaluate("window.__tk.S.roster.map(x=>x.name).join(',')") and not any(k.startswith(R + '/hide/') for k in docs()), '「片付けたものを戻す」で元どおり')
 
         # 覇王戦の一覧：優勝の多い人の日付が枠からはみ出さない（明るい・暗い）
         await A.click('.nb[data-ph=rec]'); await A.wait_for_timeout(500)

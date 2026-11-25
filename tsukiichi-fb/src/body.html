@@ -20,7 +20,7 @@
       <button class="btn wide" id="demoBtn" type="button">この端末の中だけで試す</button>
     </div>
     <p style="text-align:center;margin:8px 0 0"><a class="btn ghost small" href="../../tsukiichi/">参加者の画面へ戻る</a></p>
-    <p class="ver">版 @@VER@@</p>
+    <p class="ver">版 @@VER@@　<button class="btn small ghost" type="button" data-vercheck>最新にする</button></p>
   </div>
 
   <div id="app" hidden>
@@ -215,10 +215,12 @@
         </div>
         <div class="box" id="clBox">
           <h2 class="h">テストのデータを片付ける</h2>
-          <p class="muted" style="margin-top:0">スプレッドシートから取り込んだもの以外（テストで入れた名簿・受付・締めた回・記録）を、選んで消します。消したものは戻せないので、先に記録タブの「バックアップ」で保存しておくと安心です。</p>
-          <button class="btn" id="clScan" type="button">消すものを調べる</button>
+          <p class="muted" style="margin-top:0">スプレッドシートから取り込んだもの以外（テストで入れた名簿・締めた回・記録）を選んで、画面と集計から外します。データは消さないので、あとで「片付けたものを戻す」で戻せます。</p>
+          <button class="btn" id="clScan" type="button">片付けるものを調べる</button>
           <div id="clList"></div>
           <p id="clMsg" aria-live="polite" style="margin:6px 0 0"></p>
+          <p class="muted" id="clHidden" style="margin:10px 0 0"></p>
+          <button class="btn small ghost" id="clUndo" type="button" hidden>片付けたものを戻す</button>
         </div>
         <div class="box">
           <div class="sec-h"><h2 class="h">計測</h2><button class="btn small" id="syncBtn" type="button">時計を合わせ直す</button></div>
@@ -285,7 +287,7 @@
         </div>
         </div>
       </section>
-      <p class="ver">版 @@VER@@</p>
+      <p class="ver">版 @@VER@@　<button class="btn small ghost" type="button" data-vercheck>最新にする</button></p>
     </main>
   </div>
 </div>
