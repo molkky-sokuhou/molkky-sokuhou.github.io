@@ -295,7 +295,7 @@ th{white-space:nowrap}
   <button data-tab="venue" role="tab">会場・<br>ルール</button>
 </nav>
 <script>
-var VERSION = '11/25-4';
+var VERSION = '11/25-5';
 var SHEET_ID = atob('VWF0TGs1MlVuZ1FVMHp6ek5hNFdReHJ3UlNqWG1lZ0E3UmtLVHhOMVVyNjE=').split('').reverse().join('');
 var AUTO_SEC = 60;
 var store = {
@@ -424,7 +424,9 @@ function buildTeam(g){
   [0,1,2,3,4].forEach(function(i){
     var ms = [];
     list.filter(function(t){ return t.grp === 'A'; }).forEach(function(t){
-      var o = teams[t.opp[i]], ra = t.r[i], rb = o && o.r[i];
+      var o = teams[t.opp[i]];
+      if (!o && (t.courts[i] || []).length) o = list.find(function(x){ return x !== t && x.grp === 'B' && courtText(x.courts[i] || []) === courtText(t.courts[i]); });
+      var ra = t.r[i], rb = o && o.r[i];
       ms.push({ court: courtText(t.courts[i] || []), cs: t.courts[i] || [], teams: [side(t, ra), o ? side(o, rb) : { name: '' }], played: !!(ra && rb), part: !!(ra || rb) });
     });
     ms.sort(function(a, b){ return (a.cs[0] || 99) - (b.cs[0] || 99); });
@@ -940,24 +942,28 @@ function gvizUrl(tab, handler){
   return 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?headers=0&sheet=' + encodeURIComponent(tab.name) + '&range=' + tab.range +
     '&tqx=' + encodeURIComponent('out:json' + (handler ? ';responseHandler:' + handler : '')) + '&_=' + Date.now();
 }
-function tableToGrid(res){
+function colNo(s){ var x = 0; for (var i = 0; i < s.length; i++) x = x * 26 + s.charCodeAt(i) - 64; return x - 1; }
+function tableToGrid(res, tab){
   if (!res || res.status === 'error' || !res.table) throw new Error('read error');
-  var rows = (res.table.rows || []).map(function(row){ return (row.c || []).map(function(c){ if (!c) return ''; var x = c.f != null ? c.f : c.v; return x == null ? '' : String(x); }); });
+  /* Google leaves out empty columns, so put every value back under its real column letter */
+  var cols = res.table.cols || [], start = colNo((String(tab && tab.range || 'A').match(/^[A-Z]+/) || ['A'])[0]);
+  var pos = cols.map(function(c, i){ return c && /^[A-Z]{1,3}$/.test(c.id || '') ? colNo(c.id) - start : i; });
+  function place(vals){ var out = []; vals.forEach(function(x, i){ var p = pos[i] != null ? pos[i] : i; while (out.length < p) out.push(''); out[p] = x; }); return out; }
+  var rows = (res.table.rows || []).map(function(row){ return place((row.c || []).map(function(c){ if (!c) return ''; var x = c.f != null ? c.f : c.v; return x == null ? '' : String(x); })); });
   /* Google sometimes turns the first row into column labels even with headers=0: put it back */
-  var cols = res.table.cols || [];
-  if (res.table.parsedNumHeaders > 0 || cols.some(function(c){ return c && c.label; })) rows.unshift(cols.map(function(c){ return c && c.label ? String(c.label) : ''; }));
+  if (res.table.parsedNumHeaders > 0 || cols.some(function(c){ return c && c.label; })) rows.unshift(place(cols.map(function(c){ return c && c.label ? String(c.label) : ''; })));
   return rows;
 }
 function getTabFetch(tab){
   return fetch(gvizUrl(tab), { cache: 'no-store' }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-    .then(function(t){ return tableToGrid(JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1))); });
+    .then(function(t){ return tableToGrid(JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)), tab); });
 }
 function getTabScript(tab){
   return new Promise(function(ok, ng){
     var name = '__gv' + (++cbn), sc = document.createElement('script');
     var tm = setTimeout(function(){ cleanup(); ng(new Error('timeout')); }, 15000);
     function cleanup(){ clearTimeout(tm); try { delete window[name]; } catch(e){ window[name] = undefined; } sc.remove(); }
-    window[name] = function(res){ cleanup(); try { ok(tableToGrid(res)); } catch(e){ ng(e); } };
+    window[name] = function(res){ cleanup(); try { ok(tableToGrid(res, tab)); } catch(e){ ng(e); } };
     sc.onerror = function(){ cleanup(); ng(new Error('script')); };
     sc.src = gvizUrl(tab, name); document.head.appendChild(sc);
   });
