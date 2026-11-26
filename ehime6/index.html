@@ -297,7 +297,7 @@ th{white-space:nowrap}
   <button data-tab="venue" role="tab">会場・<br>ルール</button>
 </nav>
 <script>
-var VERSION = '11/25-7';
+var VERSION = '11/26-1';
 var SHEET_ID = atob('VWF0TGs1MlVuZ1FVMHp6ek5hNFdReHJ3UlNqWG1lZ0E3UmtLVHhOMVVyNjE=').split('').reverse().join('');
 var AUTO_SEC = 60;
 var store = {
@@ -1087,6 +1087,33 @@ paintBig();
 document.getElementById('big').addEventListener('click', function(){ var on = document.documentElement.classList.toggle('bigtext'); store.set('big', on ? '1' : '0'); paintBig(); });
 document.getElementById('thm').addEventListener('click', function(){ var t = darkNow() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme', t); paintTheme(); });
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintTheme); } catch(e){}
+
+/* ---------- view counter (nothing is shown on this page; the numbers are at /kazu/) ----------
+   abacus.jasoncameron.dev : free, no sign-up. counts only, nothing about the person is sent.
+   open = page opened (again after 30 min away) / dev = phones per day / h = phones per hour / pwa = from the home screen */
+var COUNT_ID = 'ehime6';
+(function(){
+  if (!/\.github\.io$/.test(location.hostname)) return;
+  var BASE = 'https://abacus.jasoncameron.dev/hit/molkky-sokuhou/' + COUNT_ID + '-';
+  function p2(x){ return String(x).padStart(2, '0'); }
+  function standalone(){ try { return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; } catch(e){ return false; } }
+  function hit(k, flag){
+    if (flag && store.get('c:' + flag)) return Promise.resolve();
+    return fetch(BASE + k, { cache: 'no-store' }).then(function(r){ if (r.ok && flag) store.set('c:' + flag, '1'); }, function(){});
+  }
+  function count(){
+    if (store.get('nocount') === '1' || location.hash === '#debug') return;
+    var d = new Date(), ymd = d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()), hh = p2(d.getHours());
+    var list = [];
+    var last = 0; try { last = +(sessionStorage.getItem('ehm6:c:open') || 0); } catch(e){}
+    if (Date.now() - last > 30 * 60000){ try { sessionStorage.setItem('ehm6:c:open', String(Date.now())); } catch(e){} list.push(['open-' + ymd]); }
+    list.push(['dev-' + ymd, 'd' + ymd], ['h-' + ymd + '-' + hh, 'h' + ymd + hh], ['dev', 'all']);
+    if (standalone()) list.push(['pwa-' + ymd, 'p' + ymd]);
+    list.reduce(function(chain, x){ return chain.then(function(){ return hit(x[0], x[1]); }).then(function(){ return new Promise(function(ok){ setTimeout(ok, 700); }); }); }, Promise.resolve());
+  }
+  setTimeout(count, 2000 + Math.floor(Math.random() * 6000));
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') setTimeout(count, 1500); });
+})();
 
 restore(); setStamp(); render(); load(false);
 </script>
