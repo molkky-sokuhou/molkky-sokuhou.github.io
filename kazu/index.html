@@ -61,7 +61,7 @@ ul.how{padding-left:1.2em;margin:6px 0}
 </header>
 <main id="view"></main>
 <script>
-var VERSION = '11/26-1';
+var VERSION = '11/26-2';
 /* tournaments that have the counter (COUNT_ID in each page). days = the range to show */
 var TOURS = [
   { id: 'ehime6', name: '第6回 モルックえひめ大会', from: '2026-11-26', to: '2026-11-30', main: ['2026-11-28', '2026-11-29'] }
@@ -156,7 +156,7 @@ function render(){
   h += '<h2>数え方</h2><ul class="how note">' +
     '<li>スマホ1台を<wbr>1と数えます。<wbr>同じ人が<wbr>2台で見れば2、<wbr>ブラウザを<wbr>変えた場合も<wbr>別の1台に<wbr>なります。</li>' +
     '<li>「開いた回数」は、<wbr>ページを<wbr>開いた回数。<wbr>開いたまま<wbr>30分以上あけて<wbr>戻ったときも<wbr>1回と数えます。<wbr>1分ごとの<wbr>自動更新や<wbr>「最新にする」は<wbr>数えません。</li>' +
-    '<li>名前・場所など、<wbr>見た人のことは<wbr>何も送って<wbr>いません。<wbr>数だけです。</li>' +
+    '<li>送るのは<wbr>数だけで、<wbr>名前など<wbr>見た人が<wbr>分かる情報は<wbr>送っていません。<wbr>ただし通信の<wbr>仕組み上、<wbr>IPアドレスは<wbr>計数サービスに<wbr>届きます。</li>' +
     '<li>数えるのに<wbr>使っているのは、<wbr>登録のいらない<wbr>無料の<wbr>計数サービス<wbr>（abacus）です。<wbr>止まっていても<wbr>速報ページの<wbr>表示には<wbr>影響しません。</li></ul>';
   h += '<div class="box"><b>この端末は ' + (off ? '数えない設定' : '数える設定') + 'です</b><p class="note" style="margin:4px 0 8px">このページを<wbr>開いた端末は、<wbr>自動で<wbr>「数えない」に<wbr>なります。<wbr>自分で見た分が<wbr>混ざらないように<wbr>するためです。</p><button class="btn" type="button" data-act="nocount">' + (off ? 'この端末も数える' : 'この端末は数えない') + '</button></div>';
   h += '<p class="foot">このページは<wbr>速報ページとは<wbr>別の場所にあり、<wbr>大会のページを<wbr>消したあとも<wbr>見られます。<wbr>どこからも<wbr>リンクしていません。<br>版 ' + VERSION + '</p>';
