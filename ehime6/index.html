@@ -43,6 +43,7 @@ header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:3px
 #reload:active{transform:translateY(1px)}
 #reload[disabled]{opacity:.55}
 .sub2{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px}
+.result-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:4px 12px;border-radius:6px;background:var(--blue);color:var(--paper);font-weight:700;text-decoration:none;text-align:center;flex-shrink:0}
 .stamp{font-size:14px;color:var(--sub);line-height:1.5}
 .thm2{position:relative;flex:none;height:32px;padding:0 10px;border:1.5px solid var(--ink);background:var(--card);color:var(--ink);border-radius:16px;font:inherit;font-size:14px;font-weight:700}
 .thm2::after{content:"";position:absolute;left:0;right:0;top:-6px;bottom:-6px}
@@ -284,7 +285,10 @@ th{white-space:nowrap}
     <button type="button" data-day="team"><b>28日（土）</b>チーム<wbr>頂上決戦</button>
     <button type="button" data-day="tag"><b>29日（日）</b>ザ・<wbr>タッグ</button>
   </div>
-  <div class="stamp" id="stamp" style="margin-top:6px">読み込み中…</div>
+  <div class="sub2">
+    <div class="stamp" id="stamp">読み込み中…</div>
+    <a class="result-link" href="https://docs.google.com/forms/d/e/1FAIpQLSdqleWk1wBmyk4C3NkljoRB48IPlSkV-1ZvnVbikxISyV65rQ/viewform" target="_blank" rel="noopener">結果を入力する</a>
+  </div>
   <div class="band" id="band" role="status" hidden></div>
 </header>
 <main id="view"></main>
@@ -297,7 +301,7 @@ th{white-space:nowrap}
   <button data-tab="venue" role="tab">会場・<br>ルール</button>
 </nav>
 <script>
-var VERSION = '11/26-2';
+var VERSION = '11/28-1';
 var SHEET_ID = atob('VWF0TGs1MlVuZ1FVMHp6ek5hNFdReHJ3UlNqWG1lZ0E3UmtLVHhOMVVyNjE=').split('').reverse().join('');
 var AUTO_SEC = 60;
 var store = {
